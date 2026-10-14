@@ -4,6 +4,8 @@ import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart
 import 'package:provider/provider.dart';
 import '../models/item.dart';
 import '../providers/item_provider.dart';
+import '../services/receipt_parser.dart';
+import '../services/utils.dart';
 
 class ReceiptScannerScreen extends StatefulWidget {
   const ReceiptScannerScreen({super.key});
@@ -26,6 +28,8 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
     super.dispose();
   }
 
+  double get _totalAmount => _extractedItems.fold(0.0, (sum, it) => sum + (it.unitPrice * it.quantity));
+
   Future<void> _processImage(ImageSource source) async {
     try {
       final XFile? image = await _picker.pickImage(source: source);
@@ -33,14 +37,23 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
 
       setState(() {
         _isProcessing = true;
-        _statusMessage = 'Lendo o cupom fiscal...';
-        _extractedItems = [];
+        _statusMessage = 'Lendo e analisando o cupom fiscal com IA...';
       });
 
       final inputImage = InputImage.fromFilePath(image.path);
       final RecognizedText recognizedText = await _textRecognizer.processImage(inputImage);
 
-      _parseReceiptText(recognizedText.text);
+      final foundItems = ReceiptParser.parse(recognizedText.text);
+
+      setState(() {
+        _extractedItems = foundItems;
+        _isProcessing = false;
+        if (foundItems.isEmpty) {
+          _statusMessage = 'Não foi possível identificar itens ou preços claros neste cupom.';
+        } else {
+          _statusMessage = 'Encontrados ${_extractedItems.length} itens. Toque em um item para editar.';
+        }
+      });
 
     } catch (e) {
       setState(() {
@@ -50,78 +63,116 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
     }
   }
 
-  void _parseReceiptText(String text) {
-    // Parsing básico para identificar produtos e preços.
-    // Em um cupom típico: "NOME DO PRODUTO  1 UN x 5,99  5,99" ou algo na mesma linha.
-    // Vamos procurar linhas que contenham formato de preço (ex: 10,50 ou 10.50).
-    
-    final lines = text.split('\n');
-    List<Item> foundItems = [];
-    final priceRegex = RegExp(r'(\d+)[.,](\d{2})(?:\s|[^0-9]|$)*$');
+  void _editItemDialog(int index) {
+    final item = _extractedItems[index];
+    final nameCtrl = TextEditingController(text: item.name);
+    final qtyCtrl = TextEditingController(text: Utils.formatNumber(item.quantity));
+    final priceCtrl = TextEditingController(text: item.unitPrice.toStringAsFixed(2).replaceAll('.', ','));
+    String selectedCategory = item.category;
 
-    for (var line in lines) {
-      final matches = priceRegex.allMatches(line);
-      if (matches.isNotEmpty) {
-        // Encontrou um preço na linha
-        final lastMatch = matches.last;
-        String priceStr = '${lastMatch.group(1)}.${lastMatch.group(2)}';
-        double price = double.tryParse(priceStr) ?? 0.0;
-        
-        // O nome do produto seria o restante da linha antes do preço
-        String rawName = line.substring(0, lastMatch.start).trim();
-        
-        // Remove códigos numéricos do início da linha (ex: "789123 Omo" -> "Omo")
-        rawName = rawName.replaceFirst(RegExp(r'^\d{3,}\s+'), '');
-        
-        // Limpar possíveis lixos de OCR, mas mantendo letras, números (ex: 1kg, 350g), espaços e acentos
-        rawName = rawName.replaceAll(RegExp(r'[^a-zA-Z0-9À-ÿ\s]'), '').trim();
-        
-        if (rawName.isNotEmpty && rawName.length > 2 && price > 0) {
-          // Capitalize first letter
-          String name = rawName[0].toUpperCase() + rawName.substring(1).toLowerCase();
-          
-          foundItems.add(Item(
-            name: name,
-            quantity: 1.0, // Assumimos 1 por padrão para simplificar
-            unitPrice: price,
-            category: ItemProvider.suggestCategoryForName(name),
-            isBought: true, // Já que está no cupom, já foi comprado
-          ));
-        }
-      }
-    }
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Editar Item do Cupom'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameCtrl,
+                  decoration: const InputDecoration(labelText: 'Nome do Produto'),
+                  textCapitalization: TextCapitalization.sentences,
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: qtyCtrl,
+                        decoration: const InputDecoration(labelText: 'Qtd'),
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: priceCtrl,
+                        decoration: const InputDecoration(labelText: 'Preço (R\$)'),
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: ItemProvider.categories.contains(selectedCategory) ? selectedCategory : 'Outros',
+                  decoration: const InputDecoration(labelText: 'Categoria'),
+                  items: ItemProvider.categories.map((c) => DropdownMenuItem(
+                    value: c,
+                    child: Text('${ItemProvider.categoryEmojis[c] ?? '📦'} $c'),
+                  )).toList(),
+                  onChanged: (val) {
+                    if (val != null) {
+                      setDialogState(() => selectedCategory = val);
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final newName = nameCtrl.text.trim();
+                final newQty = double.tryParse(qtyCtrl.text.replaceAll(',', '.')) ?? 1.0;
+                final newPrice = double.tryParse(priceCtrl.text.replaceAll(',', '.')) ?? item.unitPrice;
 
-    setState(() {
-      _extractedItems = foundItems;
-      _isProcessing = false;
-      if (foundItems.isEmpty) {
-        _statusMessage = 'Não foi possível encontrar itens ou preços claros neste cupom.';
-      } else {
-        _statusMessage = 'Encontrados ${_extractedItems.length} itens. Verifique antes de salvar.';
-      }
-    });
+                if (newName.isNotEmpty) {
+                  setState(() {
+                    _extractedItems[index] = item.copyWith(
+                      name: newName,
+                      quantity: newQty,
+                      unitPrice: newPrice,
+                      category: selectedCategory,
+                    );
+                  });
+                }
+                Navigator.pop(ctx);
+              },
+              child: const Text('Salvar'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _saveItems() async {
     final provider = Provider.of<ItemProvider>(context, listen: false);
     for (var item in _extractedItems) {
-      // Verifica se o item já existe para não duplicar cegamente
       final existingIndex = provider.items.indexWhere((it) => it.name.toLowerCase() == item.name.toLowerCase());
       if (existingIndex != -1) {
-        // Atualiza preço se já existe
         final existingItem = provider.items[existingIndex];
         existingItem.unitPrice = item.unitPrice;
+        existingItem.quantity = item.quantity;
         existingItem.isBought = true;
         await provider.updateItem(existingItem);
       } else {
-        // Adiciona novo item
         await provider.addItem(item);
       }
     }
     
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${_extractedItems.length} itens salvos com sucesso!'), backgroundColor: Colors.green),
+        SnackBar(
+          content: Text('${_extractedItems.length} itens salvos com sucesso na lista!'),
+          backgroundColor: Colors.green,
+        ),
       );
       Navigator.pop(context);
     }
@@ -132,6 +183,19 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Escanear Nota Fiscal'),
+        actions: [
+          if (_extractedItems.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              tooltip: 'Escanear outro cupom',
+              onPressed: () {
+                setState(() {
+                  _extractedItems = [];
+                  _statusMessage = 'Tire uma foto ou escolha da galeria.';
+                });
+              },
+            ),
+        ],
       ),
       body: Column(
         children: [
@@ -143,7 +207,7 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
                   children: [
                     CircularProgressIndicator(),
                     SizedBox(height: 16),
-                    Text('Analisando documento (IA)...'),
+                    Text('Analisando documento (IA)...', style: TextStyle(fontSize: 16)),
                   ],
                 ),
               ),
@@ -152,40 +216,99 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
             Expanded(
               child: Column(
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Text(_statusMessage, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primaryContainer.withAlpha(80),
+                      border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '${_extractedItems.length} produtos identificados',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          'Total: ${Utils.formatCurrency(_totalAmount)}',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.primary,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   Expanded(
                     child: ListView.builder(
                       itemCount: _extractedItems.length,
                       itemBuilder: (context, index) {
                         final item = _extractedItems[index];
-                        return ListTile(
-                          leading: Text(ItemProvider.categoryEmojis[item.category] ?? '📦', style: const TextStyle(fontSize: 24)),
-                          title: Text(item.name),
-                          subtitle: Text(item.category),
-                          trailing: Text('R\$ ${item.unitPrice.toStringAsFixed(2).replaceAll('.', ',')}'),
-                          onLongPress: () {
+                        final subtotal = item.unitPrice * item.quantity;
+                        return Dismissible(
+                          key: Key('item_${item.name}_$index'),
+                          direction: DismissDirection.endToStart,
+                          background: Container(
+                            color: Colors.red,
+                            alignment: Alignment.centerRight,
+                            padding: const EdgeInsets.only(right: 20),
+                            child: const Icon(Icons.delete, color: Colors.white),
+                          ),
+                          onDismissed: (_) {
                             setState(() {
                               _extractedItems.removeAt(index);
                             });
                           },
+                          child: ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                              child: Text(
+                                ItemProvider.categoryEmojis[item.category] ?? '📦',
+                                style: const TextStyle(fontSize: 20),
+                              ),
+                            ),
+                            title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                            subtitle: Text(
+                              '${Utils.formatNumber(item.quantity)}x ${Utils.formatCurrency(item.unitPrice)} • ${item.category}',
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  Utils.formatCurrency(subtotal),
+                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline, size: 20, color: Colors.grey),
+                                  onPressed: () {
+                                    setState(() {
+                                      _extractedItems.removeAt(index);
+                                    });
+                                  },
+                                ),
+                              ],
+                            ),
+                            onTap: () => _editItemDialog(index),
+                          ),
                         );
                       },
                     ),
                   ),
                   Padding(
                     padding: const EdgeInsets.all(16.0),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: _saveItems,
-                            child: const Text('Salvar Itens na Lista', style: TextStyle(fontWeight: FontWeight.bold)),
-                          ),
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: ElevatedButton.icon(
+                        onPressed: _saveItems,
+                        icon: const Icon(Icons.check_circle_outline),
+                        label: Text(
+                          'Salvar ${_extractedItems.length} Itens na Lista',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                         ),
-                      ],
+                      ),
                     ),
                   )
                 ],
@@ -199,23 +322,24 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.receipt_long, size: 80, color: Colors.grey),
+                      Icon(Icons.receipt_long, size: 80, color: Theme.of(context).colorScheme.primary.withAlpha(150)),
                       const SizedBox(height: 16),
                       Text(
                         _statusMessage,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.grey),
+                        style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                       ),
                       const SizedBox(height: 32),
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           ElevatedButton.icon(
                             onPressed: () => _processImage(ImageSource.camera),
                             icon: const Icon(Icons.camera_alt),
                             label: const Text('Câmera'),
                           ),
-                          ElevatedButton.icon(
+                          const SizedBox(width: 16),
+                          OutlinedButton.icon(
                             onPressed: () => _processImage(ImageSource.gallery),
                             icon: const Icon(Icons.photo_library),
                             label: const Text('Galeria'),
