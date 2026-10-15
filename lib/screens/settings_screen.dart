@@ -126,9 +126,6 @@ class SettingsScreen extends StatelessWidget {
             icon: Icons.palette_outlined,
             onTap: () => ThemeColorPickerSheet.show(context, themeProvider),
           ),
-          const SizedBox(height: 10),
-          _buildColorPaletteStrip(context, themeProvider),
-          const SizedBox(height: 14),
           
           _buildSettingItem(
             context,
@@ -198,7 +195,7 @@ class SettingsScreen extends StatelessWidget {
           const ListTile(
             leading: Icon(Icons.info_outline),
             title: Text('Versão', style: TextStyle(fontWeight: FontWeight.w500)),
-            trailing: Text('1.3.512', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+            trailing: Text('1.3.513', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -865,135 +862,6 @@ class SettingsScreen extends StatelessWidget {
               Navigator.pop(context);
             },
             child: const Text('Salvar', style: TextStyle(fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildColorPaletteStrip(BuildContext context, ThemeProvider themeProvider) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.palette_rounded, size: 16, color: themeProvider.seedColor),
-                  const SizedBox(width: 6),
-                  Text(
-                    'PALETA DE CORES RÁPIDA',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.grey.shade600,
-                      letterSpacing: 0.8,
-                    ),
-                  ),
-                ],
-              ),
-              Text(
-                AppColors.getColorName(themeProvider.seedColor),
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  color: themeProvider.seedColor,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 46,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              physics: const BouncingScrollPhysics(),
-              itemCount: AppColors.curated.length + 1,
-              separatorBuilder: (_, __) => const SizedBox(width: 10),
-              itemBuilder: (context, index) {
-                if (index == AppColors.curated.length) {
-                  return GestureDetector(
-                    onTap: () => ThemeColorPickerSheet.show(context, themeProvider),
-                    child: Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        gradient: const SweepGradient(
-                          colors: [
-                            Colors.red,
-                            Colors.orange,
-                            Colors.yellow,
-                            Colors.green,
-                            Colors.blue,
-                            Colors.purple,
-                            Colors.red,
-                          ],
-                        ),
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.15),
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Container(
-                        margin: const EdgeInsets.all(3),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).cardColor,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.tune_rounded, size: 20),
-                      ),
-                    ),
-                  );
-                }
-
-                final item = AppColors.curated[index];
-                final isSelected = themeProvider.seedColor.toARGB32() == item.color.toARGB32();
-                return GestureDetector(
-                  onTap: () => themeProvider.setSeedColor(item.color),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: item.color,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: isSelected ? Colors.white : Colors.transparent,
-                        width: isSelected ? 3.5 : 0,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: item.color.withValues(alpha: isSelected ? 0.5 : 0.25),
-                          blurRadius: isSelected ? 8 : 4,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: isSelected
-                        ? const Icon(Icons.check_rounded, color: Colors.white, size: 24)
-                        : null,
-                  ),
-                );
-              },
-            ),
           ),
         ],
       ),

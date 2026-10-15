@@ -4,44 +4,99 @@ import 'package:shared_preferences/shared_preferences.dart';
 class NamedColor {
   final String name;
   final Color color;
+  final String category;
 
-  const NamedColor(this.name, this.color);
+  const NamedColor(this.name, this.color, [this.category = 'Clássicas']);
 }
 
 class AppColors {
+  // Clássicas & Neutros
   static const Color navy = Color(0xFF1A1C2C);
   static const Color ocean = Color(0xFF0077B6);
+  static const Color teal = Color(0xFF006D77);
+  static const Color indigo = Color(0xFF3F51B5);
+  static const Color graphite = Color(0xFF374151);
+  static const Color slate = Color(0xFF475569);
+  static const Color onyx = Color(0xFF111827);
+
+  // Natureza & Frescor
   static const Color green = Color(0xFF2D6A4F);
   static const Color emerald = Color(0xFF10B981);
-  static const Color purple = Color(0xFF5A189A);
-  static const Color violet = Color(0xFF7C3AED);
-  static const Color wine = Color(0xFF641220);
-  static const Color crimson = Color(0xFFC9184A);
+  static const Color mint = Color(0xFF059669);
+  static const Color lime = Color(0xFF84CC16);
+  static const Color olive = Color(0xFF4D7C0F);
+  static const Color cyan = Color(0xFF06B6D4);
+  static const Color sky = Color(0xFF0284C7);
+
+  // Energia & Calor
   static const Color orange = Color(0xFFE85D04);
   static const Color amber = Color(0xFFF59E0B);
-  static const Color teal = Color(0xFF006D77);
-  static const Color cyan = Color(0xFF06B6D4);
-  static const Color indigo = Color(0xFF3F51B5);
-  static const Color lime = Color(0xFF84CC16);
-  static const Color graphite = Color(0xFF374151);
+  static const Color gold = Color(0xFFEAB308);
+  static const Color coral = Color(0xFFF97316);
+  static const Color peach = Color(0xFFFB923C);
+  static const Color sunset = Color(0xFFFF5722);
+
+  // Nobres & Elegantes
+  static const Color wine = Color(0xFF641220);
+  static const Color crimson = Color(0xFFC9184A);
+  static const Color magenta = Color(0xFFD946EF);
+  static const Color rose = Color(0xFFBE185D);
+  static const Color terracotta = Color(0xFF9C4221);
+  static const Color coffee = Color(0xFF451A03);
+  static const Color copper = Color(0xFFB45309);
+
+  // Místicas & Jovens
+  static const Color purple = Color(0xFF5A189A);
+  static const Color violet = Color(0xFF7C3AED);
+  static const Color deepPurple = Color(0xFF4C1D95);
+  static const Color lavender = Color(0xFF8B5CF6);
+  static const Color neonPurple = Color(0xFFA855F7);
 
   static const List<NamedColor> curated = [
-    NamedColor('Azul Marinho', navy),
-    NamedColor('Azul Oceano', ocean),
-    NamedColor('Verde Floresta', green),
-    NamedColor('Verde Esmeralda', emerald),
-    NamedColor('Roxo Nobre', purple),
-    NamedColor('Violeta Elétrico', violet),
-    NamedColor('Vinho Tinto', wine),
-    NamedColor('Rubi Carmim', crimson),
-    NamedColor('Laranja Solar', orange),
-    NamedColor('Âmbar Dourado', amber),
-    NamedColor('Azul Petróleo', teal),
-    NamedColor('Ciano Turquesa', cyan),
-    NamedColor('Índigo Clássico', indigo),
-    NamedColor('Verde Lima', lime),
-    NamedColor('Cinza Grafite', graphite),
+    // Clássicas
+    NamedColor('Azul Marinho', navy, 'Clássicas'),
+    NamedColor('Azul Oceano', ocean, 'Clássicas'),
+    NamedColor('Azul Petróleo', teal, 'Clássicas'),
+    NamedColor('Índigo Clássico', indigo, 'Clássicas'),
+    NamedColor('Cinza Grafite', graphite, 'Clássicas'),
+    NamedColor('Preto Ônix', onyx, 'Clássicas'),
+    NamedColor('Ardósia', slate, 'Clássicas'),
+
+    // Natureza
+    NamedColor('Verde Floresta', green, 'Natureza'),
+    NamedColor('Verde Esmeralda', emerald, 'Natureza'),
+    NamedColor('Verde Menta', mint, 'Natureza'),
+    NamedColor('Verde Lima', lime, 'Natureza'),
+    NamedColor('Verde Oliva', olive, 'Natureza'),
+    NamedColor('Ciano Turquesa', cyan, 'Natureza'),
+    NamedColor('Azul Celeste', sky, 'Natureza'),
+
+    // Quentes & Energia
+    NamedColor('Laranja Solar', orange, 'Quentes'),
+    NamedColor('Âmbar Dourado', amber, 'Quentes'),
+    NamedColor('Amarelo Ouro', gold, 'Quentes'),
+    NamedColor('Coral Tropical', coral, 'Quentes'),
+    NamedColor('Pêssego', peach, 'Quentes'),
+    NamedColor('Pôr do Sol', sunset, 'Quentes'),
+
+    // Nobres & Elegantes
+    NamedColor('Vinho Tinto', wine, 'Elegantes'),
+    NamedColor('Rubi Carmim', crimson, 'Elegantes'),
+    NamedColor('Rosa Magenta', magenta, 'Elegantes'),
+    NamedColor('Rosa Seco', rose, 'Elegantes'),
+    NamedColor('Terracota', terracotta, 'Elegantes'),
+    NamedColor('Marrom Café', coffee, 'Elegantes'),
+    NamedColor('Cobre Nobre', copper, 'Elegantes'),
+
+    // Místicas & Criativas
+    NamedColor('Roxo Nobre', purple, 'Criativas'),
+    NamedColor('Violeta Elétrico', violet, 'Criativas'),
+    NamedColor('Púrpura Profundo', deepPurple, 'Criativas'),
+    NamedColor('Lavanda', lavender, 'Criativas'),
+    NamedColor('Cyber Neon', neonPurple, 'Criativas'),
   ];
+
+  static List<String> get categories => ['Todas', 'Clássicas', 'Natureza', 'Quentes', 'Elegantes', 'Criativas'];
 
   static List<Color> get selection => curated.map((nc) => nc.color).toList();
 

@@ -32,6 +32,7 @@ class _ThemeColorPickerSheetState extends State<ThemeColorPickerSheet> {
   late Color _tempColor;
   late bool _tempDarkMode;
   double _currentHue = 220.0;
+  String _selectedCategory = 'Todas';
 
   @override
   void initState() {
@@ -75,6 +76,71 @@ class _ThemeColorPickerSheetState extends State<ThemeColorPickerSheet> {
       final hsl = HSLColor.fromColor(AppColors.navy);
       _currentHue = hsl.hue;
     });
+  }
+
+  void _promptHexColor() {
+    final controller = TextEditingController(
+      text: _tempColor.toARGB32().toRadixString(16).padLeft(8, '0').substring(2).toUpperCase(),
+    );
+    String? errorText;
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            title: const Row(
+              children: [
+                Icon(Icons.colorize_rounded),
+                SizedBox(width: 8),
+                Text('Cor Hexadecimal', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Digite ou cole o código HEX de 6 caracteres (ex: 2563EB ou #E85D04):', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: controller,
+                  autofocus: true,
+                  textCapitalization: TextCapitalization.characters,
+                  decoration: InputDecoration(
+                    prefixText: '# ',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                    errorText: errorText,
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar', style: TextStyle(color: Colors.grey))),
+              ElevatedButton(
+                onPressed: () {
+                  String clean = controller.text.replaceAll('#', '').trim();
+                  if (clean.length == 6) {
+                    final val = int.tryParse('FF$clean', radix: 16);
+                    if (val != null) {
+                      setState(() {
+                        _tempColor = Color(val);
+                        _currentHue = HSLColor.fromColor(_tempColor).hue;
+                      });
+                      Navigator.pop(ctx);
+                      return;
+                    }
+                  }
+                  setDialogState(() {
+                    errorText = 'Código HEX inválido. Use 6 dígitos.';
+                  });
+                },
+                child: const Text('Aplicar', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ],
+          );
+        },
+      ),
+    );
   }
 
   void _applyAndSave() async {
@@ -205,16 +271,26 @@ class _ThemeColorPickerSheetState extends State<ThemeColorPickerSheet> {
                     'ESPECTRO LIVRE DE CORES',
                     style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.1),
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: _tempColor.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: _tempColor.withValues(alpha: 0.3)),
-                    ),
-                    child: Text(
-                      hexString,
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _tempColor),
+                  GestureDetector(
+                    onTap: _promptHexColor,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: _tempColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: _tempColor.withValues(alpha: 0.35)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.edit_rounded, size: 12, color: _tempColor),
+                          const SizedBox(width: 4),
+                          Text(
+                            hexString,
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _tempColor),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -518,61 +594,106 @@ class _ThemeColorPickerSheetState extends State<ThemeColorPickerSheet> {
   }
 
   Widget _buildCuratedColorsGrid() {
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      children: AppColors.curated.map((namedColor) {
-        final isSelected = _tempColor.toARGB32() == namedColor.color.toARGB32();
-        return GestureDetector(
-          onTap: () => _selectCuratedColor(namedColor.color),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? namedColor.color.withValues(alpha: 0.16)
-                  : Theme.of(context).scaffoldBackgroundColor,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: isSelected ? namedColor.color : Colors.transparent,
-                width: 1.5,
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 20,
-                  height: 20,
-                  decoration: BoxDecoration(
-                    color: namedColor.color,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: namedColor.color.withValues(alpha: 0.4),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      )
-                    ],
+    final filtered = _selectedCategory == 'Todas'
+        ? AppColors.curated
+        : AppColors.curated.where((nc) => nc.category == _selectedCategory).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Filtro por categorias com rolagem horizontal
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          child: Row(
+            children: AppColors.categories.map((cat) {
+              final isCatSelected = _selectedCategory == cat;
+              return Padding(
+                padding: const EdgeInsets.only(right: 8, bottom: 12),
+                child: FilterChip(
+                  label: Text(
+                    cat, 
+                    style: TextStyle(
+                      fontSize: 12, 
+                      fontWeight: isCatSelected ? FontWeight.bold : FontWeight.w500,
+                      color: isCatSelected ? Colors.white : null,
+                    ),
                   ),
-                  child: isSelected
-                      ? const Icon(Icons.check, color: Colors.white, size: 14)
-                      : null,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  namedColor.name,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                    color: isSelected ? namedColor.color : null,
+                  selected: isCatSelected,
+                  selectedColor: Theme.of(context).primaryColor,
+                  checkmarkColor: Colors.white,
+                  backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  side: BorderSide(
+                    color: isCatSelected ? Colors.transparent : Colors.grey.withValues(alpha: 0.2),
                   ),
+                  onSelected: (_) {
+                    HapticFeedback.selectionClick();
+                    setState(() => _selectedCategory = cat);
+                  },
                 ),
-              ],
-            ),
+              );
+            }).toList(),
           ),
-        );
-      }).toList(),
+        ),
+        const SizedBox(height: 4),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: filtered.map((namedColor) {
+            final isSelected = _tempColor.toARGB32() == namedColor.color.toARGB32();
+            return GestureDetector(
+              onTap: () => _selectCuratedColor(namedColor.color),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? namedColor.color.withValues(alpha: 0.16)
+                      : Theme.of(context).scaffoldBackgroundColor,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: isSelected ? namedColor.color : Colors.transparent,
+                    width: 1.5,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 20,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        color: namedColor.color,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: namedColor.color.withValues(alpha: 0.4),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          )
+                        ],
+                      ),
+                      child: isSelected
+                          ? const Icon(Icons.check, color: Colors.white, size: 14)
+                          : null,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      namedColor.name,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                        color: isSelected ? namedColor.color : null,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
     );
   }
 }
