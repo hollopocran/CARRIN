@@ -425,8 +425,17 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                             backgroundColor: Theme.of(context).scaffoldBackgroundColor,
                             surfaceTintColor: Colors.transparent,
                             scrolledUnderElevation: 0,
-                            elevation: 0,
-                            title: Text(itemProvider.currentMonth, style: const TextStyle(fontWeight: FontWeight.bold)),
+                            title: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(itemProvider.currentMonth, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                if (itemProvider.detectedSupermarket != null)
+                                  Text(
+                                    '📍 ${itemProvider.detectedSupermarket!['name']}',
+                                    style: const TextStyle(fontSize: 11, color: Colors.blue, fontWeight: FontWeight.w600),
+                                  ),
+                              ],
+                            ),
                             centerTitle: true,
                             actions: [
                               const SyncIndicator(),

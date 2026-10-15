@@ -184,7 +184,7 @@ class LocationService {
       debugPrint('📍 LocationService: Erro ao buscar pelo Google Places: $e');
     }
 
-    // 2. Fallback OpenStreetMap Nominatim reverse geocode
+    // 2. Fallback OpenStreetMap Nominatim: DEVE RETORNAR APENAS SE FOR ESTABELECIMENTO COMERCIAL / SUPERMERCADO
     try {
       final url = Uri.parse(
         'https://nominatim.openstreetmap.org/reverse?lat=$lat&lon=$lng&format=json&addressdetails=1',
@@ -196,27 +196,29 @@ class LocationService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
+        final osmClass = (data['class'] ?? '').toString().toLowerCase();
+        final osmType = (data['type'] ?? '').toString().toLowerCase();
         final address = data['address'] as Map<String, dynamic>?;
-        
-        // Prioridades de nome comercial
-        final name = data['name']?.toString();
-        if (name != null && name.isNotEmpty) return name;
+        final shopType = (address?['shop'] ?? '').toString().toLowerCase();
+        final rawName = (data['name'] ?? '').toString().trim();
 
-        if (address != null) {
-          final shop = address['shop']?.toString();
-          final amenity = address['amenity']?.toString();
-          final road = address['road']?.toString();
-          final suburb = address['suburb']?.toString() ?? address['neighbourhood']?.toString();
+        // Se for rua, rodovia, bairro, residencial, via pública ou estação: NUNCA tratar como mercado
+        if (osmClass == 'highway' || osmClass == 'place' || osmClass == 'railway' || osmClass == 'boundary' || osmClass == 'building') {
+          return null;
+        }
 
-          if (shop != null && shop.isNotEmpty) {
-            return 'Mercado ($shop)';
-          }
-          if (amenity != null && amenity.isNotEmpty) {
-            return amenity;
-          }
-          if (road != null && road.isNotEmpty) {
-            return suburb != null ? '$road - $suburb' : road;
-          }
+        final bool isCommercialShop = osmClass == 'shop' ||
+            osmType == 'supermarket' ||
+            osmType == 'grocery' ||
+            shopType.isNotEmpty;
+
+        final bool isSupermarketName = rawName.toLowerCase().contains(RegExp(
+          r'supermercado|hipermercado|atacad[aã]o|assa[ií]|carrefour|extra|p[aã]o de a[cç][uú]car|mercado|hortifruti|sacol[aã]o|a[cç]ougue|mercearia'
+        ));
+
+        if (isCommercialShop || isSupermarketName) {
+          if (rawName.isNotEmpty) return rawName;
+          if (shopType.isNotEmpty) return 'Supermercado ($shopType)';
         }
       }
     } catch (e) {

@@ -2583,14 +2583,26 @@ class ItemProvider with ChangeNotifier {
     required String name,
     double? latitude,
     double? longitude,
-    double radiusMeters = 150.0,
+    double radiusMeters = 200.0,
     String icon = 'store',
     String colorHex = '#1E88E5',
   }) async {
+    double? lat = latitude;
+    double? lng = longitude;
+    if (lat == null || lng == null) {
+      try {
+        final pos = await LocationService.instance.getCurrentPosition();
+        if (pos != null) {
+          lat = pos.latitude;
+          lng = pos.longitude;
+        }
+      } catch (_) {}
+    }
+
     final id = await _dbHelper.saveSupermarket(
       name: name,
-      latitude: latitude,
-      longitude: longitude,
+      latitude: lat,
+      longitude: lng,
       radiusMeters: radiusMeters,
       icon: icon,
       colorHex: colorHex,
