@@ -179,6 +179,24 @@ class _ThemeColorPickerSheetState extends State<ThemeColorPickerSheet> {
               _buildModeSelector(),
               const SizedBox(height: 24),
 
+              // Seção de Paletas Curadas com Nomes
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'PALETA DE CORES CURADAS',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.1),
+                  ),
+                  Text(
+                    colorName,
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: onSurface.withValues(alpha: 0.6)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              _buildCuratedColorsGrid(),
+              const SizedBox(height: 24),
+
               // Slider Arco-Íris de Matiz Livre
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -203,24 +221,6 @@ class _ThemeColorPickerSheetState extends State<ThemeColorPickerSheet> {
               ),
               const SizedBox(height: 12),
               _buildRainbowSlider(),
-              const SizedBox(height: 24),
-
-              // Seção de Paletas Curadas com Nomes
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'CORES CURADAS',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.1),
-                  ),
-                  Text(
-                    colorName,
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: onSurface.withValues(alpha: 0.6)),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              _buildCuratedColorsGrid(),
               const SizedBox(height: 24),
 
               // Botões de Ação

@@ -89,9 +89,17 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     return MaterialApp(
       title: 'CARRIN',
       debugShowCheckedModeBanner: false,
-      theme: AppThemes.getTheme(themeProvider.seedColor, false),
-      darkTheme: AppThemes.getTheme(themeProvider.seedColor, true),
+      theme: AppThemes.getTheme(themeProvider.seedColor, false, colorBlindMode: themeProvider.colorBlindMode),
+      darkTheme: AppThemes.getTheme(themeProvider.seedColor, true, colorBlindMode: themeProvider.colorBlindMode),
       themeMode: themeProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
+      builder: (context, child) {
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            textScaler: TextScaler.linear(themeProvider.fontScale),
+          ),
+          child: child!,
+        );
+      },
       home: const SplashScreen(), // Alterado para a SplashScreen animada
     );
   }

@@ -415,4 +415,43 @@ void main() {
       expect(await service.getCustomSpreadsheetId(), isNull);
     });
   });
+
+  group('Accessibility, ColorBlindMode and FontScale Tests', () {
+    test('ThemeProvider updates font scale and provides correct human labels', () async {
+      SharedPreferences.setMockInitialValues({});
+      final themeProvider = ThemeProvider();
+      await themeProvider.init();
+
+      expect(themeProvider.fontScale, equals(1.0));
+      expect(themeProvider.fontScaleLabel, equals('Padrão (100%)'));
+
+      await themeProvider.setFontScale(1.30);
+      expect(themeProvider.fontScale, equals(1.30));
+      expect(themeProvider.fontScaleLabel, equals('Grande (130%)'));
+
+      await themeProvider.setFontScale(0.85);
+      expect(themeProvider.fontScale, equals(0.85));
+      expect(themeProvider.fontScaleLabel, equals('Pequeno (85%)'));
+    });
+
+    test('ThemeProvider adapts color palette and danger/success colors based on ColorBlindMode', () async {
+      SharedPreferences.setMockInitialValues({});
+      final themeProvider = ThemeProvider();
+      await themeProvider.init();
+
+      expect(themeProvider.colorBlindMode, equals(ColorBlindMode.none));
+
+      await themeProvider.setColorBlindMode(ColorBlindMode.deuteranopia);
+      expect(themeProvider.colorBlindMode, equals(ColorBlindMode.deuteranopia));
+      expect(themeProvider.colorBlindModeLabel, contains('Deuteranopia'));
+      // In deuteranopia, success is accessible blue (0xFF0072B2) and danger is vermillion (0xFFD55E00)
+      expect(themeProvider.successColor, equals(const Color(0xFF0072B2)));
+      expect(themeProvider.dangerColor, equals(const Color(0xFFD55E00)));
+
+      await themeProvider.setColorBlindMode(ColorBlindMode.highContrast);
+      expect(themeProvider.colorBlindMode, equals(ColorBlindMode.highContrast));
+      expect(themeProvider.successColor, equals(const Color(0xFF00E676)));
+      expect(themeProvider.dangerColor, equals(const Color(0xFFFF1744)));
+    });
+  });
 }

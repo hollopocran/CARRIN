@@ -63,7 +63,9 @@ class MainScreenState extends State<MainScreen> {
         body: PageView(
           controller: _pageController,
           onPageChanged: _onPageChanged,
-          physics: const BouncingScrollPhysics(),
+          physics: _currentIndex == 2
+              ? const NeverScrollableScrollPhysics()
+              : const BouncingScrollPhysics(),
           children: const [
             DashboardScreen(),
             MonthSelectionScreen(),

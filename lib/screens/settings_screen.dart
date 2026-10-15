@@ -126,6 +126,9 @@ class SettingsScreen extends StatelessWidget {
             icon: Icons.palette_outlined,
             onTap: () => ThemeColorPickerSheet.show(context, themeProvider),
           ),
+          const SizedBox(height: 10),
+          _buildColorPaletteStrip(context, themeProvider),
+          const SizedBox(height: 14),
           
           _buildSettingItem(
             context,
@@ -141,6 +144,24 @@ class SettingsScreen extends StatelessWidget {
             subtitle: themeProvider.appIcon == '1.png' ? 'Padrão' : 'Moderno',
             icon: Icons.image_outlined,
             onTap: () => _showIconDialog(context, themeProvider),
+          ),
+
+          const SizedBox(height: 24),
+          const Text('ACESSIBILIDADE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.1)),
+          const SizedBox(height: 12),
+          _buildSettingItem(
+            context,
+            title: 'Modo Daltônico',
+            subtitle: themeProvider.colorBlindModeLabel,
+            icon: Icons.visibility_outlined,
+            onTap: () => _showColorBlindModeDialog(context, themeProvider),
+          ),
+          _buildSettingItem(
+            context,
+            title: 'Tamanho das Letras',
+            subtitle: themeProvider.fontScaleLabel,
+            icon: Icons.format_size_rounded,
+            onTap: () => _showFontSizeDialog(context, themeProvider),
           ),
 
           const SizedBox(height: 24),
@@ -177,7 +198,7 @@ class SettingsScreen extends StatelessWidget {
           const ListTile(
             leading: Icon(Icons.info_outline),
             title: Text('Versão', style: TextStyle(fontWeight: FontWeight.w500)),
-            trailing: Text('1.3.511', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+            trailing: Text('1.3.512', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -847,6 +868,387 @@ class SettingsScreen extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildColorPaletteStrip(BuildContext context, ThemeProvider themeProvider) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.palette_rounded, size: 16, color: themeProvider.seedColor),
+                  const SizedBox(width: 6),
+                  Text(
+                    'PALETA DE CORES RÁPIDA',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey.shade600,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                ],
+              ),
+              Text(
+                AppColors.getColorName(themeProvider.seedColor),
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: themeProvider.seedColor,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 46,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              itemCount: AppColors.curated.length + 1,
+              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              itemBuilder: (context, index) {
+                if (index == AppColors.curated.length) {
+                  return GestureDetector(
+                    onTap: () => ThemeColorPickerSheet.show(context, themeProvider),
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        gradient: const SweepGradient(
+                          colors: [
+                            Colors.red,
+                            Colors.orange,
+                            Colors.yellow,
+                            Colors.green,
+                            Colors.blue,
+                            Colors.purple,
+                            Colors.red,
+                          ],
+                        ),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.15),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Container(
+                        margin: const EdgeInsets.all(3),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).cardColor,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.tune_rounded, size: 20),
+                      ),
+                    ),
+                  );
+                }
+
+                final item = AppColors.curated[index];
+                final isSelected = themeProvider.seedColor.toARGB32() == item.color.toARGB32();
+                return GestureDetector(
+                  onTap: () => themeProvider.setSeedColor(item.color),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: item.color,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: isSelected ? Colors.white : Colors.transparent,
+                        width: isSelected ? 3.5 : 0,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: item.color.withValues(alpha: isSelected ? 0.5 : 0.25),
+                          blurRadius: isSelected ? 8 : 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: isSelected
+                        ? const Icon(Icons.check_rounded, color: Colors.white, size: 24)
+                        : null,
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showColorBlindModeDialog(BuildContext context, ThemeProvider themeProvider) {
+    _showAnimatedDialog(
+      context,
+      StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+            title: const Row(
+              children: [
+                Icon(Icons.visibility_outlined, color: AppThemes.primaryNavy),
+                SizedBox(width: 10),
+                Expanded(child: Text('Modo Daltônico', style: TextStyle(fontWeight: FontWeight.bold))),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Selecione uma paleta adaptada para máxima clareza e distinção entre itens comprados, alertas e gráficos:',
+                    style: TextStyle(fontSize: 13, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 16),
+                  ...ColorBlindMode.values.map((mode) {
+                    final isSelected = themeProvider.colorBlindMode == mode;
+                    return InkWell(
+                      onTap: () {
+                        themeProvider.setColorBlindMode(mode);
+                        setDialogState(() {});
+                      },
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? Theme.of(context).primaryColor.withValues(alpha: 0.1)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: isSelected
+                                ? Theme.of(context).primaryColor
+                                : Colors.grey.withValues(alpha: 0.2),
+                            width: isSelected ? 2 : 1,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 22,
+                              height: 22,
+                              margin: const EdgeInsets.only(right: 12),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: isSelected ? Theme.of(context).primaryColor : Colors.transparent,
+                                border: Border.all(
+                                  color: isSelected ? Theme.of(context).primaryColor : Colors.grey.shade400,
+                                  width: 2,
+                                ),
+                              ),
+                              child: isSelected
+                                  ? const Icon(Icons.check, size: 14, color: Colors.white)
+                                  : null,
+                            ),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    mode.label,
+                                    style: TextStyle(
+                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    mode.description,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.grey.shade600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }),
+                ],
+              ),
+            ),
+            actions: [
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Concluído', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _showFontSizeDialog(BuildContext context, ThemeProvider themeProvider) {
+    _showAnimatedDialog(
+      context,
+      StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          final scale = themeProvider.fontScale;
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+            title: const Row(
+              children: [
+                Icon(Icons.format_size_rounded, color: AppThemes.primaryNavy),
+                SizedBox(width: 10),
+                Expanded(child: Text('Tamanho das Letras', style: TextStyle(fontWeight: FontWeight.bold))),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    'Ajuste o tamanho do texto para facilitar a leitura em todas as telas:',
+                    style: TextStyle(fontSize: 13, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Caixa de Pré-Visualização em Tempo Real
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).primaryColor.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Theme.of(context).primaryColor.withValues(alpha: 0.3)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.shopping_bag_outlined, size: 20),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Arroz Integral 5kg',
+                                style: TextStyle(
+                                  fontSize: 16 * scale,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          '2 unidades • Total: R\$ 29,90',
+                          style: TextStyle(
+                            fontSize: 13 * scale,
+                            color: Colors.grey.shade700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Escala atual
+                  Center(
+                    child: Text(
+                      themeProvider.fontScaleLabel,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).primaryColor,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Slider
+                  Slider(
+                    value: scale.clamp(0.85, 1.45),
+                    min: 0.85,
+                    max: 1.45,
+                    divisions: 4,
+                    label: themeProvider.fontScaleLabel,
+                    onChanged: (newScale) {
+                      themeProvider.setFontScale(newScale);
+                      setDialogState(() {});
+                    },
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Chips com Atalhos Rápidos
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    alignment: WrapAlignment.center,
+                    children: [
+                      _buildFontScaleChip(context, themeProvider, 0.85, 'Pequeno', setDialogState),
+                      _buildFontScaleChip(context, themeProvider, 1.0, 'Padrão', setDialogState),
+                      _buildFontScaleChip(context, themeProvider, 1.15, 'Médio', setDialogState),
+                      _buildFontScaleChip(context, themeProvider, 1.30, 'Grande', setDialogState),
+                      _buildFontScaleChip(context, themeProvider, 1.45, 'Muito Grande', setDialogState),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  themeProvider.setFontScale(1.0);
+                  setDialogState(() {});
+                },
+                child: const Text('Restaurar Padrão', style: TextStyle(color: Colors.grey)),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Concluído', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildFontScaleChip(
+    BuildContext context, 
+    ThemeProvider provider, 
+    double targetScale, 
+    String label, 
+    void Function(void Function()) setDialogState
+  ) {
+    final isSelected = (provider.fontScale - targetScale).abs() < 0.05;
+    return ChoiceChip(
+      label: Text(label, style: TextStyle(fontSize: 12, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+      selected: isSelected,
+      onSelected: (_) {
+        provider.setFontScale(targetScale);
+        setDialogState(() {});
+      },
     );
   }
 }

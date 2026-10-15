@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
@@ -188,47 +189,159 @@ class _StatisticsScreenState extends State<StatisticsScreen> with AutomaticKeepA
     if (minY == maxY) { minY = 0; maxY += 100; }
 
     return Container(
-      height: 350,
-      padding: const EdgeInsets.only(top: 24, bottom: 10, left: 16, right: 24),
-      decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))]),
-      child: TweenAnimationBuilder<double>(
-        key: ValueKey('chart_anim_${months.length}_$_selectedFilterIndex'),
-        tween: Tween<double>(begin: 0.0, end: 1.0),
-        duration: useAnimations ? const Duration(milliseconds: 1500) : Duration.zero,
-        curve: Curves.easeOutQuart,
-        builder: (context, animValue, child) {
-          final Color barColor = Theme.of(context).primaryColor;
-          return LineChart(
-            LineChartData(
-              lineTouchData: LineTouchData(touchTooltipData: LineTouchTooltipData(getTooltipColor: (spot) => Colors.blueAccent.withValues(alpha: 0.9), getTooltipItems: (spots) => spots.map((s) => LineTooltipItem(Utils.formatCurrency(s.y), const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))).toList())),
-              gridData: FlGridData(show: true, drawVerticalLine: false, horizontalInterval: (maxY - minY) / 4 == 0 ? 1 : (maxY - minY) / 4, getDrawingHorizontalLine: (v) => FlLine(color: Colors.grey.withValues(alpha: 0.1), strokeWidth: 1, dashArray: [5, 5])),
-              titlesData: FlTitlesData(
-                show: true, rightTitles: const AxisTitles(), topTitles: const AxisTitles(),
-                bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 30, interval: 1, getTitlesWidget: (v, m) {
-                  int idx = v.toInt();
-                  if (idx < 0 || idx >= months.length) return const SizedBox.shrink();
-                  String name = months[idx].split(' ').first;
-                  return Padding(padding: const EdgeInsets.only(top: 10), child: Text(name.length > 3 ? name.substring(0, 3) : name, style: TextStyle(color: Colors.grey[400], fontSize: 11)));
-                })),
-                leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, interval: (maxY - minY) / 4 == 0 ? 1 : (maxY - minY) / 4, reservedSize: 50, getTitlesWidget: (v, m) => Text(v > 1000 ? '${(v/1000).toStringAsFixed(1)}k' : v.toStringAsFixed(0), style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 11)))),
-              ),
-              borderData: FlBorderData(show: false), minX: 0, maxX: (months.length - 1).toDouble(), minY: minY, maxY: maxY,
-              lineBarsData: [
-                LineChartBarData(
-                  spots: spots.map((s) {
-                    if (!useAnimations) return s;
-                    final double delay = (s.x / (spots.length > 1 ? spots.length - 1 : 1)) * 0.4;
-                    return FlSpot(s.x, minY + (s.y - minY) * Curves.easeInOutCubic.transform(((animValue - delay) / (1.0 - delay)).clamp(0.0, 1.0)));
-                  }).toList(),
-                  isCurved: true, color: barColor, barWidth: 4, isStrokeCapRound: true,
-                  dotData: FlDotData(show: true, getDotPainter: (s, p, b, i) => FlDotCirclePainter(radius: 4, color: barColor, strokeWidth: 2, strokeColor: isDarkMode ? const Color(0xFF0D0E15) : Colors.white)),
-                  belowBarData: BarAreaData(show: true, gradient: LinearGradient(colors: [barColor.withValues(alpha: 0.3 * animValue), barColor.withValues(alpha: 0.0)], begin: Alignment.topCenter, end: Alignment.bottomCenter)),
+      height: 380,
+      padding: const EdgeInsets.only(top: 18, bottom: 10, left: 16, right: 24),
+      decoration: BoxDecoration(
+        color: cardColor, 
+        borderRadius: BorderRadius.circular(20), 
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05), 
+            blurRadius: 10, 
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 8, bottom: 12),
+            child: Row(
+              children: [
+                Icon(Icons.touch_app_rounded, size: 16, color: Theme.of(context).primaryColor),
+                const SizedBox(width: 8),
+                Text(
+                  'Arraste o dedo pelo gráfico para ver o saldo de cada mês',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                  ),
                 ),
               ],
             ),
-            duration: Duration.zero,
-          );
-        },
+          ),
+          Expanded(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onHorizontalDragStart: (_) {},
+              onHorizontalDragUpdate: (_) {},
+              child: TweenAnimationBuilder<double>(
+                key: ValueKey('chart_anim_${months.length}_$_selectedFilterIndex'),
+                tween: Tween<double>(begin: 0.0, end: 1.0),
+                duration: useAnimations ? const Duration(milliseconds: 1500) : Duration.zero,
+                curve: Curves.easeOutQuart,
+                builder: (context, animValue, child) {
+                  final Color barColor = Theme.of(context).primaryColor;
+                  return LineChart(
+                    LineChartData(
+                      lineTouchData: LineTouchData(
+                        enabled: true,
+                        handleBuiltInTouches: true,
+                        touchCallback: (FlTouchEvent event, LineTouchResponse? touchResponse) {
+                          if (event is FlPanUpdateEvent || event is FlTapDownEvent) {
+                            if (touchResponse != null && touchResponse.lineBarSpots != null && touchResponse.lineBarSpots!.isNotEmpty) {
+                              HapticFeedback.selectionClick();
+                            }
+                          }
+                        },
+                        touchTooltipData: LineTouchTooltipData(
+                          getTooltipColor: (spot) => (isDarkMode ? const Color(0xFF1E2235) : AppColors.navy).withValues(alpha: 0.95),
+                          fitInsideHorizontally: true,
+                          fitInsideVertically: true,
+                          tooltipPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          getTooltipItems: (touchedSpots) {
+                            return touchedSpots.map((spot) {
+                              final idx = spot.x.toInt();
+                              final monthName = (idx >= 0 && idx < months.length) ? months[idx] : '';
+                              return LineTooltipItem(
+                                '$monthName\n',
+                                const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.normal),
+                                children: [
+                                  TextSpan(
+                                    text: Utils.formatCurrency(spot.y),
+                                    style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              );
+                            }).toList();
+                          },
+                        ),
+                      ),
+                      gridData: FlGridData(
+                        show: true, 
+                        drawVerticalLine: false, 
+                        horizontalInterval: (maxY - minY) / 4 == 0 ? 1 : (maxY - minY) / 4, 
+                        getDrawingHorizontalLine: (v) => FlLine(color: Colors.grey.withValues(alpha: 0.1), strokeWidth: 1, dashArray: [5, 5]),
+                      ),
+                      titlesData: FlTitlesData(
+                        show: true, 
+                        rightTitles: const AxisTitles(), 
+                        topTitles: const AxisTitles(),
+                        bottomTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true, 
+                            reservedSize: 30, 
+                            interval: 1, 
+                            getTitlesWidget: (v, m) {
+                              int idx = v.toInt();
+                              if (idx < 0 || idx >= months.length) return const SizedBox.shrink();
+                              String name = months[idx].split(' ').first;
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 10), 
+                                child: Text(name.length > 3 ? name.substring(0, 3) : name, style: TextStyle(color: Colors.grey[400], fontSize: 11)),
+                              );
+                            },
+                          ),
+                        ),
+                        leftTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true, 
+                            interval: (maxY - minY) / 4 == 0 ? 1 : (maxY - minY) / 4, 
+                            reservedSize: 50, 
+                            getTitlesWidget: (v, m) => Text(v > 1000 ? '${(v/1000).toStringAsFixed(1)}k' : v.toStringAsFixed(0), style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 11)),
+                          ),
+                        ),
+                      ),
+                      borderData: FlBorderData(show: false), 
+                      minX: 0, 
+                      maxX: (months.length - 1).toDouble(), 
+                      minY: minY, 
+                      maxY: maxY,
+                      lineBarsData: [
+                        LineChartBarData(
+                          spots: spots.map((s) {
+                            if (!useAnimations) return s;
+                            final double delay = (s.x / (spots.length > 1 ? spots.length - 1 : 1)) * 0.4;
+                            return FlSpot(s.x, minY + (s.y - minY) * Curves.easeInOutCubic.transform(((animValue - delay) / (1.0 - delay)).clamp(0.0, 1.0)));
+                          }).toList(),
+                          isCurved: true, 
+                          color: barColor, 
+                          barWidth: 4, 
+                          isStrokeCapRound: true,
+                          dotData: FlDotData(
+                            show: true, 
+                            getDotPainter: (s, p, b, i) => FlDotCirclePainter(radius: 4, color: barColor, strokeWidth: 2, strokeColor: isDarkMode ? const Color(0xFF0D0E15) : Colors.white),
+                          ),
+                          belowBarData: BarAreaData(
+                            show: true, 
+                            gradient: LinearGradient(
+                              colors: [barColor.withValues(alpha: 0.3 * animValue), barColor.withValues(alpha: 0.0)], 
+                              begin: Alignment.topCenter, 
+                              end: Alignment.bottomCenter,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    duration: Duration.zero,
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
