@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import 'package:pdf/pdf.dart';
-import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
 import 'package:vibration/vibration.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -17,10 +14,11 @@ import '../widgets/counting_text.dart';
 import '../widgets/skeleton_loader.dart';
 import '../widgets/sync_indicator.dart';
 import '../widgets/floating_calculator_popup.dart';
+import '../widgets/shopping_filter_bottom_sheet.dart';
+import '../widgets/weight_calculator_dialog.dart';
+import '../widgets/pdf_export_dialog.dart';
 
 import 'barcode_scanner_screen.dart';
-
-enum SortOption { name, quantity, price, category }
 
 /// The main shopping list view for a specific month.
 /// 
@@ -1375,147 +1373,36 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
   }
 
   void _showFilterBottomSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true, 
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
-      builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) => Container(
-          padding: const EdgeInsets.all(28),
-          child: SingleChildScrollView( 
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('Filtros e Ordenação', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-                    IconButton(
-                      icon: Icon(
-                        _isAscending ? Icons.arrow_upward : Icons.arrow_downward, 
-                        color: Theme.of(context).brightness == Brightness.dark 
-                          ? Colors.white70 
-                          : AppThemes.primaryNavy
-                      ),
-                      onPressed: () { 
-                        setState(() {
-                          _isAscending = !_isAscending;
-                          _triggerListAnimation();
-                        }); 
-                        setModalState(() {}); 
-                      },
-                    ),                  ],
-                ),
-                const SizedBox(height: 20),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Ocultar itens sem quantidade', style: TextStyle(fontWeight: FontWeight.w500)), 
-                  value: _hideZeroQuantity, 
-                  onChanged: (val) { 
-                    setState(() {
-                      _hideZeroQuantity = val;
-                      _triggerListAnimation();
-                    }); 
-                    setModalState(() => _hideZeroQuantity = val); 
-                  }
-                ),
-                const SizedBox(height: 16),
-                const Text('ORDENAR POR', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.1)),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  children: [
-                    ChoiceChip(
-                      label: Text('Categorias', style: TextStyle(color: _currentSort == SortOption.category ? Colors.white : null)), 
-                      selected: _currentSort == SortOption.category, 
-                      onSelected: (val) { 
-                        setState(() {
-                          _currentSort = SortOption.category;
-                          _triggerListAnimation();
-                        }); 
-                        setModalState(() {}); 
-                      },
-                      selectedColor: Theme.of(context).primaryColor,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    ChoiceChip(
-                      label: Text('Nome', style: TextStyle(color: _currentSort == SortOption.name ? Colors.white : null)), 
-                      selected: _currentSort == SortOption.name, 
-                      onSelected: (val) { 
-                        setState(() {
-                          _currentSort = SortOption.name;
-                          _triggerListAnimation();
-                        }); 
-                        setModalState(() {}); 
-                      },
-                      selectedColor: Theme.of(context).primaryColor,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    ChoiceChip(
-                      label: Text('Preço', style: TextStyle(color: _currentSort == SortOption.price ? Colors.white : null)), 
-                      selected: _currentSort == SortOption.price, 
-                      onSelected: (val) { 
-                        setState(() {
-                          _currentSort = SortOption.price;
-                          _triggerListAnimation();
-                        }); 
-                        setModalState(() {}); 
-                      },
-                      selectedColor: Theme.of(context).primaryColor,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                const Text('FILTRAR CATEGORIA', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.1)),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    ChoiceChip(
-                      label: Text('Todas', style: TextStyle(color: _selectedCategories.isEmpty ? Colors.white : null)),
-                      selected: _selectedCategories.isEmpty,
-                      onSelected: (val) {
-                        setState(() { 
-                          _selectedCategories = []; 
-                          _triggerListAnimation(); 
-                        });
-                        setModalState(() {});
-                      },
-                      selectedColor: Theme.of(context).primaryColor,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    ...ItemProvider.categories.map((c) {
-                      final emoji = ItemProvider.categoryEmojis[c] ?? '📦';
-                      final isSelected = _selectedCategories.contains(c);
-                      return ChoiceChip(
-                        label: Text('$emoji $c', style: TextStyle(color: isSelected ? Colors.white : null)),
-                        selected: isSelected,
-                        onSelected: (val) {
-                          setState(() {
-                            if (val) {
-                              _selectedCategories.add(c);
-                            } else {
-                              _selectedCategories.remove(c);
-                            }
-                            _triggerListAnimation();
-                          });
-                          setModalState(() {});
-                        },
-                        selectedColor: Theme.of(context).primaryColor,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      );
-                    }),
-                  ],
-                ),
-                const SizedBox(height: 20),
-              ],
-            ),
-          ),
-        ),
-      ),
+    ShoppingFilterBottomSheet.show(
+      context,
+      isAscending: _isAscending,
+      hideZeroQuantity: _hideZeroQuantity,
+      currentSort: _currentSort,
+      selectedCategories: _selectedCategories,
+      onAscendingChanged: (val) {
+        setState(() {
+          _isAscending = val;
+          _triggerListAnimation();
+        });
+      },
+      onHideZeroQuantityChanged: (val) {
+        setState(() {
+          _hideZeroQuantity = val;
+          _triggerListAnimation();
+        });
+      },
+      onSortChanged: (val) {
+        setState(() {
+          _currentSort = val;
+          _triggerListAnimation();
+        });
+      },
+      onCategoriesChanged: (val) {
+        setState(() {
+          _selectedCategories = val;
+          _triggerListAnimation();
+        });
+      },
     );
   }
 
@@ -1850,41 +1737,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
   }
 
   void _showWeightCalculator(BuildContext context, TextEditingController unitPriceCtrl, TextEditingController qtyCtrl) {
-    final totalPaidCtrl = TextEditingController();
-    final pricePerKgCtrl = TextEditingController(text: unitPriceCtrl.text);
-
-    _showAnimatedDialog(
-      context,
-      AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-        title: const Text('Calculadora de Peso', style: TextStyle(fontWeight: FontWeight.bold)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Informe os valores para descobrir o peso:', style: TextStyle(fontSize: 13, color: Colors.grey)),
-            const SizedBox(height: 16),
-            TextField(controller: pricePerKgCtrl, decoration: const InputDecoration(labelText: 'Preço por Kg', hintText: '0,00', prefixText: 'R\$ ', floatingLabelBehavior: FloatingLabelBehavior.always, border: UnderlineInputBorder()), keyboardType: TextInputType.number, autofocus: true),
-            const SizedBox(height: 12),
-            TextField(controller: totalPaidCtrl, decoration: const InputDecoration(labelText: 'Total Pago', hintText: '0,00', prefixText: 'R\$ ', floatingLabelBehavior: FloatingLabelBehavior.always, border: UnderlineInputBorder()), keyboardType: TextInputType.number),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar', style: TextStyle(color: Colors.grey))),
-          ElevatedButton(
-            onPressed: () {
-              double p = double.tryParse(pricePerKgCtrl.text.replaceAll(',', '.')) ?? 0;
-              double t = double.tryParse(totalPaidCtrl.text.replaceAll(',', '.')) ?? 0;
-              if (p > 0 && t > 0) {
-                unitPriceCtrl.text = pricePerKgCtrl.text;
-                qtyCtrl.text = (t / p).toStringAsFixed(3).replaceAll('.', ',');
-              }
-              Navigator.pop(context);
-            },
-            child: const Text('Aplicar Peso', style: TextStyle(fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
+    WeightCalculatorDialog.show(context, unitPriceCtrl: unitPriceCtrl, qtyCtrl: qtyCtrl);
   }
 
   void _showEditBudgetDialog(BuildContext context, ItemProvider provider) {
@@ -2034,300 +1887,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
   }
 
   void _showPdfExportDialog(BuildContext context, ItemProvider provider) {
-    bool exportBought = true;
-    bool exportPending = false;
-    bool groupByCategories = true;
-    bool showFinancials = true;
-
-    _showAnimatedDialog(
-      context,
-      StatefulBuilder(
-        builder: (context, setModalState) {
-          return AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-            title: const Text('Exportar PDF', style: TextStyle(fontWeight: FontWeight.bold)),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CheckboxListTile(
-                  title: const Text('Exportar itens comprados'),
-                  value: exportBought,
-                  activeColor: Theme.of(context).primaryColor,
-                  onChanged: (val) {
-                    if (val != null) {
-                      setModalState(() {
-                        exportBought = val;
-                      });
-                    }
-                  },
-                ),
-                CheckboxListTile(
-                  title: const Text('Incluir itens pendentes'),
-                  value: exportPending,
-                  activeColor: Theme.of(context).primaryColor,
-                  onChanged: (val) {
-                    if (val != null) {
-                      setModalState(() {
-                        exportPending = val;
-                      });
-                    }
-                  },
-                ),
-                CheckboxListTile(
-                  title: const Text('Agrupar por categorias'),
-                  value: groupByCategories,
-                  activeColor: Theme.of(context).primaryColor,
-                  onChanged: (val) {
-                    if (val != null) {
-                      setModalState(() {
-                        groupByCategories = val;
-                      });
-                    }
-                  },
-                ),
-                CheckboxListTile(
-                  title: const Text('Exibir valores e totais'),
-                  value: showFinancials,
-                  activeColor: Theme.of(context).primaryColor,
-                  onChanged: (val) {
-                    if (val != null) {
-                      setModalState(() {
-                        showFinancials = val;
-                      });
-                    }
-                  },
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancelar', style: TextStyle(color: Colors.grey)),
-              ),
-              ElevatedButton(
-                onPressed: (!exportBought && !exportPending)
-                    ? null
-                    : () {
-                        Navigator.pop(context);
-                        _generateAndSharePdf(
-                          context,
-                          provider,
-                          exportBought: exportBought,
-                          exportPending: exportPending,
-                          groupByCategories: groupByCategories,
-                          showFinancials: showFinancials,
-                        );
-                      },
-                child: const Text('Exportar', style: TextStyle(fontWeight: FontWeight.bold)),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  Future<void> _generateAndSharePdf(
-    BuildContext context,
-    ItemProvider provider, {
-    required bool exportBought,
-    required bool exportPending,
-    required bool groupByCategories,
-    required bool showFinancials,
-  }) async {
-    final List<Item> itemsToExport = provider.items.where((it) {
-      if (it.isBought) return exportBought;
-      return exportPending;
-    }).toList();
-
-    if (itemsToExport.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Nenhum item selecionado para exportação.')),
-      );
-      return;
-    }
-
-    // Exibir spinner de carregamento
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => const Center(child: CircularProgressIndicator()),
-    );
-
-    try {
-      final pdf = pw.Document();
-      final total = itemsToExport.fold(0.0, (sum, it) => sum + it.totalPrice);
-      final budget = provider.budget;
-      final balance = budget - total;
-      final healthPercent = budget > 0 ? total / budget : 0.0;
-
-      final font = await PdfGoogleFonts.nunitoRegular();
-      final fontBold = await PdfGoogleFonts.nunitoBold();
-      final emojiFont = await PdfGoogleFonts.notoEmojiRegular();
-      const primaryColor = PdfColor.fromInt(0xFF1A1C2C);
-
-      pdf.addPage(
-        pw.MultiPage(
-          pageFormat: PdfPageFormat.a4,
-          margin: const pw.EdgeInsets.all(32),
-          theme: pw.ThemeData.withFont(base: font, bold: fontBold, fontFallback: [emojiFont]),
-          build: (pw.Context context) {
-            return [
-              pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      pw.Text('CARRIN', style: pw.TextStyle(fontSize: 28, fontWeight: pw.FontWeight.bold, color: primaryColor, letterSpacing: 1.2)),
-                      pw.Text('Sua lista, sem complicação.', style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey600)),
-                      pw.SizedBox(height: 4),
-                      pw.Text(provider.currentMonth, style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
-                    ],
-                  ),
-                  pw.Text(DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now()), style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey500)),
-                ],
-              ),
-              pw.SizedBox(height: 24),
-              if (showFinancials) ...[
-                pw.Container(
-                  padding: const pw.EdgeInsets.all(20),
-                  decoration: const pw.BoxDecoration(color: primaryColor, borderRadius: pw.BorderRadius.all(pw.Radius.circular(16))),
-                  child: pw.Row(
-                    children: [
-                      pw.Container(width: 50, height: 50, decoration: pw.BoxDecoration(shape: pw.BoxShape.circle, border: pw.Border.all(color: PdfColors.blueGrey700, width: 4)), child: pw.Center(child: pw.Text('${(healthPercent * 100).toInt()}%', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.white)))),
-                      pw.SizedBox(width: 20),
-                      pw.Expanded(
-                        child: pw.Column(
-                          crossAxisAlignment: pw.CrossAxisAlignment.start,
-                          children: [
-                            pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('GASTO ATUAL', style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey300, letterSpacing: 1)), pw.Text('SALDO', style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey300, letterSpacing: 1))]),
-                            pw.SizedBox(height: 4),
-                            pw.Row(
-                              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                              children: [
-                                pw.Text(Utils.formatCurrency(total), style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold, color: PdfColors.white)),
-                                pw.Text(Utils.formatCurrency(balance), style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold, color: balance < 0 ? PdfColors.red200 : PdfColors.green200)),
-                              ],
-                            ),
-                            pw.SizedBox(height: 8),
-                            pw.Divider(color: PdfColors.blueGrey800, thickness: 0.5),
-                            pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Orçamento: ${Utils.formatCurrency(budget)}', style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey400)), pw.Text('Total de Itens: ${itemsToExport.length}', style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey400))]),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                pw.SizedBox(height: 32),
-              ],
-              pw.Text('ITENS DA LISTA', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: primaryColor, letterSpacing: 1)),
-              pw.SizedBox(height: 16),
-              if (groupByCategories)
-                ..._buildGroupedItemsPdf(itemsToExport, emojiFont, primaryColor, showFinancials)
-              else
-                ...itemsToExport.map((item) => _buildPdfItemRow(item, emojiFont, primaryColor, showFinancials)),
-              pw.SizedBox(height: 30),
-              pw.Center(child: pw.Text('Documento gerado pelo app CARRIN', style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey400))),
-            ];
-          },
-        ),
-      );
-
-      final pdfBytes = await pdf.save();
-      if (context.mounted) {
-        Navigator.pop(context); // pop loading dialog
-      }
-      await Printing.sharePdf(bytes: pdfBytes, filename: 'CARRIN-${provider.currentMonth.replaceAll(' ', '-')}.pdf');
-    } catch (e) {
-      if (context.mounted) {
-        Navigator.pop(context); // pop loading dialog
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao exportar PDF: $e'), backgroundColor: Colors.redAccent),
-        );
-      }
-    }
-  }
-
-  List<pw.Widget> _buildGroupedItemsPdf(List<Item> items, pw.Font emojiFont, PdfColor primaryColor, bool showFinancials) {
-    final Map<String, List<Item>> grouped = {};
-    for (var it in items) {
-      grouped.putIfAbsent(it.category, () => []).add(it);
-    }
-
-    final List<pw.Widget> widgets = [];
-    grouped.forEach((category, catItems) {
-      final emoji = ItemProvider.categoryEmojis[category] ?? '📦';
-      widgets.add(
-        pw.Padding(
-          padding: const pw.EdgeInsets.only(top: 14, bottom: 8),
-          child: pw.Row(
-            children: [
-              pw.Text('$emoji ', style: pw.TextStyle(font: emojiFont, fontSize: 12)),
-              pw.Text(category.toUpperCase(), style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.grey600)),
-              pw.SizedBox(width: 8),
-              pw.Expanded(child: pw.Divider(color: PdfColors.grey200, thickness: 0.5)),
-            ],
-          ),
-        ),
-      );
-
-      for (var item in catItems) {
-        widgets.add(_buildPdfItemRow(item, emojiFont, primaryColor, showFinancials));
-      }
-    });
-
-    return widgets;
-  }
-
-  pw.Widget _buildPdfItemRow(Item item, pw.Font emojiFont, PdfColor primaryColor, bool showFinancials) {
-    return pw.Container(
-      margin: const pw.EdgeInsets.only(bottom: 6), padding: const pw.EdgeInsets.all(12),
-      decoration: pw.BoxDecoration(color: PdfColors.white, borderRadius: const pw.BorderRadius.all(pw.Radius.circular(10)), border: pw.Border.all(color: PdfColors.grey100, width: 0.5)),
-      child: pw.Row(
-        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-        children: [
-          pw.Row(children: [
-            pw.Container(
-              width: 14, height: 14,
-              decoration: pw.BoxDecoration(
-                shape: pw.BoxShape.rectangle,
-                borderRadius: const pw.BorderRadius.all(pw.Radius.circular(3)),
-                border: pw.Border.all(color: primaryColor, width: 1),
-                color: item.isBought ? primaryColor : null,
-              ),
-              child: item.isBought
-                  ? pw.Center(child: pw.Text('✓', style: pw.TextStyle(font: emojiFont, fontSize: 8, color: PdfColors.white, fontWeight: pw.FontWeight.bold)))
-                  : null,
-            ),
-            pw.SizedBox(width: 10),
-            pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Text(
-                  item.name,
-                  style: pw.TextStyle(
-                    fontSize: 12,
-                    fontWeight: pw.FontWeight.bold,
-                    color: primaryColor,
-                    decoration: item.isBought ? pw.TextDecoration.lineThrough : null,
-                  ),
-                ),
-                if (item.barcode != null && item.barcode!.trim().isNotEmpty)
-                  pw.Text('Cód: ${item.barcode!.trim()}', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey500)),
-                if (showFinancials)
-                  pw.Text('${Utils.formatNumber(item.quantity)}${item.isKg ? "kg" : " un"} x ${Utils.formatCurrency(item.unitPrice)}', style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey600))
-                else
-                  pw.Text('Qtd: ${Utils.formatNumber(item.quantity)}${item.isKg ? "kg" : " un"}', style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey600)),
-              ],
-            ),
-          ]),
-          if (showFinancials)
-            pw.Text(Utils.formatCurrency(item.totalPrice), style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: primaryColor)),
-        ]
-      )
-    );
+    PdfExportDialog.show(context, provider);
   }
 }
 

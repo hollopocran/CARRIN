@@ -11,6 +11,8 @@ import 'package:lista_compras/theme/app_themes.dart';
 import 'package:lista_compras/services/receipt_parser.dart';
 import 'package:lista_compras/services/auth_service.dart';
 import 'package:lista_compras/services/quick_summary_service.dart';
+import 'package:lista_compras/widgets/weight_calculator_dialog.dart';
+import 'package:lista_compras/widgets/shopping_filter_bottom_sheet.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 void main() {
@@ -268,6 +270,89 @@ void main() {
       // Now on page 0, back gesture should bubble up to the OS (meaning didPopRoute returns false)
       final didPopOnHome = await widgetsAppState.didPopRoute();
       expect(didPopOnHome, isFalse);
+    });
+  });
+
+  group('WeightCalculatorDialog Widget Tests', () {
+    testWidgets('calculates weight correctly when price and total paid are entered', (WidgetTester tester) async {
+      String calculatedPrice = '';
+      String calculatedWeight = '';
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: WeightCalculatorDialog(
+              initialPrice: '25,00',
+              onApplied: (price, weight) {
+                calculatedPrice = price;
+                calculatedWeight = weight;
+              },
+            ),
+          ),
+        ),
+      );
+
+      // Verify initial price is set
+      expect(find.text('Calculadora de Peso'), findsOneWidget);
+      expect(find.text('25,00'), findsOneWidget);
+
+      // Enter total paid: 50,00
+      final totalPaidField = find.widgetWithText(TextField, 'Total Pago');
+      expect(totalPaidField, findsOneWidget);
+      await tester.enterText(totalPaidField, '50,00');
+      await tester.pump();
+
+      // Tap 'Aplicar Peso'
+      await tester.tap(find.text('Aplicar Peso'));
+      await tester.pumpAndSettle();
+
+      // 50.0 / 25.0 = 2.000 kg
+      expect(calculatedPrice, equals('25,00'));
+      expect(calculatedWeight, equals('2,000'));
+    });
+  });
+
+  group('ShoppingFilterBottomSheet Widget Tests', () {
+    testWidgets('renders sort options and category filters and invokes callbacks', (WidgetTester tester) async {
+      bool ascending = true;
+      bool hideZero = false;
+      SortOption sortOption = SortOption.category;
+      List<String> categories = [];
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ShoppingFilterBottomSheet(
+              isAscending: ascending,
+              hideZeroQuantity: hideZero,
+              currentSort: sortOption,
+              selectedCategories: categories,
+              onAscendingChanged: (val) => ascending = val,
+              onHideZeroQuantityChanged: (val) => hideZero = val,
+              onSortChanged: (val) => sortOption = val,
+              onCategoriesChanged: (val) => categories = val,
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Filtros e Ordenação'), findsOneWidget);
+      expect(find.text('Ocultar itens sem quantidade'), findsOneWidget);
+
+      // Toggle ascending arrow
+      await tester.tap(find.byIcon(Icons.arrow_upward));
+      await tester.pump();
+      expect(ascending, isFalse);
+
+      // Toggle hide zero switch
+      await tester.tap(find.byType(Switch));
+      await tester.pump();
+      expect(hideZero, isTrue);
+
+      // Select 'Nome' sort chip
+      await tester.tap(find.text('Nome'));
+      await tester.pump();
+      expect(sortOption, equals(SortOption.name));
     });
   });
 }
