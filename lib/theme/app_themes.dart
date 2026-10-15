@@ -37,6 +37,8 @@ class AppColors {
   static const Color sunset = Color(0xFFFF5722);
 
   // Nobres & Elegantes
+  static const Color hotPink = Color(0xFFFF1493); // Rosa Choque Vibrante
+  static const Color barbiePink = Color(0xFFE0218A); // Rosa Barbie / Chiclete
   static const Color wine = Color(0xFF641220);
   static const Color crimson = Color(0xFFC9184A);
   static const Color magenta = Color(0xFFD946EF);
@@ -80,10 +82,12 @@ class AppColors {
     NamedColor('Pôr do Sol', sunset, 'Quentes'),
 
     // Nobres & Elegantes
-    NamedColor('Vinho Tinto', wine, 'Elegantes'),
-    NamedColor('Rubi Carmim', crimson, 'Elegantes'),
+    NamedColor('Rosa Choque', hotPink, 'Elegantes'),
+    NamedColor('Rosa Barbie', barbiePink, 'Elegantes'),
     NamedColor('Rosa Magenta', magenta, 'Elegantes'),
     NamedColor('Rosa Seco', rose, 'Elegantes'),
+    NamedColor('Vinho Tinto', wine, 'Elegantes'),
+    NamedColor('Rubi Carmim', crimson, 'Elegantes'),
     NamedColor('Terracota', terracotta, 'Elegantes'),
     NamedColor('Marrom Café', coffee, 'Elegantes'),
     NamedColor('Cobre Nobre', copper, 'Elegantes'),
@@ -377,17 +381,25 @@ class AppThemes {
 
   static ThemeData _buildDarkTheme(Color seedColor, {ColorBlindMode colorBlindMode = ColorBlindMode.none}) {
     final isHighContrast = colorBlindMode == ColorBlindMode.highContrast;
-    // Ajusta o primary para garantir legibilidade no modo escuro
-    final primaryColor = HSLColor.fromColor(seedColor).withLightness(isHighContrast ? 0.9 : 0.8).withSaturation(isHighContrast ? 0.9 : 0.7).toColor();
+
+    // A cor primária no tema escuro é FIEL à cor selecionada pelo usuário (o rosa é rosa de verdade!)
+    // Apenas se for excessivamente escura (< 0.04 de luminância), elevamos sutilmente para destacar no fundo preto.
+    Color primaryColor = seedColor;
+    if (seedColor.computeLuminance() < 0.04) {
+      primaryColor = HSLColor.fromColor(seedColor).withLightness(0.55).toColor();
+    }
+
+    final bool isLightPrimary = primaryColor.computeLuminance() > 0.55;
+    final Color onPrimaryColor = isLightPrimary ? Colors.black87 : Colors.white;
 
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
-      scaffoldBackgroundColor: isHighContrast ? Colors.black : const Color(0xFF0D0E15),
-      cardColor: isHighContrast ? const Color(0xFF15151E) : const Color(0xFF1A1C2C),
+      scaffoldBackgroundColor: isHighContrast ? Colors.black : const Color(0xFF0F1017),
+      cardColor: isHighContrast ? const Color(0xFF161722) : const Color(0xFF181A26),
       primaryColor: primaryColor,
       cardTheme: CardThemeData(
-        color: isHighContrast ? const Color(0xFF15151E) : const Color(0xFF1A1C2C),
+        color: isHighContrast ? const Color(0xFF161722) : const Color(0xFF181A26),
         elevation: isHighContrast ? 6 : 2,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
@@ -399,28 +411,28 @@ class AppThemes {
       colorScheme: ColorScheme.dark(
         primary: primaryColor,
         secondary: primaryColor,
-        surface: const Color(0xFF1A1C2C),
-        onPrimary: Colors.black,
+        surface: const Color(0xFF181A26),
+        onPrimary: onPrimaryColor,
         onSurface: Colors.white,
       ),
       appBarTheme: const AppBarTheme(
-        backgroundColor: Color(0xFF0D0E15),
+        backgroundColor: Color(0xFF0F1017),
         foregroundColor: Colors.white,
         centerTitle: true,
         elevation: 0,
         surfaceTintColor: Colors.transparent, // Remove esmaecimento
       ),
       dialogTheme: DialogThemeData(
-        backgroundColor: const Color(0xFF1A1C2C),
+        backgroundColor: const Color(0xFF181A26),
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       ),
       bottomSheetTheme: const BottomSheetThemeData(
-        backgroundColor: Color(0xFF1A1C2C),
+        backgroundColor: Color(0xFF181A26),
         surfaceTintColor: Colors.transparent,
       ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: const Color(0xFF1A1C2C),
+        backgroundColor: const Color(0xFF181A26),
         indicatorColor: primaryColor.withValues(alpha: 0.24),
         iconTheme: WidgetStateProperty.resolveWith((states) {
           if (stateContains(states, WidgetState.selected)) {
@@ -448,9 +460,9 @@ class AppThemes {
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: primaryColor,
-          foregroundColor: Colors.black,
+          foregroundColor: onPrimaryColor,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          elevation: 0,
+          elevation: isHighContrast ? 4 : 0,
         ),
       ),
       textButtonTheme: TextButtonThemeData(
