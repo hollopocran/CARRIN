@@ -13,6 +13,7 @@ class Item {
   String category;
   bool isBought;
   String? barcode;
+  String? supermarket;
 
   Item({
     this.index,
@@ -23,6 +24,7 @@ class Item {
     this.category = 'Outros',
     this.isBought = false,
     this.barcode,
+    this.supermarket,
   });
 
   /// Calculates the total price for this item based on quantity and unit price.
@@ -30,7 +32,7 @@ class Item {
 
   /// Creates an [Item] from a raw list of values fetched from Google Sheets.
   /// 
-  /// Expected order of columns: B (Qty), C (Name), D (Price), E (Total), F (Category), G (Status), H (Barcode).
+  /// Expected order of columns: B (Qty), C (Name), D (Price), E (Total), F (Category), G (Status), H (Barcode), I (Supermarket).
   factory Item.fromList(List<dynamic> list, int rowIndex) {
     return Item(
       index: rowIndex,
@@ -41,6 +43,9 @@ class Item {
       category: list.length > 4 ? list[4].toString() : 'Outros',
       isBought: list.length > 5 ? _parseBool(list[5]) : false,
       barcode: list.length > 6 ? parseBarcode(list[6]) : null,
+      supermarket: list.length > 7 && list[7] != null && list[7].toString().trim().isNotEmpty
+          ? list[7].toString().trim()
+          : null,
     );
   }
 
@@ -82,6 +87,7 @@ class Item {
       category,     // Column F
       isBought,     // Column G
       parseBarcode(barcode) ?? '', // Column H
+      supermarket ?? '', // Column I
     ];
   }
 
@@ -96,6 +102,7 @@ class Item {
       'category': category,
       'isBought': isBought,
       'barcode': barcode,
+      'supermarket': supermarket,
     };
   }
 
@@ -110,6 +117,7 @@ class Item {
       category: map['category'] ?? 'Outros',
       isBought: _parseBool(map['isBought']),
       barcode: parseBarcode(map['barcode']),
+      supermarket: map['supermarket']?.toString(),
     );
   }
 
@@ -123,6 +131,7 @@ class Item {
     String? category,
     bool? isBought,
     String? barcode,
+    String? supermarket,
   }) {
     return Item(
       index: index ?? this.index,
@@ -133,6 +142,7 @@ class Item {
       category: category ?? this.category,
       isBought: isBought ?? this.isBought,
       barcode: barcode != null ? parseBarcode(barcode) : this.barcode,
+      supermarket: supermarket ?? this.supermarket,
     );
   }
 }

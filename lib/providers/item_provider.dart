@@ -10,6 +10,7 @@ import '../services/utils.dart';
 import '../services/database_helper.dart';
 import '../services/auth_service.dart';
 import '../services/quick_summary_service.dart';
+import '../services/location_service.dart';
 
 /// Main state management provider for the application.
 /// 
@@ -112,6 +113,29 @@ class ItemProvider with ChangeNotifier {
     return _activeUserEmail!.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_');
   }
 
+  // --- Módulos: Mercados & GPS ---
+  List<Map<String, dynamic>> _supermarkets = [];
+  List<Map<String, dynamic>> get supermarkets => _supermarkets;
+  Map<String, dynamic>? _detectedSupermarket;
+  Map<String, dynamic>? get detectedSupermarket => _detectedSupermarket;
+  String? _selectedSupermarketFilter;
+  String? get selectedSupermarketFilter => _selectedSupermarketFilter;
+  bool _isDetectingLocation = false;
+  bool get isDetectingLocation => _isDetectingLocation;
+
+  // --- Módulo: Finalidade do Carrinho (Purpose) ---
+  String _currentMonthPurpose = 'geral'; // 'geral', 'abastecimento', 'conveniencia', 'churrasco'
+  String get currentMonthPurpose => _currentMonthPurpose;
+
+  // --- Módulo: Metas & Travas Orçamentárias por Categoria ---
+  Map<String, double> _categoryCaps = {};
+  Map<String, double> get categoryCaps => _categoryCaps;
+
+  // --- Módulo: Workspace (Meu Carrinho vs Família) ---
+  String _currentWorkspace = 'personal'; // 'personal' or 'family'
+  String get currentWorkspace => _currentWorkspace;
+  bool get isFamilyWorkspace => _currentWorkspace == 'family';
+
   ItemProvider() {
     initialization = _initProvider();
   }
@@ -195,6 +219,7 @@ class ItemProvider with ChangeNotifier {
     await loadAnimationSettings();
     await loadEssentialItems();
     await _loadFullPriceHistory();
+    await loadSupermarkets();
 
     // Se a sincronização estiver ativada, processa a fila de sync
     if (isSyncEnabled && _syncQueue.isNotEmpty) {
@@ -1645,6 +1670,8 @@ class ItemProvider with ChangeNotifier {
     }
 
     await _loadItems();
+    await loadMonthMetadata(month);
+    detectNearbySupermarket(notify: false);
     
     final hasPendingCreate = _syncQueue.any((op) => op.type == 'create_month' && op.month == month);
     if (isSyncEnabled && !hasPendingCreate) {
@@ -2142,6 +2169,7 @@ class ItemProvider with ChangeNotifier {
       'price': item.unitPrice,
       'category': item.category,
       'barcode': cleanBarcode,
+      'supermarket': item.supermarket,
     };
     if (existingIdx != -1) {
       if ((entryData['barcode'] as String).isEmpty && (history[existingIdx]['barcode'] as String? ?? '').isNotEmpty) {
@@ -2149,6 +2177,9 @@ class ItemProvider with ChangeNotifier {
       }
       if (entryData['price'] == 0 && (history[existingIdx]['price'] as num? ?? 0) > 0) {
         entryData['price'] = history[existingIdx]['price'];
+      }
+      if (entryData['supermarket'] == null && history[existingIdx]['supermarket'] != null) {
+        entryData['supermarket'] = history[existingIdx]['supermarket'];
       }
       history[existingIdx] = entryData;
       _indexEntryByBarcode(entryData);
@@ -2532,6 +2563,184 @@ class ItemProvider with ChangeNotifier {
     };
 
     _safeNotify();
+  }
+
+  // ==========================================
+  // --- Módulo: Mercados & GPS (Supermarkets) ---
+  // ==========================================
+
+  Future<void> loadSupermarkets() async {
+    try {
+      _supermarkets = await _dbHelper.getSupermarkets();
+      _safeNotify();
+    } catch (e) {
+      debugPrint('Erro ao carregar supermercados: $e');
+    }
+  }
+
+  Future<int> addOrUpdateSupermarket({
+    required String name,
+    double? latitude,
+    double? longitude,
+    double radiusMeters = 150.0,
+    String icon = 'store',
+    String colorHex = '#1E88E5',
+  }) async {
+    final id = await _dbHelper.saveSupermarket(
+      name: name,
+      latitude: latitude,
+      longitude: longitude,
+      radiusMeters: radiusMeters,
+      icon: icon,
+      colorHex: colorHex,
+    );
+    await loadSupermarkets();
+    return id;
+  }
+
+  Future<void> deleteSupermarket(int id) async {
+    await _dbHelper.deleteSupermarket(id);
+    await loadSupermarkets();
+  }
+
+  Future<void> deleteSupermarketByName(String name) async {
+    await _dbHelper.deleteSupermarketByName(name);
+    await loadSupermarkets();
+  }
+
+  Future<void> detectNearbySupermarket({bool notify = true}) async {
+    if (_isDetectingLocation) return;
+    _isDetectingLocation = true;
+    if (notify) _safeNotify();
+
+    try {
+      if (_supermarkets.isEmpty) {
+        await loadSupermarkets();
+      }
+      final position = await LocationService.instance.getCurrentPosition();
+      if (position != null && _supermarkets.isNotEmpty) {
+        _detectedSupermarket = LocationService.instance.findNearbyMarket(position, _supermarkets);
+      } else {
+        _detectedSupermarket = null;
+      }
+    } catch (e) {
+      debugPrint('Erro ao detectar mercado por GPS: $e');
+      _detectedSupermarket = null;
+    } finally {
+      _isDetectingLocation = false;
+      if (notify) _safeNotify();
+    }
+  }
+
+  void setSupermarketFilter(String? marketName) {
+    _selectedSupermarketFilter = marketName;
+    _safeNotify();
+  }
+
+  void clearSupermarketFilter() {
+    _selectedSupermarketFilter = null;
+    _safeNotify();
+  }
+
+  // ==========================================
+  // --- Módulo: Metadados do Mês & Finalidade ---
+  // ==========================================
+
+  Future<void> loadMonthMetadata(String monthTitle) async {
+    try {
+      final details = await _dbHelper.getMonthDetails(monthTitle);
+      if (details != null) {
+        _currentMonthPurpose = (details['purpose'] as String?) ?? 'geral';
+        _currentWorkspace = (details['workspace'] as String?) ?? 'personal';
+        final capsJson = details['category_caps'] as String?;
+        if (capsJson != null && capsJson.isNotEmpty) {
+          final Map<String, dynamic> decoded = jsonDecode(capsJson);
+          _categoryCaps = decoded.map((k, v) => MapEntry(k, (v as num).toDouble()));
+        } else {
+          _categoryCaps = {};
+        }
+      } else {
+        _currentMonthPurpose = 'geral';
+        _categoryCaps = {};
+      }
+      _safeNotify();
+    } catch (e) {
+      debugPrint('Erro ao carregar metadados do mês: $e');
+    }
+  }
+
+  Future<void> setMonthPurpose(String monthTitle, String purpose) async {
+    _currentMonthPurpose = purpose;
+    await _dbHelper.updateMonthMetadata(monthTitle, purpose: purpose);
+    _safeNotify();
+  }
+
+  // ==========================================
+  // --- Módulo: Metas & Travas por Categoria ---
+  // ==========================================
+
+  Future<void> setCategoryCap(String monthTitle, String category, double maxAmount) async {
+    _categoryCaps[category] = maxAmount;
+    final jsonStr = jsonEncode(_categoryCaps);
+    await _dbHelper.updateMonthMetadata(monthTitle, categoryCaps: jsonStr);
+    _safeNotify();
+  }
+
+  Future<void> removeCategoryCap(String monthTitle, String category) async {
+    _categoryCaps.remove(category);
+    final jsonStr = jsonEncode(_categoryCaps);
+    await _dbHelper.updateMonthMetadata(monthTitle, categoryCaps: jsonStr);
+    _safeNotify();
+  }
+
+  /// Retorna as categorias da lista ativa que excederam o teto estipulado
+  List<Map<String, dynamic>> getExceededCategoryCaps() {
+    if (_categoryCaps.isEmpty || _items.isEmpty) return [];
+
+    final Map<String, double> spentByCategory = {};
+    for (var it in _items) {
+      final cat = it.category.trim();
+      spentByCategory[cat] = (spentByCategory[cat] ?? 0.0) + it.totalPrice;
+    }
+
+    final List<Map<String, dynamic>> exceeded = [];
+    for (var entry in _categoryCaps.entries) {
+      final cat = entry.key;
+      final cap = entry.value;
+      final spent = spentByCategory[cat] ?? 0.0;
+      if (spent > cap) {
+        exceeded.add({
+          'category': cat,
+          'cap': cap,
+          'spent': spent,
+          'diff': spent - cap,
+        });
+      }
+    }
+    return exceeded;
+  }
+
+  // ==========================================
+  // --- Módulo: Espaço Pessoal vs Família ---
+  // ==========================================
+
+  Future<void> setWorkspace(String workspace) async {
+    if (_currentWorkspace == workspace) return;
+    _currentWorkspace = workspace;
+    final filtered = await _dbHelper.getMonthsByWorkspace(workspace);
+    _months = filtered;
+    if (_months.isNotEmpty) {
+      final target = findVigentMonth(_months) ?? _months.last;
+      await _switchMonth(target);
+    } else {
+      _items = [];
+      _safeNotify();
+    }
+  }
+
+  Future<void> setMonthWorkspace(String monthTitle, String workspace) async {
+    await _dbHelper.updateMonthMetadata(monthTitle, workspace: workspace);
+    await setWorkspace(workspace);
   }
 
   @override

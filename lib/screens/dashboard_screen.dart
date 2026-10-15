@@ -200,8 +200,96 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
 
     return Column(
       children: [
+        // Seletor de Espaço: Meu Carrinho vs Família
         Padding(
-          padding: const EdgeInsets.fromLTRB(28, 24, 28, 0),
+          padding: const EdgeInsets.fromLTRB(28, 12, 28, 0),
+          child: Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: isDarkMode ? Colors.grey[850] : Colors.grey[200],
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: () => provider.setWorkspace('personal'),
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      decoration: BoxDecoration(
+                        color: !provider.isFamilyWorkspace
+                            ? (isDarkMode ? const Color(0xFFAEB2FF) : Theme.of(context).primaryColor)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.person_rounded,
+                            size: 16,
+                            color: !provider.isFamilyWorkspace
+                                ? (isDarkMode ? Colors.black87 : Colors.white)
+                                : Colors.grey,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Meu Carrinho',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: !provider.isFamilyWorkspace
+                                  ? (isDarkMode ? Colors.black87 : Colors.white)
+                                  : Colors.grey,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: InkWell(
+                    onTap: () => provider.setWorkspace('family'),
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      decoration: BoxDecoration(
+                        color: provider.isFamilyWorkspace
+                            ? Colors.deepOrange
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.family_restroom_rounded,
+                            size: 16,
+                            color: provider.isFamilyWorkspace ? Colors.white : Colors.grey,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Família',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: provider.isFamilyWorkspace ? Colors.white : Colors.grey,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        Padding(
+          padding: const EdgeInsets.fromLTRB(28, 20, 28, 0),
           child: Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,

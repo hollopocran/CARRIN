@@ -13,8 +13,11 @@ import 'package:lista_compras/services/receipt_parser.dart';
 import 'package:lista_compras/services/auth_service.dart';
 import 'package:lista_compras/services/quick_summary_service.dart';
 import 'package:lista_compras/services/user_sheets_service.dart';
-import 'package:lista_compras/widgets/weight_calculator_dialog.dart';
 import 'package:lista_compras/widgets/shopping_filter_bottom_sheet.dart';
+import 'package:lista_compras/widgets/weight_calculator_dialog.dart';
+import 'package:lista_compras/models/item.dart';
+import 'package:lista_compras/services/location_service.dart';
+import 'package:lista_compras/widgets/market_and_purpose_widgets.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 void main() {
@@ -452,6 +455,94 @@ void main() {
       expect(themeProvider.colorBlindMode, equals(ColorBlindMode.highContrast));
       expect(themeProvider.successColor, equals(const Color(0xFF00E676)));
       expect(themeProvider.dangerColor, equals(const Color(0xFFFF1744)));
+    });
+  });
+
+  group('Supermarket & Location Tests', () {
+    test('Item model handles supermarket property, toMap, fromMap and copyWith', () {
+      final item = Item(
+        name: 'Arroz Integral',
+        quantity: 2.0,
+        unitPrice: 15.50,
+        supermarket: 'Assaí Atacadista',
+      );
+
+      expect(item.supermarket, equals('Assaí Atacadista'));
+
+      final map = item.toMap();
+      expect(map['supermarket'], equals('Assaí Atacadista'));
+
+      final fromMap = Item.fromMap(map);
+      expect(fromMap.supermarket, equals('Assaí Atacadista'));
+
+      final copied = item.copyWith(supermarket: 'Carrefour');
+      expect(copied.supermarket, equals('Carrefour'));
+      expect(copied.name, equals('Arroz Integral'));
+    });
+
+    test('LocationService formats distance and calculates distance correctly', () {
+      final service = LocationService.instance;
+
+      expect(service.formatDistance(50.4), equals('50m'));
+      expect(service.formatDistance(950), equals('950m'));
+      expect(service.formatDistance(1500), equals('1.5km'));
+      expect(service.formatDistance(3200), equals('3.2km'));
+
+      // Distância entre Avenida Paulista e Praça da Sé (aprox 2.5 - 3 km)
+      final distance = service.calculateDistance(-23.5614, -46.6559, -23.5505, -46.6333);
+      expect(distance, greaterThan(2000));
+      expect(distance, lessThan(4000));
+    });
+
+    test('ReceiptParser tags extracted items with storeName', () {
+      const receipt = '''
+      SUPERMERCADO DIA BRASIL
+      CNPJ: 00.123.456/0001-78
+      001 7891000123456 LEITE INTEGRAL 1L 3 UN X 4,50 13,50
+      TOTAL R\$ 13,50
+      ''';
+
+      final result = ReceiptParser.parseWithMetadata(receipt);
+      expect(result.items.isNotEmpty, isTrue);
+      expect(result.storeName, contains('Supermercado Dia Brasil'));
+      expect(result.items.first.supermarket, contains('Supermercado Dia Brasil'));
+    });
+  });
+
+  group('RateioDialog Widget Tests', () {
+    testWidgets('RateioDialog calculates and displays cost per person correctly', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () => showDialog(
+                  context: context,
+                  builder: (_) => const RateioDialog(
+                    totalSpent: 300.0,
+                    listTitle: 'Churrasco Teste',
+                  ),
+                ),
+                child: const Text('Abrir Rateio'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Abrir Rateio'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Rateio do Evento'), findsOneWidget);
+      expect(find.text('6 pessoas'), findsOneWidget);
+      // R$ 300 / 6 = R$ 50,00
+      expect(find.textContaining('50,00'), findsOneWidget);
+
+      // Incrementa para 7 pessoas
+      await tester.tap(find.byIcon(Icons.add));
+      await tester.pumpAndSettle();
+
+      expect(find.text('7 pessoas'), findsOneWidget);
     });
   });
 }

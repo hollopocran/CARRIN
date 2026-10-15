@@ -182,12 +182,16 @@ class ReceiptParser {
       i++;
     }
 
+    final finalItems = storeName != null && storeName.isNotEmpty
+        ? items.map((it) => it.copyWith(supermarket: storeName)).toList()
+        : items;
+
     return ReceiptParseResult(
       storeName: storeName,
       cnpj: cnpj,
       nfcKey: nfcKey,
       uf: uf,
-      items: items,
+      items: finalItems,
     );
   }
 

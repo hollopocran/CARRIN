@@ -21,6 +21,7 @@ import '../widgets/weight_calculator_dialog.dart';
 import '../widgets/pdf_export_dialog.dart';
 import '../widgets/assistive_calculator_button.dart';
 import '../widgets/market_lock_overlay.dart';
+import '../widgets/market_and_purpose_widgets.dart';
 
 import 'barcode_scanner_screen.dart';
 import 'receipt_scanner_screen.dart';
@@ -65,6 +66,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
       if (provider.items.isEmpty) {
         provider.loadItems();
       }
+      provider.detectNearbySupermarket(notify: true);
     });
   }
 
@@ -317,6 +319,10 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
       filteredItems = filteredItems.where((it) => _selectedCategories.contains(it.category)).toList();
     }
 
+    if (itemProvider.selectedSupermarketFilter != null) {
+      filteredItems = filteredItems.where((it) => it.supermarket == itemProvider.selectedSupermarketFilter).toList();
+    }
+
     filteredItems.sort((a, b) {
       int result;
       switch (_currentSort) {
@@ -494,9 +500,54 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                                     _shareList(context, itemProvider);
                                   } else if (value == 'finalize') {
                                     _toggleFinalizeStatus(context, itemProvider);
+                                  } else if (value == 'purpose_caps') {
+                                    showDialog(
+                                      context: context,
+                                      builder: (_) => PurposeAndCapsDialog(provider: itemProvider),
+                                    );
+                                  } else if (value == 'rateio') {
+                                    showDialog(
+                                      context: context,
+                                      builder: (_) => RateioDialog(
+                                        totalSpent: itemProvider.totalFromSheet,
+                                        listTitle: itemProvider.currentMonth,
+                                      ),
+                                    );
+                                  } else if (value == 'gps_market') {
+                                    showDialog(
+                                      context: context,
+                                      builder: (_) => SaveCurrentMarketDialog(provider: itemProvider),
+                                    );
                                   }
                                 },
                                 itemBuilder: (context) => [
+                                  const PopupMenuItem(
+                                    value: 'purpose_caps',
+                                    child: ListTile(
+                                      leading: Icon(Icons.tune_rounded),
+                                      title: Text('Finalidade & Metas'),
+                                      dense: true,
+                                      contentPadding: EdgeInsets.zero,
+                                    ),
+                                  ),
+                                  const PopupMenuItem(
+                                    value: 'rateio',
+                                    child: ListTile(
+                                      leading: Icon(Icons.groups_rounded, color: Colors.deepOrange),
+                                      title: Text('Rateio / Divisão por Pessoa'),
+                                      dense: true,
+                                      contentPadding: EdgeInsets.zero,
+                                    ),
+                                  ),
+                                  const PopupMenuItem(
+                                    value: 'gps_market',
+                                    child: ListTile(
+                                      leading: Icon(Icons.add_location_alt_outlined, color: Colors.blue),
+                                      title: Text('Salvar Mercado por GPS'),
+                                      dense: true,
+                                      contentPadding: EdgeInsets.zero,
+                                    ),
+                                  ),
                                   const PopupMenuItem(
                                     value: 'receipt',
                                     child: ListTile(
@@ -580,6 +631,118 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                                 ),
                               ),
                             ),
+
+                          // Supermarket Chips and Purpose Bar
+                          SliverToBoxAdapter(
+                            child: SupermarketChipBar(
+                              provider: itemProvider,
+                              onOpenPurpose: () => showDialog(
+                                context: context,
+                                builder: (_) => PurposeAndCapsDialog(provider: itemProvider),
+                              ),
+                              onOpenRateio: () => showDialog(
+                                context: context,
+                                builder: (_) => RateioDialog(
+                                  totalSpent: itemProvider.totalFromSheet,
+                                  listTitle: itemProvider.currentMonth,
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          // Detected Supermarket GPS Banner
+                          if (itemProvider.detectedSupermarket != null)
+                            SliverToBoxAdapter(
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(color: Colors.blue.withValues(alpha: 0.35)),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.location_on_rounded, color: Colors.blue, size: 22),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Você está no ${itemProvider.detectedSupermarket!['name']} (${itemProvider.detectedSupermarket!['formatted_distance'] ?? ''})',
+                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                            ),
+                                            Text(
+                                              itemProvider.selectedSupermarketFilter == itemProvider.detectedSupermarket!['name']
+                                                  ? 'Lista filtrada para este mercado'
+                                                  : 'Toque para filtrar produtos deste mercado',
+                                              style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      TextButton(
+                                        onPressed: () {
+                                          final name = itemProvider.detectedSupermarket!['name'] as String;
+                                          if (itemProvider.selectedSupermarketFilter == name) {
+                                            itemProvider.clearSupermarketFilter();
+                                          } else {
+                                            itemProvider.setSupermarketFilter(name);
+                                          }
+                                        },
+                                        child: Text(
+                                          itemProvider.selectedSupermarketFilter == itemProvider.detectedSupermarket!['name']
+                                              ? 'Ver Todos'
+                                              : 'Filtrar',
+                                          style: const TextStyle(fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                          // Category Caps Exceeded Warning Banner
+                          Builder(
+                            builder: (context) {
+                              final exceededCaps = itemProvider.getExceededCategoryCaps();
+                              if (exceededCaps.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
+
+                              return SliverToBoxAdapter(
+                                child: Padding(
+                                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: Colors.redAccent.withValues(alpha: 0.12),
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(color: Colors.redAccent.withValues(alpha: 0.35)),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        const Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 22),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: exceededCaps.map((exc) {
+                                              return Text(
+                                                'Meta de ${exc['category']} excedida: Gasto ${Utils.formatCurrency(exc['spent'])} (Teto: ${Utils.formatCurrency(exc['cap'])})',
+                                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.redAccent),
+                                              );
+                                            }).toList(),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
 
                           if (_marketMode)
                             SliverToBoxAdapter(
@@ -1066,7 +1229,26 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                             overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 4),
-                          Text('${Utils.formatNumber(item.quantity)}${item.isKg ? "kg" : " un"} x ${Utils.formatCurrency(item.unitPrice)}', style: TextStyle(color: Colors.grey[500], fontSize: _marketMode ? 13 : 12)),
+                          Wrap(
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 6,
+                            children: [
+                              Text('${Utils.formatNumber(item.quantity)}${item.isKg ? "kg" : " un"} x ${Utils.formatCurrency(item.unitPrice)}', style: TextStyle(color: Colors.grey[500], fontSize: _marketMode ? 13 : 12)),
+                              if (item.supermarket != null && item.supermarket!.trim().isNotEmpty)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
+                                  ),
+                                  child: Text(
+                                    item.supermarket!,
+                                    style: const TextStyle(fontSize: 10, color: Colors.blue, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                            ],
+                          ),
                         ],
                       ),
                     ),
@@ -1524,10 +1706,13 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
       currentBarcode = provider.findBarcodeForProductName(item.name);
     }
     final barcodeController = TextEditingController(text: currentBarcode ?? '');
+    final initialSupermarket = item?.supermarket ?? provider.selectedSupermarketFilter ?? provider.detectedSupermarket?['name'] ?? '';
+    final supermarketController = TextEditingController(text: initialSupermarket);
 
     // Garante que o cursor comece colapsado no final do texto para evitar seleção de bloco ao tocar
     if (nameController.text.isNotEmpty) nameController.selection = TextSelection.collapsed(offset: nameController.text.length);
     if (barcodeController.text.isNotEmpty) barcodeController.selection = TextSelection.collapsed(offset: barcodeController.text.length);
+    if (supermarketController.text.isNotEmpty) supermarketController.selection = TextSelection.collapsed(offset: supermarketController.text.length);
     if (priceController.text.isNotEmpty) priceController.selection = TextSelection.collapsed(offset: priceController.text.length);
     if (qtyController.text.isNotEmpty) qtyController.selection = TextSelection.collapsed(offset: qtyController.text.length);
 
@@ -1566,6 +1751,37 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                   }),
                   style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black),
                   decoration: const InputDecoration(labelText: 'Nome do Produto', floatingLabelBehavior: FloatingLabelBehavior.always, border: UnderlineInputBorder())
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: supermarketController,
+                  textInputAction: TextInputAction.next,
+                  style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black),
+                  decoration: InputDecoration(
+                    labelText: 'Supermercado / Loja (Opcional)',
+                    hintText: 'Ex: Assaí, Carrefour, Açougue...',
+                    floatingLabelBehavior: FloatingLabelBehavior.always,
+                    border: const UnderlineInputBorder(),
+                    prefixIcon: const Icon(Icons.storefront_outlined, size: 20),
+                    suffixIcon: provider.supermarkets.isNotEmpty
+                        ? PopupMenuButton<String>(
+                            icon: const Icon(Icons.arrow_drop_down),
+                            tooltip: 'Escolher mercado salvo',
+                            onSelected: (val) {
+                              setState(() {
+                                supermarketController.text = val;
+                              });
+                            },
+                            itemBuilder: (ctx) => provider.supermarkets.map((m) {
+                              final mName = m['name'] as String;
+                              return PopupMenuItem(
+                                value: mName,
+                                child: Text(mName),
+                              );
+                            }).toList(),
+                          )
+                        : null,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 TextField(
@@ -1792,17 +2008,31 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                       return;
                     }
                     if (proceed == 'update') {
+                      final finalSupermarket = supermarketController.text.trim().isNotEmpty
+                          ? supermarketController.text.trim()
+                          : null;
+                      if (finalSupermarket != null) {
+                        provider.addOrUpdateSupermarket(name: finalSupermarket);
+                      }
                       final updated = existingItem.copyWith(
                         unitPrice: parsedPrice > 0 ? parsedPrice : existingItem.unitPrice,
                         quantity: parsedQty,
                         barcode: finalBarcode ?? existingItem.barcode,
                         category: category,
+                        supermarket: finalSupermarket ?? existingItem.supermarket,
                       );
                       provider.updateItem(updated);
                       if (context.mounted) Navigator.pop(context);
                       return;
                     }
                   }
+                }
+
+                final finalSupermarket = supermarketController.text.trim().isNotEmpty
+                    ? supermarketController.text.trim()
+                    : null;
+                if (finalSupermarket != null) {
+                  provider.addOrUpdateSupermarket(name: finalSupermarket);
                 }
 
                 final newItem = Item(
@@ -1814,6 +2044,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                   category: category, 
                   isBought: item?.isBought ?? false,
                   barcode: finalBarcode,
+                  supermarket: finalSupermarket,
                 );
                 if (item == null) { provider.addItem(newItem); } else { provider.updateItem(newItem); }
                 if (context.mounted) Navigator.pop(context);

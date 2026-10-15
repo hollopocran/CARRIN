@@ -8,7 +8,7 @@ import '../models/sync_operation.dart';
 import 'utils.dart';
 
 class DatabaseHelper {
-  static const _databaseVersion = 2;
+  static const _databaseVersion = 3;
   static String _currentDatabaseName = "carrin_database_guest.db";
 
   DatabaseHelper._privateConstructor();
@@ -117,6 +117,36 @@ class DatabaseHelper {
         // Ignora se a coluna já existir por algum motivo
       }
     }
+    if (oldVersion < 3) {
+      try {
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS supermarkets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE,
+            latitude REAL,
+            longitude REAL,
+            radius_meters REAL NOT NULL DEFAULT 150.0,
+            icon TEXT DEFAULT 'store',
+            color_hex TEXT DEFAULT '#1E88E5',
+            created_at TEXT
+          );
+        ''');
+      } catch (e) {
+        debugPrint('Aviso ao criar tabela supermarkets no upgrade: $e');
+      }
+      try {
+        await db.execute("ALTER TABLE items ADD COLUMN supermarket TEXT;");
+      } catch (_) {}
+      try {
+        await db.execute("ALTER TABLE months ADD COLUMN purpose TEXT NOT NULL DEFAULT 'geral';");
+      } catch (_) {}
+      try {
+        await db.execute("ALTER TABLE months ADD COLUMN category_caps TEXT;");
+      } catch (_) {}
+      try {
+        await db.execute("ALTER TABLE months ADD COLUMN workspace TEXT NOT NULL DEFAULT 'personal';");
+      } catch (_) {}
+    }
   }
 
   Future _onCreate(Database db, int version) async {
@@ -129,7 +159,10 @@ class DatabaseHelper {
         balance REAL NOT NULL DEFAULT 0.0,
         totalItems REAL NOT NULL DEFAULT 0.0,
         boughtItems REAL NOT NULL DEFAULT 0.0,
-        is_finalized INTEGER NOT NULL DEFAULT 0
+        is_finalized INTEGER NOT NULL DEFAULT 0,
+        purpose TEXT NOT NULL DEFAULT 'geral',
+        category_caps TEXT,
+        workspace TEXT NOT NULL DEFAULT 'personal'
       )
     ''');
 
@@ -146,6 +179,7 @@ class DatabaseHelper {
         category TEXT NOT NULL DEFAULT 'Outros',
         is_bought INTEGER NOT NULL DEFAULT 0,
         barcode TEXT,
+        supermarket TEXT,
         FOREIGN KEY (month_title) REFERENCES months (title) ON DELETE CASCADE
       )
     ''');
@@ -157,6 +191,20 @@ class DatabaseHelper {
         type TEXT NOT NULL,
         month TEXT NOT NULL,
         payload TEXT NOT NULL
+      )
+    ''');
+
+    // Tabela de Mercados Locais
+    await db.execute('''
+      CREATE TABLE supermarkets (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE,
+        latitude REAL,
+        longitude REAL,
+        radius_meters REAL NOT NULL DEFAULT 150.0,
+        icon TEXT DEFAULT 'store',
+        color_hex TEXT DEFAULT '#1E88E5',
+        created_at TEXT
       )
     ''');
   }
@@ -191,7 +239,17 @@ class DatabaseHelper {
     });
   }
 
-  Future<void> insertMonth(String title, {double budget = 0.0, double total = 0.0, double balance = 0.0, double totalItems = 0.0, double boughtItems = 0.0, int isFinalized = 0}) async {
+  Future<void> insertMonth(
+    String title, {
+    double budget = 0.0,
+    double total = 0.0,
+    double balance = 0.0,
+    double totalItems = 0.0,
+    double boughtItems = 0.0,
+    int isFinalized = 0,
+    String purpose = 'geral',
+    String workspace = 'personal',
+  }) async {
     final db = await database;
     // Use IGNORE to prevent ON DELETE CASCADE from deleting items when month already exists
     final rowsAffected = await db.insert(
@@ -204,6 +262,8 @@ class DatabaseHelper {
         'totalItems': totalItems,
         'boughtItems': boughtItems,
         'is_finalized': isFinalized,
+        'purpose': purpose,
+        'workspace': workspace,
       },
       conflictAlgorithm: ConflictAlgorithm.ignore,
     );
@@ -396,6 +456,7 @@ class DatabaseHelper {
                     category: (map['category'] as String?) ?? 'Outros',
                     isBought: map['is_bought'] == 1,
                     barcode: map['barcode'] as String?,
+                    supermarket: map['supermarket'] as String?,
                   );
                 }).toList();
                 await saveItems(cleanTitle, recoveredItems);
@@ -428,6 +489,7 @@ class DatabaseHelper {
         category: (map['category'] as String?) ?? 'Outros',
         isBought: map['is_bought'] == 1,
         barcode: map['barcode'] as String?,
+        supermarket: map['supermarket'] as String?,
       );
     }).toList();
   }
@@ -463,6 +525,7 @@ class DatabaseHelper {
           'category': item.category,
           'is_bought': item.isBought ? 1 : 0,
           'barcode': item.barcode,
+          'supermarket': item.supermarket,
         });
       }
       await batch.commit(noResult: true);
@@ -474,7 +537,7 @@ class DatabaseHelper {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
       'items',
-      columns: ['month_title', 'name', 'unit_price', 'category', 'barcode'],
+      columns: ['month_title', 'name', 'unit_price', 'category', 'barcode', 'supermarket'],
       where: "name IS NOT NULL AND TRIM(name) != '' AND (unit_price > 0 OR (barcode IS NOT NULL AND TRIM(barcode) != ''))",
       orderBy: 'id ASC',
     );
@@ -489,6 +552,7 @@ class DatabaseHelper {
       final rawBarcode = row['barcode'] as String? ?? '';
       final barcode = Item.parseBarcode(rawBarcode) ?? rawBarcode.trim();
       final category = row['category'] as String? ?? 'Outros';
+      final supermarket = row['supermarket'] as String?;
 
       final list = history.putIfAbsent(normalized, () => []);
       final existingIdx = list.indexWhere((e) => e['month'] == month);
@@ -498,6 +562,7 @@ class DatabaseHelper {
         'price': price,
         'category': category,
         'barcode': barcode,
+        'supermarket': supermarket,
       };
       if (existingIdx != -1) {
         if ((entryData['barcode'] as String).isEmpty && (list[existingIdx]['barcode'] as String? ?? '').isNotEmpty) {
@@ -505,6 +570,9 @@ class DatabaseHelper {
         }
         if (entryData['price'] == 0 && (list[existingIdx]['price'] as num? ?? 0) > 0) {
           entryData['price'] = list[existingIdx]['price'];
+        }
+        if (entryData['supermarket'] == null && list[existingIdx]['supermarket'] != null) {
+          entryData['supermarket'] = list[existingIdx]['supermarket'];
         }
         list[existingIdx] = entryData;
       } else {
@@ -545,12 +613,121 @@ class DatabaseHelper {
     });
   }
 
+  // --- Operações de Mercados Locais (Supermarkets) ---
+  Future<List<Map<String, dynamic>>> getSupermarkets() async {
+    final db = await database;
+    try {
+      return await db.query('supermarkets', orderBy: 'name ASC');
+    } catch (e) {
+      debugPrint('Aviso ao consultar supermercados: $e');
+      return [];
+    }
+  }
+
+  Future<int> saveSupermarket({
+    required String name,
+    double? latitude,
+    double? longitude,
+    double radiusMeters = 150.0,
+    String icon = 'store',
+    String colorHex = '#1E88E5',
+  }) async {
+    final db = await database;
+    final cleanName = name.trim();
+    if (cleanName.isEmpty) return -1;
+
+    final existing = await db.query(
+      'supermarkets',
+      where: 'LOWER(name) = ?',
+      whereArgs: [cleanName.toLowerCase()],
+    );
+
+    final values = {
+      'name': cleanName,
+      'latitude': latitude,
+      'longitude': longitude,
+      'radius_meters': radiusMeters,
+      'icon': icon,
+      'color_hex': colorHex,
+      'created_at': DateTime.now().toIso8601String(),
+    };
+
+    if (existing.isNotEmpty) {
+      final id = existing.first['id'] as int;
+      await db.update('supermarkets', values, where: 'id = ?', whereArgs: [id]);
+      return id;
+    } else {
+      return await db.insert('supermarkets', values);
+    }
+  }
+
+  Future<void> deleteSupermarket(int id) async {
+    final db = await database;
+    await db.delete('supermarkets', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<void> deleteSupermarketByName(String name) async {
+    final db = await database;
+    await db.delete('supermarkets', where: 'LOWER(name) = ?', whereArgs: [name.trim().toLowerCase()]);
+  }
+
+  // --- Operações de Metadados de Meses (Purpose, Category Caps, Workspace) ---
+  Future<Map<String, dynamic>?> getMonthDetails(String title) async {
+    final db = await database;
+    final maps = await db.query('months', where: 'title = ?', whereArgs: [title]);
+    if (maps.isNotEmpty) {
+      return maps.first;
+    }
+    return null;
+  }
+
+  Future<void> updateMonthMetadata(
+    String title, {
+    String? purpose,
+    String? categoryCaps,
+    String? workspace,
+  }) async {
+    final db = await database;
+    final Map<String, dynamic> values = {};
+    if (purpose != null) values['purpose'] = purpose;
+    if (categoryCaps != null) values['category_caps'] = categoryCaps;
+    if (workspace != null) values['workspace'] = workspace;
+
+    if (values.isNotEmpty) {
+      await db.update(
+        'months',
+        values,
+        where: 'title = ?',
+        whereArgs: [title],
+      );
+    }
+  }
+
+  Future<List<String>> getMonthsByWorkspace(String workspace) async {
+    final db = await database;
+    try {
+      final List<Map<String, dynamic>> maps = await db.query(
+        'months',
+        columns: ['title'],
+        where: 'workspace = ?',
+        whereArgs: [workspace],
+        orderBy: 'rowid ASC',
+      );
+      return maps.map((m) => m['title'] as String).toList();
+    } catch (_) {
+      return await getMonthsList();
+    }
+  }
+
   Future<void> clearAll() async {
     final db = await database;
     await db.transaction((txn) async {
       await txn.delete('items');
       await txn.delete('months');
       await txn.delete('sync_queue');
+      try {
+        await txn.delete('supermarkets');
+      } catch (_) {}
     });
   }
 }
