@@ -220,6 +220,7 @@ class ItemProvider with ChangeNotifier {
     await loadEssentialItems();
     await _loadFullPriceHistory();
     await loadSupermarkets();
+    detectNearbySupermarket(notify: false, autoFilter: true);
 
     // Se a sincronização estiver ativada, processa a fila de sync
     if (isSyncEnabled && _syncQueue.isNotEmpty) {
@@ -2608,7 +2609,7 @@ class ItemProvider with ChangeNotifier {
     await loadSupermarkets();
   }
 
-  Future<void> detectNearbySupermarket({bool notify = true}) async {
+  Future<void> detectNearbySupermarket({bool notify = false, bool autoFilter = true}) async {
     if (_isDetectingLocation) return;
     _isDetectingLocation = true;
     if (notify) _safeNotify();
@@ -2619,16 +2620,23 @@ class ItemProvider with ChangeNotifier {
       }
       final position = await LocationService.instance.getCurrentPosition();
       if (position != null && _supermarkets.isNotEmpty) {
-        _detectedSupermarket = LocationService.instance.findNearbyMarket(position, _supermarkets);
+        final found = LocationService.instance.findNearbyMarket(position, _supermarkets);
+        _detectedSupermarket = found;
+        if (found != null && autoFilter) {
+          final marketName = found['name'] as String?;
+          if (marketName != null && marketName.isNotEmpty) {
+            _selectedSupermarketFilter = marketName;
+          }
+        }
       } else {
         _detectedSupermarket = null;
       }
     } catch (e) {
-      debugPrint('Erro ao detectar mercado por GPS: $e');
+      debugPrint('Silently ignored GPS detection error: $e');
       _detectedSupermarket = null;
     } finally {
       _isDetectingLocation = false;
-      if (notify) _safeNotify();
+      _safeNotify();
     }
   }
 

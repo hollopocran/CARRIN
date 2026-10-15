@@ -136,7 +136,34 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
                     backgroundColor: Colors.transparent,
                     elevation: 0,
                     centerTitle: false,
-                    title: const Text('CARRIN', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+                    title: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text('CARRIN', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+                        if (provider.detectedSupermarket != null) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.location_on_rounded, size: 12, color: Colors.blue),
+                                const SizedBox(width: 4),
+                                Text(
+                                  provider.detectedSupermarket!['name'] ?? '',
+                                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blue),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                     actions: [
                       const SyncIndicator(),
                       IconButton(

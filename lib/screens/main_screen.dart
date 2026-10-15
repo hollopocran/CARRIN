@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'dashboard_screen.dart';
 import 'month_selection_screen.dart';
 import 'statistics_screen.dart';
 import 'settings_screen.dart';
 import '../services/notification_service.dart';
+import '../providers/item_provider.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -12,18 +14,38 @@ class MainScreen extends StatefulWidget {
   State<MainScreen> createState() => MainScreenState();
 }
 
-class MainScreenState extends State<MainScreen> {
+class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int _currentIndex = 0;
   late PageController _pageController;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _pageController = PageController(initialPage: _currentIndex);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Detecção silenciosa e invisível em segundo plano logo na inicialização
+      Provider.of<ItemProvider>(context, listen: false).detectNearbySupermarket(
+        notify: false,
+        autoFilter: true,
+      );
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Reavalia o GPS silenciosamente sempre que o usuário reabrir o app
+      Provider.of<ItemProvider>(context, listen: false).detectNearbySupermarket(
+        notify: false,
+        autoFilter: true,
+      );
+    }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _pageController.dispose();
     super.dispose();
   }

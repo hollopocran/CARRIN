@@ -66,7 +66,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
       if (provider.items.isEmpty) {
         provider.loadItems();
       }
-      provider.detectNearbySupermarket(notify: true);
+      provider.detectNearbySupermarket(notify: false, autoFilter: true);
     });
   }
 
