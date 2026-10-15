@@ -290,6 +290,18 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
             childAspectRatio: 1.4,
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
+            dragWidgetBuilderV2: DragWidgetBuilderV2(
+              builder: (int index, Widget child, ImageProvider? screenshot) {
+                return Material(
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(24),
+                  clipBehavior: Clip.antiAlias,
+                  elevation: 8,
+                  shadowColor: Colors.black.withValues(alpha: 0.25),
+                  child: child,
+                );
+              },
+            ),
             onReorder: (oldIdx, newIdx) {
               setState(() {
                 final item = _cardOrder.removeAt(oldIdx);
@@ -436,27 +448,38 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
     );
   }
   Widget _buildStatCard({required Key key, required String title, required double value, required IconData icon, required Color color, VoidCallback? onTap}) {
-    return InkWell(
+    return Container(
       key: key,
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(24),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: Theme.of(context).cardColor, borderRadius: BorderRadius.circular(24), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 4))]),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Icon(icon, color: color.withValues(alpha: 0.6), size: 20), Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle))]),
-            Column(
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 4))],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(24),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(24),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(title, style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w500)),
-                const SizedBox(height: 2),
-                CountingText(value: value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color == Colors.redAccent ? Colors.redAccent : null)),
+                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Icon(icon, color: color.withValues(alpha: 0.6), size: 20), Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle))]),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w500)),
+                    const SizedBox(height: 2),
+                    CountingText(value: value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color == Colors.redAccent ? Colors.redAccent : null)),
+                  ],
+                ),
               ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -582,26 +605,37 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final Color iconColor = isDark ? const Color(0xFFAEB2FF) : Theme.of(context).primaryColor;
 
-    return InkWell(
+    return Container(
       key: key,
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(24),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: Theme.of(context).cardColor, borderRadius: BorderRadius.circular(24), border: Border.all(color: Colors.grey.withValues(alpha: 0.05))),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Icon(icon, color: iconColor.withValues(alpha: 0.9), size: 24),
-            Column(
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.grey.withValues(alpha: 0.05)),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(24),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(24),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                Text(subtitle, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                Icon(icon, color: iconColor.withValues(alpha: 0.9), size: 24),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                    Text(subtitle, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                  ],
+                ),
               ],
             ),
-          ],
+          ),
         ),
       ),
     );

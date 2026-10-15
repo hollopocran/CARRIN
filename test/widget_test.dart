@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:lista_compras/services/utils.dart';
 import 'package:lista_compras/widgets/supermarket_avatar.dart';
 import 'package:lista_compras/screens/main_screen.dart';
+import 'package:lista_compras/screens/dashboard_screen.dart';
 import 'package:lista_compras/providers/item_provider.dart';
 import 'package:lista_compras/theme/app_themes.dart';
 import 'package:lista_compras/services/receipt_parser.dart';
@@ -353,6 +354,34 @@ void main() {
       await tester.tap(find.text('Nome'));
       await tester.pump();
       expect(sortOption, equals(SortOption.name));
+    });
+  });
+
+  group('DashboardScreen Metric Cards Drag Tests', () {
+    testWidgets('cards have rounded borders and 24px radius', (WidgetTester tester) async {
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider.value(value: AuthService()),
+            ChangeNotifierProvider(create: (_) => ItemProvider()),
+            ChangeNotifierProvider(create: (_) => ThemeProvider()),
+          ],
+          child: const MaterialApp(
+            home: DashboardScreen(),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      // Find 'saldo' card container
+      final saldoCardFinder = find.byWidgetPredicate((w) => w is Container && w.key == const ValueKey('saldo'));
+      expect(saldoCardFinder, findsOneWidget);
+
+      // Verify that the card container has borderRadius of 24
+      final Container container = tester.widget(saldoCardFinder);
+      final BoxDecoration decoration = container.decoration as BoxDecoration;
+      expect(decoration.borderRadius, equals(BorderRadius.circular(24)));
     });
   });
 }
