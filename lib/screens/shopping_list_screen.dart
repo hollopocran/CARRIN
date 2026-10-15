@@ -562,7 +562,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                       decoration: BoxDecoration(
                         color: Theme.of(context).primaryColor,
                         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, -2))],
+                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, -2))],
                       ),
                       child: Row(
                         children: [
@@ -586,7 +586,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                           const SizedBox(width: 8),
                           TextButton(
                             onPressed: _toggleSelectionMode,
-                            child: Text('CANCELAR', style: TextStyle(color: Theme.of(context).colorScheme.onPrimary.withOpacity(0.8), fontSize: 12)),
+                            child: Text('CANCELAR', style: TextStyle(color: Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.8), fontSize: 12)),
                           ),
                         ],
                       ),
@@ -850,7 +850,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
     final Color statusColor = badgeInfo['color'] as Color;
 
     return Material(
-      color: isSelected ? Theme.of(context).primaryColor.withOpacity(0.15) : Colors.transparent,
+      color: isSelected ? Theme.of(context).primaryColor.withValues(alpha: 0.15) : Colors.transparent,
       child: InkWell(
         onTap: () {
           if (_isSelectionMode) {
@@ -880,7 +880,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
-                  border: Border(bottom: BorderSide(color: Colors.grey.withOpacity(0.05)))
+                  border: Border(bottom: BorderSide(color: Colors.grey.withValues(alpha: 0.05)))
                 ),
                 child: Row(
                   children: [
@@ -941,7 +941,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                             children: [
                               Text(status, style: TextStyle(fontSize: 11, color: statusColor, fontWeight: FontWeight.bold)),
                               const SizedBox(width: 2),
-                              Icon(Icons.info, size: 12, color: statusColor.withOpacity(0.7)),
+                              Icon(Icons.info, size: 12, color: statusColor.withValues(alpha: 0.7)),
                             ],
                           ),
                         )
@@ -960,9 +960,9 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                           padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                           decoration: BoxDecoration(
                             color: Theme.of(context).brightness == Brightness.dark
-                                ? Colors.white.withOpacity(0.03)
-                                : Theme.of(context).primaryColor.withOpacity(0.03),
-                            border: Border(bottom: BorderSide(color: Colors.grey.withOpacity(0.08))),
+                                ? Colors.white.withValues(alpha: 0.03)
+                                : Theme.of(context).primaryColor.withValues(alpha: 0.03),
+                            border: Border(bottom: BorderSide(color: Colors.grey.withValues(alpha: 0.08))),
                           ),
                           child: Row(
                             children: [
@@ -998,7 +998,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                               // Kg/Un Toggle
                               Container(
                                 decoration: BoxDecoration(
-                                  color: Colors.grey.withOpacity(0.1),
+                                  color: Colors.grey.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Row(
@@ -1009,7 +1009,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                                       child: Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                         decoration: BoxDecoration(
-                                          color: !item.isKg ? Theme.of(context).primaryColor.withOpacity(0.2) : Colors.transparent,
+                                          color: !item.isKg ? Theme.of(context).primaryColor.withValues(alpha: 0.2) : Colors.transparent,
                                           borderRadius: BorderRadius.circular(8),
                                         ),
                                         child: Text('Un', style: TextStyle(fontWeight: !item.isKg ? FontWeight.bold : FontWeight.normal, fontSize: 13)),
@@ -1020,7 +1020,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                                       child: Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                         decoration: BoxDecoration(
-                                          color: item.isKg ? Theme.of(context).primaryColor.withOpacity(0.2) : Colors.transparent,
+                                          color: item.isKg ? Theme.of(context).primaryColor.withValues(alpha: 0.2) : Colors.transparent,
                                           borderRadius: BorderRadius.circular(8),
                                         ),
                                         child: Text('Kg', style: TextStyle(fontWeight: item.isKg ? FontWeight.bold : FontWeight.normal, fontSize: 13)),
@@ -1169,7 +1169,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                         controller: scrollController,
                         shrinkWrap: true,
                         itemCount: history.length,
-                        separatorBuilder: (context, index) => Divider(color: Colors.grey.withOpacity(0.05), height: 1),
+                        separatorBuilder: (context, index) => Divider(color: Colors.grey.withValues(alpha: 0.05), height: 1),
                         itemBuilder: (context, index) {
                           final entry = history[index];
                           final month = entry['month'] as String;
@@ -1186,7 +1186,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                             builder: (context, value, child) {
                               return Container(
                                 decoration: BoxDecoration(
-                                  color: Theme.of(context).primaryColor.withOpacity(0.15 * value),
+                                  color: Theme.of(context).primaryColor.withValues(alpha: 0.15 * value),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: ListTile(
@@ -1194,7 +1194,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                                   leading: Container(
                                     padding: const EdgeInsets.all(8),
                                     decoration: BoxDecoration(
-                                      color: (isCurrent ? Theme.of(context).primaryColor : (isHigher ? Colors.red : Colors.green)).withOpacity(0.1),
+                                      color: (isCurrent ? Theme.of(context).primaryColor : (isHigher ? Colors.red : Colors.green)).withValues(alpha: 0.1),
                                       shape: BoxShape.circle
                                     ),
                                     child: Icon(
@@ -1224,7 +1224,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                                         )
                                       ),
                                       if (isCurrent)
-                                        Text('ESTE MÊS', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Theme.of(context).primaryColor.withOpacity(0.6)))
+                                        Text('ESTE MÊS', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Theme.of(context).primaryColor.withValues(alpha: 0.6)))
                                       else if (item.unitPrice > 0)
                                         Text(
                                           isHigher ? '+ ${Utils.formatCurrency(price - item.unitPrice)}' : (isLower ? '- ${Utils.formatCurrency(item.unitPrice - price)}' : 'Mesmo preço'),
@@ -1508,7 +1508,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                   value: category, isExpanded: true,
                   dropdownColor: Theme.of(context).cardColor,
                   style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black),
-                  underline: Container(height: 1, color: Colors.grey.withOpacity(0.2)),
+                  underline: Container(height: 1, color: Colors.grey.withValues(alpha: 0.2)),
                   items: ItemProvider.categories.map((String value) => DropdownMenuItem<String>(value: value, child: Text(value))).toList(),
                   onChanged: (v) => setState(() => category = v!),
                 ),
@@ -1563,7 +1563,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                   contentPadding: EdgeInsets.zero,
                   title: Text('Vendido por Peso (kg)', style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black)),
                   value: isKg, 
-                  activeColor: const Color(0xFFAEB2FF),
+                  activeThumbColor: const Color(0xFFAEB2FF),
                   onChanged: (v) => setState(() => isKg = v)
                 ),
                 if (isKg) ...[
@@ -1604,10 +1604,10 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                               final price = (entry['price'] as num).toDouble();
                               return Card(
                                 elevation: 0,
-                                color: Theme.of(context).primaryColor.withOpacity(0.05),
+                                color: Theme.of(context).primaryColor.withValues(alpha: 0.05),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
-                                  side: BorderSide(color: Theme.of(context).primaryColor.withOpacity(0.15)),
+                                  side: BorderSide(color: Theme.of(context).primaryColor.withValues(alpha: 0.15)),
                                 ),
                                 margin: const EdgeInsets.only(right: 8),
                                 child: InkWell(
@@ -1693,7 +1693,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                         category: category,
                       );
                       provider.updateItem(updated);
-                      Navigator.pop(context);
+                      if (context.mounted) Navigator.pop(context);
                       return;
                     }
                   }
@@ -1710,7 +1710,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                   barcode: finalBarcode,
                 );
                 if (item == null) { provider.addItem(newItem); } else { provider.updateItem(newItem); }
-                Navigator.pop(context);
+                if (context.mounted) Navigator.pop(context);
               },
               child: const Text('Salvar', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
@@ -2039,7 +2039,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
       final font = await PdfGoogleFonts.nunitoRegular();
       final fontBold = await PdfGoogleFonts.nunitoBold();
       final emojiFont = await PdfGoogleFonts.notoEmojiRegular();
-      final primaryColor = PdfColor.fromInt(0xFF1A1C2C);
+      const primaryColor = PdfColor.fromInt(0xFF1A1C2C);
 
       pdf.addPage(
         pw.MultiPage(
@@ -2068,7 +2068,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
               if (showFinancials) ...[
                 pw.Container(
                   padding: const pw.EdgeInsets.all(20),
-                  decoration: pw.BoxDecoration(color: primaryColor, borderRadius: const pw.BorderRadius.all(pw.Radius.circular(16))),
+                  decoration: const pw.BoxDecoration(color: primaryColor, borderRadius: pw.BorderRadius.all(pw.Radius.circular(16))),
                   child: pw.Row(
                     children: [
                       pw.Container(width: 50, height: 50, decoration: pw.BoxDecoration(shape: pw.BoxShape.circle, border: pw.Border.all(color: PdfColors.blueGrey700, width: 4)), child: pw.Center(child: pw.Text('${(healthPercent * 100).toInt()}%', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.white)))),
@@ -2077,7 +2077,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                         child: pw.Column(
                           crossAxisAlignment: pw.CrossAxisAlignment.start,
                           children: [
-                            pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('GASTO ATUAL', style: pw.TextStyle(fontSize: 9, color: PdfColors.grey300, letterSpacing: 1)), pw.Text('SALDO', style: pw.TextStyle(fontSize: 9, color: PdfColors.grey300, letterSpacing: 1))]),
+                            pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('GASTO ATUAL', style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey300, letterSpacing: 1)), pw.Text('SALDO', style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey300, letterSpacing: 1))]),
                             pw.SizedBox(height: 4),
                             pw.Row(
                               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
@@ -2352,7 +2352,7 @@ class _WavyFooterPainter extends CustomPainter {
     path.lineTo(size.width, size.height);
     path.lineTo(0, size.height);
     path.close();
-    canvas.drawShadow(path.shift(const Offset(0, -2)), Colors.black.withOpacity(0.12), 8.0, true);
+    canvas.drawShadow(path.shift(const Offset(0, -2)), Colors.black.withValues(alpha: 0.12), 8.0, true);
     canvas.drawPath(path, paint);
   }
 

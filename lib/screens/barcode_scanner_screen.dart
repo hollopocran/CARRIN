@@ -77,7 +77,7 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
               width: 250,
               height: 250,
               decoration: BoxDecoration(
-                border: Border.all(color: Colors.white.withOpacity(0.5), width: 2),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.5), width: 2),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Stack(
@@ -112,10 +112,10 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
       height: 30,
       decoration: BoxDecoration(
         border: Border(
-          top: (index == 0 || index == 1) ? BorderSide(color: Colors.white, width: 4) : BorderSide.none,
-          bottom: (index == 2 || index == 3) ? BorderSide(color: Colors.white, width: 4) : BorderSide.none,
-          left: (index == 0 || index == 2) ? BorderSide(color: Colors.white, width: 4) : BorderSide.none,
-          right: (index == 1 || index == 3) ? BorderSide(color: Colors.white, width: 4) : BorderSide.none,
+          top: (index == 0 || index == 1) ? const BorderSide(color: Colors.white, width: 4) : BorderSide.none,
+          bottom: (index == 2 || index == 3) ? const BorderSide(color: Colors.white, width: 4) : BorderSide.none,
+          left: (index == 0 || index == 2) ? const BorderSide(color: Colors.white, width: 4) : BorderSide.none,
+          right: (index == 1 || index == 3) ? const BorderSide(color: Colors.white, width: 4) : BorderSide.none,
         ),
       ),
     );

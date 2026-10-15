@@ -93,7 +93,7 @@ class _MonthSelectionScreenState extends State<MonthSelectionScreen> with Automa
               preferredSize: const Size.fromHeight(2),
               child: LinearProgressIndicator(
                 backgroundColor: Colors.transparent,
-                valueColor: AlwaysStoppedAnimation<Color>(AppThemes.primaryNavy.withOpacity(0.5)),
+                valueColor: AlwaysStoppedAnimation<Color>(AppThemes.primaryNavy.withValues(alpha: 0.5)),
                 minHeight: 2,
               ),
             ) : null,
@@ -101,9 +101,9 @@ class _MonthSelectionScreenState extends State<MonthSelectionScreen> with Automa
           body: AnimatedSwitcher(
             duration: useAnimations ? const Duration(milliseconds: 400) : Duration.zero,
             child: !_shouldShowContent && !hasData && provider.isMonthsLoading
-                ? Center(child: CartLoadingIndicator(key: const ValueKey('carrinhos_loader'), message: 'Buscando seus carrinhos...'))
+                ? const Center(child: CartLoadingIndicator(key: ValueKey('carrinhos_loader'), message: 'Buscando seus carrinhos...'))
                 : provider.months.isEmpty
-                    ? Center(child: const Text('Nenhum carrinho ainda. Crie um carrinho para começar.', style: TextStyle(color: Colors.grey, fontSize: 16)))
+                    ? const Center(child: Text('Nenhum carrinho ainda. Crie um carrinho para começar.', style: TextStyle(color: Colors.grey, fontSize: 16)))
                     : Stack(
                         children: [
                           NotificationListener<ScrollNotification>(
@@ -175,7 +175,7 @@ class _MonthSelectionScreenState extends State<MonthSelectionScreen> with Automa
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor, 
         borderRadius: BorderRadius.circular(24), 
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 12, offset: const Offset(0, 4))]
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 4))]
       ),
       child: Material(
         color: Colors.transparent,
@@ -453,7 +453,7 @@ class _MonthSelectionScreenState extends State<MonthSelectionScreen> with Automa
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 12), 
                       side: BorderSide(color: primaryColor, width: 1.5),
-                      backgroundColor: isDark ? primaryColor.withOpacity(0.1) : Colors.transparent,
+                      backgroundColor: isDark ? primaryColor.withValues(alpha: 0.1) : Colors.transparent,
                     )
                   )
                 )

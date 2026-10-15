@@ -63,20 +63,20 @@ class NotificationService {
 
   /// Triggers a high-priority budget alert notification.
   Future<void> showBudgetAlert(String title, String body) async {
-    final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
       budgetChannelId,
       budgetChannelName,
       importance: Importance.max,
       priority: Priority.high,
-      color: const Color(0xFFFF5252),
-      ledColor: const Color(0xFFFF5252),
+      color: Color(0xFFFF5252),
+      ledColor: Color(0xFFFF5252),
       ledOnMs: 1000,
       ledOffMs: 500,
       playSound: true,
       enableVibration: true,
     );
 
-    final NotificationDetails details = NotificationDetails(android: androidDetails);
+    const NotificationDetails details = NotificationDetails(android: androidDetails);
     await _notificationsPlugin.show(1, title, body, details); // ID 1 for Alerts
   }
 
@@ -105,7 +105,7 @@ class NotificationService {
     final String title = '$listName - Total: $priceFormatted';
     final String content = '$bought Itens comprados';
 
-    final AndroidNotificationDetails androidPlatformChannelSpecifics = AndroidNotificationDetails(
+    const AndroidNotificationDetails androidPlatformChannelSpecifics = AndroidNotificationDetails(
       channelId,
       channelName,
       channelDescription: channelDescription,
@@ -120,7 +120,7 @@ class NotificationService {
       icon: '@mipmap/launcher_icon',
     );
 
-    final NotificationDetails platformChannelSpecifics = NotificationDetails(
+    const NotificationDetails platformChannelSpecifics = NotificationDetails(
       android: androidPlatformChannelSpecifics,
     );
 

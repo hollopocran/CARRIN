@@ -170,7 +170,7 @@ class _SearchItemTile extends StatelessWidget {
           return Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(
-              color: Colors.grey.withOpacity(0.05),
+              color: Colors.grey.withValues(alpha: 0.05),
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(

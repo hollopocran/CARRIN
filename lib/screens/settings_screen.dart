@@ -339,7 +339,7 @@ class SettingsScreen extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 8),
         decoration: isSelected ? BoxDecoration(
-          color: Theme.of(context).primaryColor.withOpacity(0.08),
+          color: Theme.of(context).primaryColor.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(12),
         ) : null,
         child: Row(
@@ -351,7 +351,7 @@ class SettingsScreen extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey.withOpacity(0.2)),
+                border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
               ),
               child: Image.asset(iconPath, fit: BoxFit.contain),
             ),
@@ -528,7 +528,7 @@ class SettingsScreen extends StatelessWidget {
               runSpacing: 12,
               alignment: WrapAlignment.center,
               children: AppColors.selection.map((color) {
-                final isSelected = provider.seedColor.value == color.value;
+                final isSelected = provider.seedColor == color;
                 return GestureDetector(
                   onTap: () {
                     provider.setSeedColor(color);
@@ -546,7 +546,7 @@ class SettingsScreen extends StatelessWidget {
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: color.withOpacity(0.4),
+                          color: color.withValues(alpha: 0.4),
                           blurRadius: 8,
                           offset: const Offset(0, 4),
                         )
@@ -644,10 +644,10 @@ class SettingsScreen extends StatelessWidget {
       contentPadding: EdgeInsets.zero,
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
       subtitle: Text(subtitle, style: const TextStyle(fontSize: 12)),
-      activeColor: Theme.of(context).primaryColor,
+      activeThumbColor: Theme.of(context).primaryColor,
       secondary: Container(
         padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(color: Colors.grey.withOpacity(0.1), shape: BoxShape.circle),
+        decoration: BoxDecoration(color: Colors.grey.withValues(alpha: 0.1), shape: BoxShape.circle),
         child: Icon(icon, size: 20, color: Theme.of(context).iconTheme.color),
       ),
     );

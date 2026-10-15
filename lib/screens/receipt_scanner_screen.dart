@@ -106,7 +106,7 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: ItemProvider.categories.contains(selectedCategory) ? selectedCategory : 'Outros',
+                  initialValue: ItemProvider.categories.contains(selectedCategory) ? selectedCategory : 'Outros',
                   decoration: const InputDecoration(labelText: 'Categoria'),
                   items: ItemProvider.categories.map((c) => DropdownMenuItem(
                     value: c,

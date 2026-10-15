@@ -165,7 +165,7 @@ class AppThemes {
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: const Color(0xFF1A1C2C),
-        indicatorColor: primaryColor.withOpacity(0.24),
+        indicatorColor: primaryColor.withValues(alpha: 0.24),
         iconTheme: WidgetStateProperty.resolveWith((states) {
           if (stateContains(states, WidgetState.selected)) {
             return IconThemeData(color: primaryColor);
@@ -185,7 +185,7 @@ class AppThemes {
           return null;
         }),
         trackColor: WidgetStateProperty.resolveWith((states) {
-          if (stateContains(states, WidgetState.selected)) return primaryColor.withOpacity(0.5);
+          if (stateContains(states, WidgetState.selected)) return primaryColor.withValues(alpha: 0.5);
           return null;
         }),
       ),
