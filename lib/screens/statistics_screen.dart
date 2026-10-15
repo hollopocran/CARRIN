@@ -197,9 +197,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with AutomaticKeepA
         duration: useAnimations ? const Duration(milliseconds: 1500) : Duration.zero,
         curve: Curves.easeOutQuart,
         builder: (context, animValue, child) {
-          final Color chartLineColor = isDarkMode
-              ? (seedColor == AppColors.navy ? const Color(0xFFAEB2FF) : seedColor.withValues(alpha: 0.8))
-              : Theme.of(context).primaryColor;
+          final Color barColor = Theme.of(context).primaryColor;
           return LineChart(
             LineChartData(
               lineTouchData: LineTouchData(touchTooltipData: LineTouchTooltipData(getTooltipColor: (spot) => Colors.blueAccent.withValues(alpha: 0.9), getTooltipItems: (spots) => spots.map((s) => LineTooltipItem(Utils.formatCurrency(s.y), const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))).toList())),
@@ -222,9 +220,9 @@ class _StatisticsScreenState extends State<StatisticsScreen> with AutomaticKeepA
                     final double delay = (s.x / (spots.length > 1 ? spots.length - 1 : 1)) * 0.4;
                     return FlSpot(s.x, minY + (s.y - minY) * Curves.easeInOutCubic.transform(((animValue - delay) / (1.0 - delay)).clamp(0.0, 1.0)));
                   }).toList(),
-                  isCurved: true, color: chartLineColor, barWidth: 4, isStrokeCapRound: true,
-                  dotData: FlDotData(show: true, getDotPainter: (s, p, b, i) => FlDotCirclePainter(radius: 4, color: chartLineColor, strokeWidth: 2, strokeColor: isDarkMode ? const Color(0xFF0D0E15) : Colors.white)),
-                  belowBarData: BarAreaData(show: true, gradient: LinearGradient(colors: [chartLineColor.withValues(alpha: 0.3 * animValue), chartLineColor.withValues(alpha: 0.0)], begin: Alignment.topCenter, end: Alignment.bottomCenter)),
+                  isCurved: true, color: barColor, barWidth: 4, isStrokeCapRound: true,
+                  dotData: FlDotData(show: true, getDotPainter: (s, p, b, i) => FlDotCirclePainter(radius: 4, color: barColor, strokeWidth: 2, strokeColor: isDarkMode ? const Color(0xFF0D0E15) : Colors.white)),
+                  belowBarData: BarAreaData(show: true, gradient: LinearGradient(colors: [barColor.withValues(alpha: 0.3 * animValue), barColor.withValues(alpha: 0.0)], begin: Alignment.topCenter, end: Alignment.bottomCenter)),
                 ),
               ],
             ),
@@ -290,7 +288,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with AutomaticKeepA
           'Resumo Geral',
           style: TextStyle(
             fontWeight: FontWeight.bold,
-            color: isDarkMode ? Colors.white : AppThemes.primaryNavy,
+            color: isDarkMode ? Colors.white : Theme.of(context).primaryColor,
           ),
         ),
         content: SizedBox(
@@ -338,7 +336,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with AutomaticKeepA
                             Icon(
                               Icons.shopping_cart_outlined,
                               size: 14,
-                              color: isDarkMode ? const Color(0xFFAEB2FF) : AppThemes.primaryNavy,
+                              color: Theme.of(context).primaryColor,
                             ),
                             const SizedBox(width: 4),
                             Text(
@@ -396,18 +394,12 @@ class _StatisticsScreenState extends State<StatisticsScreen> with AutomaticKeepA
 
   void _showMonthDetail(String month, double budget, double total) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
-    final seedColor = themeProvider.seedColor;
-    
     final balance = budget - total;
     final percent = budget > 0 ? (total / budget) : (total > 0 ? 1.1 : 0.0);
     Color statusC = balance < 1.0 ? Colors.redAccent : (balance <= 100.0 ? Colors.orangeAccent : Colors.green);
     
-    // Cor do botão adaptativa
-    final Color buttonBg = isDarkMode 
-        ? (seedColor == AppColors.navy ? const Color(0xFFAEB2FF) : seedColor.withValues(alpha: 0.8))
-        : Theme.of(context).primaryColor;
-    final Color buttonFg = isDarkMode ? Colors.black : Colors.white;
+    final Color buttonBg = Theme.of(context).primaryColor;
+    final Color buttonFg = buttonBg.computeLuminance() > 0.5 ? Colors.black : Colors.white;
 
     showModalBottomSheet(
       context: context,
@@ -544,14 +536,16 @@ class _StatisticsScreenState extends State<StatisticsScreen> with AutomaticKeepA
                     borderRadius: BorderRadius.circular(16),
                   ),
                 ),
-                onPressed: () {
+                onPressed: () async {
                   Navigator.pop(context);
                   final provider = Provider.of<ItemProvider>(context, listen: false);
-                  provider.switchMonth(month);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const ShoppingListScreen()),
-                  );
+                  await provider.switchMonth(month);
+                  if (context.mounted) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ShoppingListScreen()),
+                    );
+                  }
                 },
               ),
             ),

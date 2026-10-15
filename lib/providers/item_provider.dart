@@ -833,24 +833,34 @@ class ItemProvider with ChangeNotifier {
   bool isMonthFinalized(String month) => _cachedSummary[month]?['isFinalized'] == 1.0;
   bool get isCurrentMonthFinalized => isMonthFinalized(currentMonth);
 
-  double _lastAlertedTotal = -1;
+  bool _hasExceededBudgetAlerted = false;
 
-  /// Checks if the current expenditure is approaching or exceeding the budget
-  /// and triggers a notification alert if necessary.
+  /// Verifica se os gastos estouraram o orçamento e dispara o alerta apenas UMA vez.
+  /// Novos itens adicionados posteriormente não disparam novos alertas repetidos.
   void _checkBudgetAlert(double newTotal, {bool force = false}) {
     final b = budget;
     if (b <= 0) return;
-    
-    // Avoid redundant notifications if total hasn't changed
-    if (!force && newTotal == _lastAlertedTotal) return;
+
+    final bool enabled = _animationSettings['enable_notifications'] ?? true;
+    if (!enabled) return;
 
     final percent = newTotal / b;
-    if (percent >= 0.9 && percent < 1.0) {
-      _notificationService.showBudgetAlert('Pé no freio!', 'Você já atingiu 90% do seu orçamento de ${Utils.formatCurrency(b)}.');
-      _lastAlertedTotal = newTotal;
-    } else if (percent >= 1.0) {
-      _notificationService.showBudgetAlert('Limite Excedido!', 'Seus gastos ultrapassaram o orçamento definido.');
-      _lastAlertedTotal = newTotal;
+
+    // Se o valor estiver abaixo do orçamento, reseta a flag para poder avisar novamente
+    // caso o usuário remova itens e depois volte a ultrapassar o limite
+    if (percent < 1.0) {
+      _hasExceededBudgetAlerted = false;
+      return;
+    }
+
+    // Só dispara se estourar o limite (>= 1.0) E se ainda NÃO tiver avisado neste ciclo
+    if (percent >= 1.0 && (force || !_hasExceededBudgetAlerted)) {
+      _hasExceededBudgetAlerted = true;
+      final excedente = newTotal - b;
+      final msg = excedente > 0
+          ? 'Seus gastos (${Utils.formatCurrency(newTotal)}) ultrapassaram o orçamento de ${Utils.formatCurrency(b)} em ${Utils.formatCurrency(excedente)}.'
+          : 'Seus gastos atingiram o limite do orçamento de ${Utils.formatCurrency(b)}.';
+      _notificationService.showBudgetAlert('Limite Excedido!', msg);
     }
   }
 
@@ -1303,6 +1313,12 @@ class ItemProvider with ChangeNotifier {
   void _updateNotification() {
     _notificationDebounceTimer?.cancel();
     _notificationDebounceTimer = Timer(const Duration(milliseconds: 300), () {
+      final bool enabled = _animationSettings['enable_notifications'] ?? true;
+      if (!enabled) {
+        _notificationService.cancelProgress();
+        return;
+      }
+
       final int total = _items.length;
       final int bought = _items.where((it) => it.isBought).length;
       final double totalPrice = totalCost;
@@ -1312,12 +1328,17 @@ class ItemProvider with ChangeNotifier {
           _service.currentMonthTitle, 
           bought, 
           total, 
-          totalPrice
+          totalPrice,
+          budget: budget,
         );
       } else {
         _notificationService.cancelProgress();
       }
     });
+  }
+
+  void refreshNotification() {
+    _updateNotification();
   }
 
   void cancelAllNotifications() {
@@ -1589,13 +1610,26 @@ class ItemProvider with ChangeNotifier {
   Future<void> _switchMonth(String month) async {
     debugPrint('🔍 _switchMonth: month="$month", cacheHit=${_itemsCache.containsKey(month)}, cacheSize=${_itemsCache[month]?.length ?? -1}');
     _badgeInfoCache.clear();
+    _hasExceededBudgetAlerted = false;
     // Update items list synchronously using memory cache if available to prevent lag or flashing
     if (_itemsCache.containsKey(month)) {
       _items = _itemsCache[month]!;
       _isLoading = false;
     } else {
-      _items = [];
-      _isLoading = true;
+      try {
+        final local = await _dbHelper.getItems(month);
+        if (local.isNotEmpty) {
+          _items = local;
+          _itemsCache[month] = local;
+          _isLoading = false;
+        } else {
+          _items = [];
+          _isLoading = true;
+        }
+      } catch (_) {
+        _items = [];
+        _isLoading = true;
+      }
     }
     _safeNotify();
 
@@ -2424,6 +2458,13 @@ class ItemProvider with ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     final map = {'list_animations': 'anim_list', 'gauge_animations': 'anim_gauge', 'chart_animations': 'anim_chart', 'enable_notifications': 'enable_notifications'};
     if (map.containsKey(key)) await prefs.setBool(map[key]!, value);
+    if (key == 'enable_notifications') {
+      if (!value) {
+        _notificationService.cancelAll();
+      } else {
+        _updateNotification();
+      }
+    }
     _safeNotify();
   }
 

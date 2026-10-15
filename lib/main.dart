@@ -75,13 +75,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.detached || state == AppLifecycleState.paused) {
-      // Cancela notificações se o app for para segundo plano ou fechado
-      // Paused ajuda a garantir que suma logo que sai da tela principal se desejado,
-      // mas o usuário pediu "quando fechar". No Android, swiping as vezes é 'paused' depois 'detached'.
-      if (state == AppLifecycleState.detached) {
-        NotificationService().cancelAll();
-      }
+    if (state == AppLifecycleState.detached || 
+        state == AppLifecycleState.paused || 
+        state == AppLifecycleState.hidden) {
+      // Fecha a notificação imediatamente assim que o usuário sair do app
+      NotificationService().cancelAll();
     }
   }
 

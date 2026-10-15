@@ -1,6 +1,59 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+class NamedColor {
+  final String name;
+  final Color color;
+
+  const NamedColor(this.name, this.color);
+}
+
+class AppColors {
+  static const Color navy = Color(0xFF1A1C2C);
+  static const Color ocean = Color(0xFF0077B6);
+  static const Color green = Color(0xFF2D6A4F);
+  static const Color emerald = Color(0xFF10B981);
+  static const Color purple = Color(0xFF5A189A);
+  static const Color violet = Color(0xFF7C3AED);
+  static const Color wine = Color(0xFF641220);
+  static const Color crimson = Color(0xFFC9184A);
+  static const Color orange = Color(0xFFE85D04);
+  static const Color amber = Color(0xFFF59E0B);
+  static const Color teal = Color(0xFF006D77);
+  static const Color cyan = Color(0xFF06B6D4);
+  static const Color indigo = Color(0xFF3F51B5);
+  static const Color lime = Color(0xFF84CC16);
+  static const Color graphite = Color(0xFF374151);
+
+  static const List<NamedColor> curated = [
+    NamedColor('Azul Marinho', navy),
+    NamedColor('Azul Oceano', ocean),
+    NamedColor('Verde Floresta', green),
+    NamedColor('Verde Esmeralda', emerald),
+    NamedColor('Roxo Nobre', purple),
+    NamedColor('Violeta Elétrico', violet),
+    NamedColor('Vinho Tinto', wine),
+    NamedColor('Rubi Carmim', crimson),
+    NamedColor('Laranja Solar', orange),
+    NamedColor('Âmbar Dourado', amber),
+    NamedColor('Azul Petróleo', teal),
+    NamedColor('Ciano Turquesa', cyan),
+    NamedColor('Índigo Clássico', indigo),
+    NamedColor('Verde Lima', lime),
+    NamedColor('Cinza Grafite', graphite),
+  ];
+
+  static List<Color> get selection => curated.map((nc) => nc.color).toList();
+
+  static String getColorName(Color color) {
+    for (var nc in curated) {
+      if (nc.color.toARGB32() == color.toARGB32()) return nc.name;
+    }
+    final hex = color.toARGB32().toRadixString(16).padLeft(8, '0').substring(2).toUpperCase();
+    return 'Tom Personalizado (#$hex)';
+  }
+}
+
 class ThemeProvider with ChangeNotifier {
   ThemeData _currentTheme = AppThemes.getTheme(AppColors.navy, false);
   bool _isDarkMode = false;
@@ -61,36 +114,6 @@ class ThemeProvider with ChangeNotifier {
   }
 }
 
-class AppColors {
-  static const Color navy = Color(0xFF1A1C2C);
-  static const Color green = Color(0xFF2D6A4F);
-  static const Color purple = Color(0xFF5A189A);
-  static const Color wine = Color(0xFF641220);
-  static const Color orange = Color(0xFFE85D04);
-  static const Color teal = Color(0xFF006D77);
-  static const Color pink = Color(0xFFC9184A);
-  static const Color blue = Color(0xFF0077B6);
-  static const Color indigo = Color(0xFF3F51B5);
-  static const Color amber = Color(0xFFF59E0B);
-  static const Color deepOrange = Color(0xFFF97316);
-  static const Color lime = Color(0xFF84CC16);
-
-  static const List<Color> selection = [
-    navy,
-    green,
-    purple,
-    wine,
-    orange,
-    teal,
-    pink,
-    blue,
-    indigo,
-    amber,
-    deepOrange,
-    lime,
-  ];
-}
-
 class AppThemes {
   static const Color primaryNavy = Color(0xFF1A1C2C);
 
@@ -104,8 +127,10 @@ class AppThemes {
   static ThemeData _buildLightTheme(Color seedColor) {
     return ThemeData(
       useMaterial3: true,
+      brightness: Brightness.light,
       scaffoldBackgroundColor: const Color(0xFFF5F7FA), // Fundo neutro
       cardColor: Colors.white, // Cards brancos puros
+      primaryColor: seedColor,
       colorScheme: ColorScheme.light(
         primary: seedColor,
         secondary: seedColor,
@@ -118,6 +143,15 @@ class AppThemes {
         centerTitle: true,
         elevation: 0,
         surfaceTintColor: Colors.transparent, // Remove qualquer tom esmaecido do scroll
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      ),
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
@@ -147,8 +181,10 @@ class AppThemes {
 
     return ThemeData(
       useMaterial3: true,
+      brightness: Brightness.dark,
       scaffoldBackgroundColor: const Color(0xFF0D0E15), // Fundo escuro puro
       cardColor: const Color(0xFF1A1C2C), // Cor dos cards padrão
+      primaryColor: primaryColor,
       colorScheme: ColorScheme.dark(
         primary: primaryColor,
         secondary: primaryColor,
@@ -162,6 +198,15 @@ class AppThemes {
         centerTitle: true,
         elevation: 0,
         surfaceTintColor: Colors.transparent, // Remove esmaecimento
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: const Color(0xFF1A1C2C),
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      ),
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: Color(0xFF1A1C2C),
+        surfaceTintColor: Colors.transparent,
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: const Color(0xFF1A1C2C),

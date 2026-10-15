@@ -3,7 +3,7 @@ import 'dashboard_screen.dart';
 import 'month_selection_screen.dart';
 import 'statistics_screen.dart';
 import 'settings_screen.dart';
-import '../theme/app_themes.dart';
+import '../services/notification_service.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -53,7 +53,10 @@ class MainScreenState extends State<MainScreen> {
     return PopScope(
       canPop: _currentIndex == 0,
       onPopInvokedWithResult: (didPop, result) {
-        if (didPop) return;
+        if (didPop) {
+          NotificationService().cancelAll();
+          return;
+        }
         _onItemTapped(0);
       },
       child: Scaffold(
@@ -83,10 +86,8 @@ class MainScreenState extends State<MainScreen> {
             onTap: _onItemTapped,
             type: BottomNavigationBarType.fixed,
             backgroundColor: Theme.of(context).cardColor,
-            selectedItemColor: Theme.of(context).brightness == Brightness.dark 
-                ? const Color(0xFFAEB2FF) 
-                : AppThemes.primaryNavy,
-            unselectedItemColor: Colors.grey,
+            selectedItemColor: Theme.of(context).primaryColor,
+            unselectedItemColor: Theme.of(context).brightness == Brightness.dark ? Colors.grey : Colors.grey.shade600,
             showSelectedLabels: true,
             showUnselectedLabels: true,
             selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),

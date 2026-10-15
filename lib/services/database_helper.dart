@@ -309,29 +309,125 @@ class DatabaseHelper {
   // --- Operações de itens ---
   Future<List<Item>> getItems(String monthTitle) async {
     final db = await database;
-    debugPrint('🔍 DB.getItems: db="$_currentDatabaseName", query month_title="$monthTitle"');
-    final List<Map<String, dynamic>> maps = await db.query(
+    final cleanTitle = monthTitle.trim();
+    final normTitle = Utils.normalize(cleanTitle);
+
+    debugPrint('🔍 DB.getItems: db="$_currentDatabaseName", query month_title="$cleanTitle"');
+
+    // 1. Tenta correspondência exata
+    List<Map<String, dynamic>> maps = await db.query(
       'items',
       where: 'month_title = ?',
-      whereArgs: [monthTitle],
+      whereArgs: [cleanTitle],
       orderBy: 'index_in_sheet ASC',
     );
-    debugPrint('🔍 DB.getItems: retornou ${maps.length} registros');
+
+    // 2. Se vazio, tenta busca case-insensitive e sem espaços extras
     if (maps.isEmpty) {
-      // Debug: list all distinct month_titles in items table
+      maps = await db.query(
+        'items',
+        where: 'TRIM(LOWER(month_title)) = ?',
+        whereArgs: [cleanTitle.toLowerCase()],
+        orderBy: 'index_in_sheet ASC',
+      );
+    }
+
+    // 3. Se ainda vazio, busca por normalização (ignora acentos)
+    if (maps.isEmpty) {
+      final allRows = await db.query('items', orderBy: 'index_in_sheet ASC');
+      final matched = allRows.where((row) {
+        final mTitle = (row['month_title'] as String? ?? '').trim();
+        final norm = Utils.normalize(mTitle);
+        return norm == normTitle || norm.startsWith(normTitle) || normTitle.startsWith(norm);
+      }).toList();
+      if (matched.isNotEmpty) {
+        maps = matched;
+        debugPrint('🔍 DB.getItems: Encontrados ${maps.length} itens por normalização para "$cleanTitle"');
+      }
+    }
+
+    // 4. Se ainda vazio, busca em outros arquivos de banco locais (ex: carrin_database_guest.db)
+    if (maps.isEmpty) {
+      try {
+        final databasesPath = await getDatabasesPath();
+        final dir = Directory(databasesPath);
+        if (await dir.exists()) {
+          final dbFiles = dir.listSync().whereType<File>().where(
+            (f) => f.path.endsWith('.db') && !f.path.endsWith(_currentDatabaseName),
+          );
+          for (var otherFile in dbFiles) {
+            try {
+              final otherDb = await openDatabase(otherFile.path);
+              var otherMaps = await otherDb.query(
+                'items',
+                where: 'month_title = ?',
+                whereArgs: [cleanTitle],
+                orderBy: 'index_in_sheet ASC',
+              );
+              if (otherMaps.isEmpty) {
+                otherMaps = await otherDb.query(
+                  'items',
+                  where: 'TRIM(LOWER(month_title)) = ?',
+                  whereArgs: [cleanTitle.toLowerCase()],
+                  orderBy: 'index_in_sheet ASC',
+                );
+              }
+              if (otherMaps.isEmpty) {
+                final otherRows = await otherDb.query('items', orderBy: 'index_in_sheet ASC');
+                otherMaps = otherRows.where((row) {
+                  final mTitle = (row['month_title'] as String? ?? '').trim();
+                  final norm = Utils.normalize(mTitle);
+                  return norm == normTitle || norm.startsWith(normTitle) || normTitle.startsWith(norm);
+                }).toList();
+              }
+
+              if (otherMaps.isNotEmpty) {
+                debugPrint('🔍 DB.getItems: Recuperados ${otherMaps.length} itens do banco alternativo "${basename(otherFile.path)}" para "$cleanTitle"');
+                maps = otherMaps;
+
+                // Restaura permanentemente no banco ativo
+                final recoveredItems = otherMaps.map((map) {
+                  return Item(
+                    index: map['index_in_sheet'] as int?,
+                    name: (map['name'] as String?) ?? '',
+                    quantity: (map['quantity'] as num?)?.toDouble() ?? 0.0,
+                    unitPrice: (map['unit_price'] as num?)?.toDouble() ?? 0.0,
+                    isKg: map['is_kg'] == 1,
+                    category: (map['category'] as String?) ?? 'Outros',
+                    isBought: map['is_bought'] == 1,
+                    barcode: map['barcode'] as String?,
+                  );
+                }).toList();
+                await saveItems(cleanTitle, recoveredItems);
+                await otherDb.close();
+                break;
+              }
+              await otherDb.close();
+            } catch (err) {
+              debugPrint('Aviso ao consultar banco alternativo ${otherFile.path}: $err');
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('Erro ao varrer bancos alternativos: $e');
+      }
+    }
+
+    debugPrint('🔍 DB.getItems: retornou ${maps.length} registros para "$cleanTitle"');
+    if (maps.isEmpty) {
       final allMonths = await db.rawQuery('SELECT DISTINCT month_title FROM items');
       debugPrint('🔍 DB.getItems: month_titles existentes na tabela items: ${allMonths.map((m) => m['month_title']).toList()}');
     }
     return maps.map((map) {
       return Item(
-        index: map['index_in_sheet'],
-        name: map['name'],
-        quantity: (map['quantity'] as num).toDouble(),
-        unitPrice: (map['unit_price'] as num).toDouble(),
+        index: map['index_in_sheet'] as int?,
+        name: (map['name'] as String?) ?? '',
+        quantity: (map['quantity'] as num?)?.toDouble() ?? 0.0,
+        unitPrice: (map['unit_price'] as num?)?.toDouble() ?? 0.0,
         isKg: map['is_kg'] == 1,
-        category: map['category'],
+        category: (map['category'] as String?) ?? 'Outros',
         isBought: map['is_bought'] == 1,
-        barcode: map['barcode'],
+        barcode: map['barcode'] as String?,
       );
     }).toList();
   }

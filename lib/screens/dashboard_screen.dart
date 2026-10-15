@@ -366,8 +366,7 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
 
   Widget _buildGauge(double total, double percent, ItemProvider provider) {
     final bool useAnimations = provider.animationSettings['gauge_animations'] ?? true;
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final statusColor = percent > 1.0 ? Colors.redAccent : (percent > 0.8 ? Colors.orangeAccent : (isDarkMode ? const Color(0xFFAEB2FF) : Colors.blueAccent));
+    final statusColor = percent > 1.0 ? Colors.redAccent : (percent > 0.8 ? Colors.orangeAccent : Theme.of(context).primaryColor);
 
     return InkWell(
       onTap: () async {

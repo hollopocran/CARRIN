@@ -1,11 +1,11 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import '../services/utils.dart';
 
 /// Service responsible for managing local notifications.
 /// 
 /// Handles initialization of notification channels, requesting permissions,
-/// and showing progress updates (lock screen) and budget alerts.
+/// showing real-time shopping progress with progress bar, and budget limit alerts.
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
   factory NotificationService() => _instance;
@@ -14,12 +14,12 @@ class NotificationService {
   final FlutterLocalNotificationsPlugin _notificationsPlugin = FlutterLocalNotificationsPlugin();
 
   /// Channel ID for ongoing shopping progress notifications.
-  static const String channelId = 'shopping_list_progress_v2';
+  static const String channelId = 'shopping_list_progress_v3';
   static const String channelName = 'Monitor de Compras';
-  static const String channelDescription = 'Mostra o total gasto e progresso da sua lista atual';
+  static const String channelDescription = 'Mostra o total gasto e progresso com barra de status';
 
   /// Channel ID for high-importance budget alerts.
-  static const String budgetChannelId = 'budget_alerts';
+  static const String budgetChannelId = 'budget_alerts_v2';
   static const String budgetChannelName = 'Alertas de Orçamento';
 
   /// Initializes notification plugins and creates necessary Android channels.
@@ -35,23 +35,23 @@ class NotificationService {
       initializationSettings,
     );
 
-    // Progress Channel (Ongoing)
+    // Progress Channel (Ongoing com barra de progresso)
     const AndroidNotificationChannel progressChannel = AndroidNotificationChannel(
       channelId,
       channelName,
       description: channelDescription,
-      importance: Importance.min, // Discrete, no status bar icon on some Android versions
+      importance: Importance.low, // Discreto, sem som a cada item, exibe na tela de bloqueio e barra
       enableVibration: false,
       playSound: false,
       showBadge: false,
     );
 
-    // Alert Channel (High Importance)
+    // Alert Channel (High Importance para estouro de orçamento)
     const AndroidNotificationChannel budgetChannel = AndroidNotificationChannel(
       budgetChannelId,
       budgetChannelName,
-      description: 'Notifica quando o orçamento está próximo do limite',
-      importance: Importance.max,
+      description: 'Notifica quando o orçamento limite for ultrapassado',
+      importance: Importance.high,
       enableVibration: true,
       playSound: true,
     );
@@ -66,7 +66,8 @@ class NotificationService {
     const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
       budgetChannelId,
       budgetChannelName,
-      importance: Importance.max,
+      channelDescription: 'Notifica quando o orçamento limite for ultrapassado',
+      importance: Importance.high,
       priority: Priority.high,
       color: Color(0xFFFF5252),
       ledColor: Color(0xFFFF5252),
@@ -92,35 +93,60 @@ class NotificationService {
 
   /// Shows or updates an ongoing notification with current shopping progress.
   /// 
-  /// [listName] is the title of the active month.
-  /// [bought] and [total] are used for item counts.
-  /// [totalPrice] displays the current expenditure.
-  Future<void> showOrUpdateProgress(String listName, int bought, int total, double totalPrice) async {
+  /// Displays a native Android progress bar, item counters, expenditure, and budget metrics.
+  Future<void> showOrUpdateProgress(
+    String listName, 
+    int bought, 
+    int total, 
+    double totalPrice, {
+    double budget = 0.0,
+  }) async {
     if (total == 0) {
       await cancelProgress();
       return;
     }
 
-    final String priceFormatted = 'R\$ ${totalPrice.toStringAsFixed(2).replaceAll('.', ',')}';
-    final String title = '$listName - Total: $priceFormatted';
-    final String content = '$bought Itens comprados';
+    final String priceFormatted = Utils.formatCurrency(totalPrice);
+    final String title = '$listName • $priceFormatted';
+    final int percent = total > 0 ? ((bought / total) * 100).toInt() : 0;
+    final String content = '$bought de $total itens comprados ($percent%)';
 
-    const AndroidNotificationDetails androidPlatformChannelSpecifics = AndroidNotificationDetails(
+    String? subText;
+    String bigText = 'Total no carrinho: $priceFormatted\nItens: $bought de $total comprados ($percent%)';
+    if (budget > 0) {
+      final double balance = budget - totalPrice;
+      if (balance >= 0) {
+        subText = 'Resta: ${Utils.formatCurrency(balance)}';
+      } else {
+        subText = 'Estourou: ${Utils.formatCurrency(-balance)}';
+      }
+      bigText += '\nOrçamento: ${Utils.formatCurrency(budget)} | Saldo: ${Utils.formatCurrency(balance)}';
+    }
+
+    final AndroidNotificationDetails androidPlatformChannelSpecifics = AndroidNotificationDetails(
       channelId,
       channelName,
       channelDescription: channelDescription,
-      importance: Importance.min,
-      priority: Priority.min,
+      importance: Importance.low,
+      priority: Priority.low,
       ticker: 'Carrin atualizado',
-      ongoing: true, // Remains visible until the app is closed or items are empty
+      ongoing: true, // Fixo enquanto no app
       autoCancel: false,
       onlyAlertOnce: true, 
-      showProgress: false, 
+      showProgress: true,
+      maxProgress: total,
+      progress: bought,
+      subText: subText,
+      styleInformation: BigTextStyleInformation(
+        bigText,
+        contentTitle: title,
+        summaryText: subText ?? '$bought/$total itens',
+      ),
       visibility: NotificationVisibility.public, 
       icon: '@mipmap/launcher_icon',
     );
 
-    const NotificationDetails platformChannelSpecifics = NotificationDetails(
+    final NotificationDetails platformChannelSpecifics = NotificationDetails(
       android: androidPlatformChannelSpecifics,
     );
 

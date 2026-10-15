@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:vibration/vibration.dart';
@@ -17,6 +19,8 @@ import '../widgets/floating_calculator_popup.dart';
 import '../widgets/shopping_filter_bottom_sheet.dart';
 import '../widgets/weight_calculator_dialog.dart';
 import '../widgets/pdf_export_dialog.dart';
+import '../widgets/assistive_calculator_button.dart';
+import '../widgets/market_lock_overlay.dart';
 
 import 'barcode_scanner_screen.dart';
 
@@ -46,6 +50,8 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
   final Set<int> _selectedItemIndexes = {};
 
   bool _marketMode = false;
+  bool _isMarketLocked = false;
+  Timer? _marketInactivityTimer;
   Key _limiterKey = UniqueKey();
   int? _expandedIndex;
   final _inlinePriceController = TextEditingController();
@@ -63,11 +69,42 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
 
   @override
   void dispose() {
+    _marketInactivityTimer?.cancel();
     if (_marketMode) {
       WakelockPlus.disable();
     }
     _inlinePriceController.dispose();
     super.dispose();
+  }
+
+  void _onUserInteraction() {
+    if (!_marketMode || _isMarketLocked) return;
+    _resetMarketInactivityTimer();
+  }
+
+  void _resetMarketInactivityTimer() {
+    _marketInactivityTimer?.cancel();
+    if (_marketMode && !_isMarketLocked) {
+      _marketInactivityTimer = Timer(const Duration(seconds: 15), () {
+        if (mounted && _marketMode && !_isMarketLocked && (ModalRoute.of(context)?.isCurrent ?? true)) {
+          setState(() {
+            _isMarketLocked = true;
+          });
+          try {
+            Vibration.vibrate(duration: 40);
+          } catch (_) {
+            HapticFeedback.mediumImpact();
+          }
+        }
+      });
+    }
+  }
+
+  void _unlockMarketMode() {
+    setState(() {
+      _isMarketLocked = false;
+    });
+    _resetMarketInactivityTimer();
   }
 
   void _triggerListAnimation() {
@@ -341,7 +378,13 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
       flatList.addAll(filteredItems);
     }
 
-    return Scaffold(
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (_) => _onUserInteraction(),
+      onPointerMove: (_) => _onUserInteraction(),
+      child: Stack(
+        children: [
+          Scaffold(
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -401,26 +444,30 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                                   _marketMode ? Icons.store_rounded : Icons.store_outlined,
                                   color: _marketMode ? Colors.amber : null,
                                 ),
-                                tooltip: _marketMode ? 'Modo Mercado Ativo (Tela Sempre Ligada)' : 'Ativar Modo Mercado',
+                                tooltip: _marketMode ? 'Modo Mercado Ativo (Tela Ligada & Bloqueio Ocioso)' : 'Ativar Modo Mercado',
                                 onPressed: () {
                                   setState(() {
                                     _marketMode = !_marketMode;
                                     if (_marketMode) {
                                       WakelockPlus.enable();
                                       Vibration.vibrate(duration: 40);
+                                      _isMarketLocked = false;
+                                      _resetMarketInactivityTimer();
                                       ScaffoldMessenger.of(context).showSnackBar(
                                         const SnackBar(
                                           content: Row(
                                             children: [
-                                              Icon(Icons.lightbulb_outline, color: Colors.amber),
+                                              Icon(Icons.storefront_rounded, color: Colors.amber),
                                               SizedBox(width: 8),
-                                              Expanded(child: Text('Modo Mercado ativo! A tela permanecerá ligada durante as compras.')),
+                                              Expanded(child: Text('Modo Mercado ativo! A tela ficará ligada e bloqueará toques após 15s ocioso.')),
                                             ],
                                           ),
-                                          duration: Duration(seconds: 3),
+                                          duration: Duration(seconds: 4),
                                         ),
                                       );
                                     } else {
+                                      _isMarketLocked = false;
+                                      _marketInactivityTimer?.cancel();
                                       WakelockPlus.disable();
                                       ScaffoldMessenger.of(context).showSnackBar(
                                         const SnackBar(
@@ -544,6 +591,8 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                                         onPressed: () {
                                           setState(() {
                                             _marketMode = false;
+                                            _isMarketLocked = false;
+                                            _marketInactivityTimer?.cancel();
                                             WakelockPlus.disable();
                                           });
                                         },
@@ -642,6 +691,8 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                       ),
                     ),
                   ),
+                if (!_isSelectionMode)
+                  const AssistiveCalculatorButton(),
               ],
             ),
           ),
@@ -792,7 +843,18 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
           ],
         ),
       ),
-    );
+    ),
+    if (_isMarketLocked)
+      MarketLockOverlay(
+        onUnlock: _unlockMarketMode,
+        totalCost: itemProvider.totalCost,
+        boughtItemsCount: itemProvider.items.where((it) => it.isBought).length,
+        totalItemsCount: itemProvider.items.length,
+        budget: itemProvider.budget,
+      ),
+  ],
+),
+);
   }
 
   Widget _buildFooterButton(BuildContext context, {
