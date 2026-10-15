@@ -88,6 +88,10 @@ class ItemProvider with ChangeNotifier {
   String? _lastSyncError;
   String? get lastSyncError => _lastSyncError;
 
+  String? _customSpreadsheetId;
+  String? get customSpreadsheetId => _customSpreadsheetId;
+  bool get hasCustomSpreadsheet => _customSpreadsheetId != null && _customSpreadsheetId!.isNotEmpty;
+
   String _activeUserDisplayName = 'Convidado';
   String _activeUserPhotoUrl = 'supermarket_cart';
 
@@ -181,6 +185,7 @@ class ItemProvider with ChangeNotifier {
     // Configura o banco de dados correspondente antes de qualquer operação
     DatabaseHelper.changeUser(_activeUserEmail);
     _service.setActiveUserEmail(_activeUserEmail);
+    _customSpreadsheetId = await _service.getCustomSpreadsheetId();
     await _updateActiveUserMetadata();
 
     await _checkAndMigrateToSqlite();
@@ -459,6 +464,53 @@ class ItemProvider with ChangeNotifier {
     await _reloadUserData();
   }
 
+  /// Sets a custom Google Spreadsheet by URL or ID and reloads all data.
+  Future<void> setCustomSpreadsheet(String? input) async {
+    await initialization;
+    await _service.setCustomSpreadsheetId(input);
+    _customSpreadsheetId = await _service.getCustomSpreadsheetId();
+    _service.reset();
+    _service.setActiveUserEmail(_activeUserEmail);
+
+    _itemsCache.clear();
+    _cachedSummary.clear();
+    _priceHistoryCache.clear();
+    _barcodeToHistoryCache.clear();
+    _nameToBarcodeCache.clear();
+    _badgeInfoCache.clear();
+    _items = [];
+    _months = [];
+    _dashboardData = {
+      'budget': 0.0,
+      'total': 0.0,
+      'balance': 0.0,
+      'totalItems': 0.0,
+      'boughtItems': 0.0,
+    };
+    try {
+      await _dbHelper.clearAll();
+    } catch (e) {
+      debugPrint('Erro ao limpar SQLite ao trocar de planilha: $e');
+    }
+    _safeNotify();
+
+    if (isSyncEnabled) {
+      await _service.init();
+      await _loadMonths();
+      await _loadFullPriceHistory();
+      if (_months.isNotEmpty) {
+        final target = findVigentMonth(_months) ?? _months.last;
+        await _switchMonth(target);
+      }
+    } else {
+      await _loadMonths();
+    }
+  }
+
+  /// Resets back to the default CARRIN spreadsheet in Google Drive.
+  Future<void> resetToDefaultSpreadsheet() async {
+    await setCustomSpreadsheet(null);
+  }
 
   Future<void> _reloadUserData() async {
     if (_isReloadingUserData) return;
@@ -468,6 +520,7 @@ class ItemProvider with ChangeNotifier {
       _lastSyncError = null;
       _service.reset();
       _service.setActiveUserEmail(_activeUserEmail);
+      _customSpreadsheetId = await _service.getCustomSpreadsheetId();
 
       // Limpa os caches temporários em memória da conta anterior
       _itemsCache.clear();

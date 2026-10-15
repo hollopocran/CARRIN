@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:googleapis/sheets/v4.dart' as sheets;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/item.dart';
 import 'auth_service.dart';
 import 'utils.dart';
@@ -74,8 +75,46 @@ class UserSheetsService {
     await _ensureSpreadsheetExists();
   }
 
+  /// Extracts a Google Spreadsheet ID from either a full URL or a raw ID string.
+  static String extractSpreadsheetId(String input) {
+    final clean = input.trim();
+    final regExp = RegExp(r'/spreadsheets/d/([a-zA-Z0-9-_]+)');
+    final match = regExp.firstMatch(clean);
+    if (match != null && match.groupCount >= 1) {
+      return match.group(1)!;
+    }
+    return clean;
+  }
+
+  /// Sets a custom Google Spreadsheet ID or URL, or clears it to use the default Drive sheet.
+  Future<void> setCustomSpreadsheetId(String? rawInput) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (rawInput == null || rawInput.trim().isEmpty) {
+      await prefs.remove('custom_spreadsheet_id');
+      _spreadsheetId = null;
+    } else {
+      final parsedId = extractSpreadsheetId(rawInput);
+      await prefs.setString('custom_spreadsheet_id', parsedId);
+      _spreadsheetId = parsedId;
+    }
+  }
+
+  /// Returns the current custom spreadsheet ID from SharedPreferences if configured.
+  Future<String?> getCustomSpreadsheetId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('custom_spreadsheet_id');
+  }
+
   Future<void> _ensureSpreadsheetExists() async {
     if (_spreadsheetId != null) return;
+
+    // 1. Prioriza planilha personalizada configurada pelo usuário
+    final customId = await getCustomSpreadsheetId();
+    if (customId != null && customId.trim().isNotEmpty) {
+      _spreadsheetId = customId.trim();
+      return;
+    }
+
     final driveApi = _driveApi;
     final sheetsApi = _sheetsApi;
     if (driveApi == null || sheetsApi == null) throw Exception('Usuário não autenticado');
@@ -158,10 +197,14 @@ class UserSheetsService {
     try {
       final ss = await api.spreadsheets.get(_spreadsheetId!);
       final list = ss.sheets?.map((s) => s.properties?.title ?? '').where((t) => t.isNotEmpty).toList() ?? [];
-      return list.where((t) {
+      var filtered = list.where((t) {
         final lower = t.toLowerCase();
         return lower != 'página1' && lower != 'página 1' && lower != 'sheet1' && lower != 'sheet 1' && lower != 'pagina1' && lower != 'pagina 1';
       }).toList();
+      if (filtered.isEmpty && list.isNotEmpty) {
+        filtered = list;
+      }
+      return filtered;
     } catch (e) {
       debugPrint('Erro ao obter meses disponíveis: $e');
       rethrow;
@@ -335,19 +378,19 @@ class UserSheetsService {
       if (useTemplate) {
         try {
           final src = sourceMonth ?? _currentSheetTitle;
-          final srcData = await api.spreadsheets.values.get(_spreadsheetId!, "'$src'!B7:H");
-          if (srcData.values != null) {
+          final sourceItems = await getItems(title: src);
+          if (sourceItems.isNotEmpty) {
             List<List<dynamic>> templateItems = [];
-            for (var row in srcData.values!) {
-              if (row.length >= 2 && row[1].toString().trim().isNotEmpty) {
+            for (var item in sourceItems) {
+              if (item.name.trim().isNotEmpty) {
                 templateItems.add([
-                  '0', 
-                  row[1], 
-                  '0', 
-                  '0', 
-                  row.length > 4 ? row[4] : 'Outros', 
+                  '0',
+                  item.name,
+                  '0',
+                  '0',
+                  item.category.isNotEmpty ? item.category : 'Outros',
                   'false',
-                  row.length > 6 ? row[6] : '',
+                  item.barcode,
                 ]);
               }
             }
@@ -360,7 +403,7 @@ class UserSheetsService {
             }
           }
         } catch (templateError) {
-          debugPrint('Aviso: Falha ao copiar template do mês anterior "$sourceMonth" (aba origem pode não existir): $templateError');
+          debugPrint('Aviso: Falha ao copiar template do mês anterior "$sourceMonth": $templateError');
           // Não relançar erro para permitir que o mês seja criado com sucesso mesmo sem template
         }
       }
@@ -406,10 +449,30 @@ class UserSheetsService {
       }
 
       List<Item> items = [];
-      if (allValues.length >= 6) {
-        for (var i = 5; i < allValues.length; i++) {
-          if (allValues[i].any((cell) => cell.toString().trim().isNotEmpty)) {
-            items.add(Item.fromList(allValues[i], i + 2)); // row index starting from 1 (row 7 is allValues[5])
+      int startIdx = 5;
+      final bool hasStandardHeader = allValues.length >= 6 &&
+          allValues[4].any((cell) {
+            final s = cell.toString().toLowerCase();
+            return s.contains('produto') || s.contains('qtd') || s.contains('preço');
+          });
+
+      if (!hasStandardHeader) {
+        startIdx = 0;
+        for (var i = 0; i < allValues.length; i++) {
+          final rowStr = allValues[i].join(' ').toLowerCase();
+          if (rowStr.contains('lista de compras') || rowStr.contains('total gasto') || rowStr.contains('produto')) {
+            startIdx = i + 1;
+          } else {
+            break;
+          }
+        }
+      }
+
+      for (var i = startIdx; i < allValues.length; i++) {
+        if (allValues[i].any((cell) => cell.toString().trim().isNotEmpty)) {
+          final item = Item.fromList(allValues[i], i + 2);
+          if (item.name.trim().isNotEmpty) {
+            items.add(item);
           }
         }
       }
@@ -434,7 +497,7 @@ class UserSheetsService {
           if (allValues.length >= 6) {
             for (var i = 5; i < allValues.length; i++) {
               if (allValues[i].any((cell) => cell.toString().trim().isNotEmpty)) {
-                items.add(Item.fromList(allValues[i], i + 2)); // row index starting from 1 (row 7 is allValues[5])
+                items.add(Item.fromList(allValues[i], i + 2));
               }
             }
           }

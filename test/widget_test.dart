@@ -12,6 +12,7 @@ import 'package:lista_compras/theme/app_themes.dart';
 import 'package:lista_compras/services/receipt_parser.dart';
 import 'package:lista_compras/services/auth_service.dart';
 import 'package:lista_compras/services/quick_summary_service.dart';
+import 'package:lista_compras/services/user_sheets_service.dart';
 import 'package:lista_compras/widgets/weight_calculator_dialog.dart';
 import 'package:lista_compras/widgets/shopping_filter_bottom_sheet.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -382,6 +383,36 @@ void main() {
       final Container container = tester.widget(saldoCardFinder);
       final BoxDecoration decoration = container.decoration as BoxDecoration;
       expect(decoration.borderRadius, equals(BorderRadius.circular(24)));
+    });
+  });
+
+  group('Google Spreadsheet URL & Config Tests', () {
+    test('extracts spreadsheet ID from full URL with gid', () {
+      const url = 'https://docs.google.com/spreadsheets/d/1v1uSzdcZyo-U6IvZ4dYNYaDLIv9BdJNMPEa2W_EM6CM/edit?gid=2077412317#gid=2077412317';
+      expect(UserSheetsService.extractSpreadsheetId(url), equals('1v1uSzdcZyo-U6IvZ4dYNYaDLIv9BdJNMPEa2W_EM6CM'));
+    });
+
+    test('extracts spreadsheet ID from simple /edit URL', () {
+      const url = 'https://docs.google.com/spreadsheets/d/1v1uSzdcZyo-U6IvZ4dYNYaDLIv9BdJNMPEa2W_EM6CM/edit';
+      expect(UserSheetsService.extractSpreadsheetId(url), equals('1v1uSzdcZyo-U6IvZ4dYNYaDLIv9BdJNMPEa2W_EM6CM'));
+    });
+
+    test('extracts spreadsheet ID from raw ID and trims whitespace', () {
+      const rawId = '  1v1uSzdcZyo-U6IvZ4dYNYaDLIv9BdJNMPEa2W_EM6CM  ';
+      expect(UserSheetsService.extractSpreadsheetId(rawId), equals('1v1uSzdcZyo-U6IvZ4dYNYaDLIv9BdJNMPEa2W_EM6CM'));
+    });
+
+    test('sets and gets custom spreadsheet ID in UserSheetsService and SharedPreferences', () async {
+      SharedPreferences.setMockInitialValues({});
+      final service = UserSheetsService();
+
+      expect(await service.getCustomSpreadsheetId(), isNull);
+
+      await service.setCustomSpreadsheetId('https://docs.google.com/spreadsheets/d/1v1uSzdcZyo-U6IvZ4dYNYaDLIv9BdJNMPEa2W_EM6CM/edit');
+      expect(await service.getCustomSpreadsheetId(), equals('1v1uSzdcZyo-U6IvZ4dYNYaDLIv9BdJNMPEa2W_EM6CM'));
+
+      await service.setCustomSpreadsheetId(null);
+      expect(await service.getCustomSpreadsheetId(), isNull);
     });
   });
 }
