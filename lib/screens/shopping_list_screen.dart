@@ -66,7 +66,6 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
       if (provider.items.isEmpty) {
         provider.loadItems();
       }
-      provider.detectNearbySupermarket(notify: false, autoFilter: true);
     });
   }
 
@@ -317,10 +316,6 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
     
     if (_selectedCategories.isNotEmpty) {
       filteredItems = filteredItems.where((it) => _selectedCategories.contains(it.category)).toList();
-    }
-
-    if (itemProvider.selectedSupermarketFilter != null) {
-      filteredItems = filteredItems.where((it) => it.supermarket == itemProvider.selectedSupermarketFilter).toList();
     }
 
     filteredItems.sort((a, b) {
@@ -628,121 +623,9 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                                       ),
                                     ],
                                   ),
-                                ),
+                                 ),
                               ),
                             ),
-
-                          // Supermarket Chips and Purpose Bar
-                          SliverToBoxAdapter(
-                            child: SupermarketChipBar(
-                              provider: itemProvider,
-                              onOpenPurpose: () => showDialog(
-                                context: context,
-                                builder: (_) => PurposeAndCapsDialog(provider: itemProvider),
-                              ),
-                              onOpenRateio: () => showDialog(
-                                context: context,
-                                builder: (_) => RateioDialog(
-                                  totalSpent: itemProvider.totalFromSheet,
-                                  listTitle: itemProvider.currentMonth,
-                                ),
-                              ),
-                            ),
-                          ),
-
-                          // Detected Supermarket GPS Banner
-                          if (itemProvider.detectedSupermarket != null)
-                            SliverToBoxAdapter(
-                              child: Padding(
-                                padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                                  decoration: BoxDecoration(
-                                    color: Colors.blue.withValues(alpha: 0.12),
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(color: Colors.blue.withValues(alpha: 0.35)),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      const Icon(Icons.location_on_rounded, color: Colors.blue, size: 22),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              'Você está no ${itemProvider.detectedSupermarket!['name']} (${itemProvider.detectedSupermarket!['formatted_distance'] ?? ''})',
-                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                                            ),
-                                            Text(
-                                              itemProvider.selectedSupermarketFilter == itemProvider.detectedSupermarket!['name']
-                                                  ? 'Lista filtrada para este mercado'
-                                                  : 'Toque para filtrar produtos deste mercado',
-                                              style: const TextStyle(fontSize: 11, color: Colors.grey),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      TextButton(
-                                        onPressed: () {
-                                          final name = itemProvider.detectedSupermarket!['name'] as String;
-                                          if (itemProvider.selectedSupermarketFilter == name) {
-                                            itemProvider.clearSupermarketFilter();
-                                          } else {
-                                            itemProvider.setSupermarketFilter(name);
-                                          }
-                                        },
-                                        child: Text(
-                                          itemProvider.selectedSupermarketFilter == itemProvider.detectedSupermarket!['name']
-                                              ? 'Ver Todos'
-                                              : 'Filtrar',
-                                          style: const TextStyle(fontWeight: FontWeight.bold),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-
-                          // Category Caps Exceeded Warning Banner
-                          Builder(
-                            builder: (context) {
-                              final exceededCaps = itemProvider.getExceededCategoryCaps();
-                              if (exceededCaps.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
-
-                              return SliverToBoxAdapter(
-                                child: Padding(
-                                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-                                  child: Container(
-                                    padding: const EdgeInsets.all(12),
-                                    decoration: BoxDecoration(
-                                      color: Colors.redAccent.withValues(alpha: 0.12),
-                                      borderRadius: BorderRadius.circular(16),
-                                      border: Border.all(color: Colors.redAccent.withValues(alpha: 0.35)),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        const Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 22),
-                                        const SizedBox(width: 10),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: exceededCaps.map((exc) {
-                                              return Text(
-                                                'Meta de ${exc['category']} excedida: Gasto ${Utils.formatCurrency(exc['spent'])} (Teto: ${Utils.formatCurrency(exc['cap'])})',
-                                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.redAccent),
-                                              );
-                                            }).toList(),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
 
                           if (_marketMode)
                             SliverToBoxAdapter(

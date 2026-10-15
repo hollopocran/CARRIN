@@ -27,7 +27,6 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       // Detecção silenciosa e invisível em segundo plano logo na inicialização
       Provider.of<ItemProvider>(context, listen: false).detectNearbySupermarket(
         notify: false,
-        autoFilter: true,
       );
     });
   }
@@ -38,7 +37,6 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       // Reavalia o GPS silenciosamente sempre que o usuário reabrir o app
       Provider.of<ItemProvider>(context, listen: false).detectNearbySupermarket(
         notify: false,
-        autoFilter: true,
       );
     }
   }

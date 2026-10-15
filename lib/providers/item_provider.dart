@@ -220,7 +220,7 @@ class ItemProvider with ChangeNotifier {
     await loadEssentialItems();
     await _loadFullPriceHistory();
     await loadSupermarkets();
-    detectNearbySupermarket(notify: false, autoFilter: true);
+    detectNearbySupermarket(notify: false);
 
     // Se a sincronização estiver ativada, processa a fila de sync
     if (isSyncEnabled && _syncQueue.isNotEmpty) {
@@ -2609,7 +2609,7 @@ class ItemProvider with ChangeNotifier {
     await loadSupermarkets();
   }
 
-  Future<void> detectNearbySupermarket({bool notify = false, bool autoFilter = true}) async {
+  Future<void> detectNearbySupermarket({bool notify = false}) async {
     if (_isDetectingLocation) return;
     _isDetectingLocation = true;
     if (notify) _safeNotify();
@@ -2622,12 +2622,6 @@ class ItemProvider with ChangeNotifier {
       if (position != null) {
         final found = await LocationService.instance.identifyNearbySupermarket(position, _supermarkets);
         _detectedSupermarket = found;
-        if (found != null && autoFilter) {
-          final marketName = found['name'] as String?;
-          if (marketName != null && marketName.isNotEmpty) {
-            _selectedSupermarketFilter = marketName;
-          }
-        }
       } else {
         _detectedSupermarket = null;
       }
