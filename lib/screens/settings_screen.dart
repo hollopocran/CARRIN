@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_themes.dart';
 import '../providers/item_provider.dart';
@@ -62,15 +61,6 @@ class SettingsScreen extends StatelessWidget {
           const SizedBox(height: 24),
           const Text('DADOS E SINCRONIZAÇÃO', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.1)),
           const SizedBox(height: 12),
-          _buildSettingItem(
-            context,
-            title: 'Planilha do Google Sheets',
-            subtitle: itemProvider.hasCustomSpreadsheet
-                ? 'Personalizada (Vinculada)'
-                : 'Padrão (CARRIN_Lista_Compras)',
-            icon: Icons.table_chart_outlined,
-            onTap: () => _showSpreadsheetConfigDialog(context, itemProvider),
-          ),
           _buildSettingItem(
             context,
             title: 'Exportar Backup',
@@ -195,7 +185,7 @@ class SettingsScreen extends StatelessWidget {
           const ListTile(
             leading: Icon(Icons.info_outline),
             title: Text('Versão', style: TextStyle(fontWeight: FontWeight.w500)),
-            trailing: Text('1.3.514', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+            trailing: Text('1.3.515', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -251,232 +241,6 @@ class SettingsScreen extends StatelessWidget {
   }
 
 
-
-
-  void _showSpreadsheetConfigDialog(BuildContext context, ItemProvider provider) {
-    final TextEditingController controller = TextEditingController(
-      text: provider.customSpreadsheetId ?? '',
-    );
-    bool isLoading = false;
-    String? errorMessage;
-
-    _showAnimatedDialog(
-      context,
-      StatefulBuilder(
-        builder: (context, setState) {
-          final isLinked = provider.hasCustomSpreadsheet;
-
-          return AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-            title: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.green.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(Icons.table_chart_rounded, color: Colors.green, size: 24),
-                ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Text(
-                    'Planilha Google',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                  ),
-                ),
-              ],
-            ),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Vincule suas listas a uma planilha do Google existente. Cole o link completo ou o ID da planilha.',
-                    style: TextStyle(fontSize: 13, color: Colors.grey[600], height: 1.4),
-                  ),
-                  const SizedBox(height: 12),
-                  if (isLinked)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      margin: const EdgeInsets.only(bottom: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.green.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.check_circle_outline, color: Colors.green, size: 18),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Vinculada a planilha externa',
-                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.green[800]),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  TextField(
-                    controller: controller,
-                    enabled: !isLoading,
-                    decoration: InputDecoration(
-                      labelText: 'Link ou ID da Planilha',
-                      hintText: 'https://docs.google.com/spreadsheets/d/...',
-                      hintStyle: const TextStyle(fontSize: 12),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
-                      prefixIcon: const Icon(Icons.link),
-                      suffixIcon: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (controller.text.isNotEmpty)
-                            IconButton(
-                              icon: const Icon(Icons.clear, size: 20),
-                              tooltip: 'Limpar',
-                              onPressed: isLoading
-                                  ? null
-                                  : () {
-                                      setState(() {
-                                        controller.clear();
-                                      });
-                                    },
-                            ),
-                          IconButton(
-                            icon: const Icon(Icons.content_paste, size: 20),
-                            tooltip: 'Colar',
-                            onPressed: isLoading
-                                ? null
-                                : () async {
-                                    final data = await Clipboard.getData(Clipboard.kTextPlain);
-                                    if (data != null && data.text != null && data.text!.trim().isNotEmpty) {
-                                      setState(() {
-                                        controller.text = data.text!.trim();
-                                      });
-                                    }
-                                  },
-                          ),
-                        ],
-                      ),
-                    ),
-                    maxLines: 2,
-                    minLines: 1,
-                  ),
-                  if (errorMessage != null) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      errorMessage!,
-                      style: const TextStyle(color: Colors.redAccent, fontSize: 12),
-                    ),
-                  ],
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).brightness == Brightness.dark
-                          ? Colors.grey[800]?.withValues(alpha: 0.5)
-                          : Colors.grey[100],
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(Icons.info_outline, size: 16, color: Colors.grey[600]),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Configuração única. Após vincular, o aplicativo carregará todas as abas e salvará suas compras nela automaticamente.',
-                            style: TextStyle(fontSize: 11, color: Colors.grey[600], height: 1.3),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              if (isLinked)
-                TextButton(
-                  onPressed: isLoading
-                      ? null
-                      : () async {
-                          setState(() {
-                            isLoading = true;
-                            errorMessage = null;
-                          });
-                          try {
-                            await provider.resetToDefaultSpreadsheet();
-                            if (context.mounted) {
-                              Navigator.pop(context);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Planilha padrão restaurada com sucesso!'),
-                                  backgroundColor: Colors.green,
-                                ),
-                              );
-                            }
-                          } catch (e) {
-                            setState(() {
-                              isLoading = false;
-                              errorMessage = 'Erro ao restaurar padrão: $e';
-                            });
-                          }
-                        },
-                  child: const Text('Restaurar Padrão', style: TextStyle(color: Colors.orangeAccent)),
-                ),
-              TextButton(
-                onPressed: isLoading ? null : () => Navigator.pop(context),
-                child: const Text('Cancelar', style: TextStyle(color: Colors.grey)),
-              ),
-              ElevatedButton(
-                onPressed: isLoading
-                    ? null
-                    : () async {
-                        final text = controller.text.trim();
-                        if (text.isEmpty) {
-                          setState(() {
-                            errorMessage = 'Insira o link ou ID da planilha.';
-                          });
-                          return;
-                        }
-                        setState(() {
-                          isLoading = true;
-                          errorMessage = null;
-                        });
-                        try {
-                          await provider.setCustomSpreadsheet(text);
-                          if (context.mounted) {
-                            Navigator.pop(context);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Planilha vinculada com sucesso! (${provider.months.length} listas encontradas)'),
-                                backgroundColor: Colors.green,
-                              ),
-                            );
-                          }
-                        } catch (e) {
-                          setState(() {
-                            isLoading = false;
-                            errorMessage = 'Erro ao vincular planilha: $e';
-                          });
-                        }
-                      },
-                child: isLoading
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                      )
-                    : const Text('Vincular e Sincronizar', style: TextStyle(fontWeight: FontWeight.bold)),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
 
   void _showRestartAppDialog(BuildContext context) {
     showDialog(
