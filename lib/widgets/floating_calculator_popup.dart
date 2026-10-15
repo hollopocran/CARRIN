@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/utils.dart';
-import '../theme/app_themes.dart';
 
 /// Interactive floating popup calculator for shopping math and price comparisons.
 class FloatingCalculatorPopup extends StatefulWidget {
@@ -181,11 +180,11 @@ class _FloatingCalculatorPopupState extends State<FloatingCalculatorPopup> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final Color bgColor = isDark ? const Color(0xFF1E202C) : Colors.white;
-    final Color primaryColor = isDark ? const Color(0xFFAEB2FF) : AppThemes.primaryNavy;
-    final Color btnBg = isDark ? Colors.white.withValues(alpha: 0.06) : Colors.grey.withValues(alpha: 0.1);
-    final Color opBtnBg = primaryColor.withValues(alpha: 0.15);
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color bgColor = Theme.of(context).cardColor;
+    final Color primaryColor = Theme.of(context).primaryColor;
+    final Color btnBg = isDark ? Colors.white.withValues(alpha: 0.08) : Colors.grey.withValues(alpha: 0.12);
+    final Color opBtnBg = primaryColor.withValues(alpha: 0.18);
 
     return Dialog(
       backgroundColor: bgColor,

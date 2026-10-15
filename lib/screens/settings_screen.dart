@@ -8,6 +8,7 @@ import 'buyer_profile_screen.dart';
 import 'tutorial_screen.dart';
 import 'terms_screen.dart';
 import '../widgets/supermarket_avatar.dart';
+import '../widgets/theme_color_picker_sheet.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -111,9 +112,9 @@ class SettingsScreen extends StatelessWidget {
           _buildSettingItem(
             context,
             title: 'Tema do Aplicativo',
-            subtitle: themeProvider.isDarkMode ? 'Escuro' : 'Claro',
+            subtitle: '${themeProvider.isDarkMode ? 'Modo Escuro' : 'Modo Claro'} • ${AppColors.getColorName(themeProvider.seedColor)}',
             icon: Icons.palette_outlined,
-            onTap: () => _showThemeDialog(context, themeProvider),
+            onTap: () => ThemeColorPickerSheet.show(context, themeProvider),
           ),
           
           _buildSettingItem(
@@ -166,7 +167,7 @@ class SettingsScreen extends StatelessWidget {
           const ListTile(
             leading: Icon(Icons.info_outline),
             title: Text('Versão', style: TextStyle(fontWeight: FontWeight.w500)),
-            trailing: Text('1.3.507', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+            trailing: Text('1.4.0', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -339,7 +340,7 @@ class SettingsScreen extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 8),
         decoration: isSelected ? BoxDecoration(
-          color: Theme.of(context).primaryColor.withOpacity(0.08),
+          color: Theme.of(context).primaryColor.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(12),
         ) : null,
         child: Row(
@@ -351,7 +352,7 @@ class SettingsScreen extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey.withOpacity(0.2)),
+                border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
               ),
               child: Image.asset(iconPath, fit: BoxFit.contain),
             ),
@@ -475,95 +476,6 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  void _showThemeDialog(BuildContext context, ThemeProvider provider) {
-    _showAnimatedDialog(
-      context,
-      SimpleDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-        title: const Text('Aparência', style: TextStyle(fontWeight: FontWeight.bold)),
-        children: [
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-            child: Text('MODO', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.1)),
-          ),
-          SimpleDialogOption(
-            onPressed: () {
-              provider.setTheme(false);
-              Navigator.pop(context);
-            },
-            child: Row(
-              children: [
-                const Icon(Icons.wb_sunny_outlined, color: Colors.orange),
-                const SizedBox(width: 12),
-                const Text('Claro', style: TextStyle(fontSize: 16)),
-                const Spacer(),
-                if (!provider.isDarkMode) const Icon(Icons.check_circle, color: Colors.green, size: 20),
-              ],
-            ),
-          ),
-          SimpleDialogOption(
-            onPressed: () {
-              provider.setTheme(true);
-              Navigator.pop(context);
-            },
-            child: Row(
-              children: [
-                const Icon(Icons.nightlight_round_outlined, color: Colors.blue),
-                const SizedBox(width: 12),
-                const Text('Escuro', style: TextStyle(fontSize: 16)),
-                const Spacer(),
-                if (provider.isDarkMode) const Icon(Icons.check_circle, color: Colors.green, size: 20),
-              ],
-            ),
-          ),
-          const Divider(),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-            child: Text('COR PRINCIPAL', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.1)),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              alignment: WrapAlignment.center,
-              children: AppColors.selection.map((color) {
-                final isSelected = provider.seedColor.value == color.value;
-                return GestureDetector(
-                  onTap: () {
-                    provider.setSeedColor(color);
-                    Navigator.pop(context);
-                  },
-                  child: Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: color,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: isSelected ? Colors.white : Colors.transparent,
-                        width: 3,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: color.withOpacity(0.4),
-                          blurRadius: 8,
-                          offset: const Offset(0, 4),
-                        )
-                      ],
-                    ),
-                    child: isSelected ? const Icon(Icons.check, color: Colors.white) : null,
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-          const SizedBox(height: 12),
-        ],
-      ),
-    );
-  }
-
   void _showAnimationSettingsDialog(BuildContext context, ItemProvider provider) {
     _showAnimatedDialog(
       context,
@@ -644,10 +556,10 @@ class SettingsScreen extends StatelessWidget {
       contentPadding: EdgeInsets.zero,
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
       subtitle: Text(subtitle, style: const TextStyle(fontSize: 12)),
-      activeColor: Theme.of(context).primaryColor,
+      activeThumbColor: Theme.of(context).primaryColor,
       secondary: Container(
         padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(color: Colors.grey.withOpacity(0.1), shape: BoxShape.circle),
+        decoration: BoxDecoration(color: Colors.grey.withValues(alpha: 0.1), shape: BoxShape.circle),
         child: Icon(icon, size: 20, color: Theme.of(context).iconTheme.color),
       ),
     );

@@ -1180,14 +1180,14 @@ class _TutorialScreenState extends State<TutorialScreen> with TickerProviderStat
                 color: Colors.green.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: Row(
+              child: const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.check_circle_outline, size: 16, color: Colors.green),
-                  const SizedBox(width: 6),
+                  Icon(Icons.check_circle_outline, size: 16, color: Colors.green),
+                  SizedBox(width: 6),
                   Text(
                     'Selecione os outros itens tocando neles',
-                    style: const TextStyle(color: Colors.green, fontSize: 13, fontWeight: FontWeight.bold),
+                    style: TextStyle(color: Colors.green, fontSize: 13, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
@@ -1593,15 +1593,15 @@ class _TutorialScreenState extends State<TutorialScreen> with TickerProviderStat
                       color: isDarkMode ? Colors.white.withValues(alpha: 0.03) : Colors.grey[50],
                       borderRadius: BorderRadius.circular(16),
                     ),
-                    child: Row(
+                    child: const Row(
                       children: [
                         Checkbox(
                           value: true,
                           onChanged: null, // Disabled in both states to simulate checked item
                           activeColor: Colors.green,
                         ),
-                        const SizedBox(width: 4),
-                        const Expanded(
+                        SizedBox(width: 4),
+                        Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -1621,7 +1621,7 @@ class _TutorialScreenState extends State<TutorialScreen> with TickerProviderStat
                             ],
                           ),
                         ),
-                        const Text(
+                        Text(
                           'R\$ 15,50',
                           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                         ),

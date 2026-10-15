@@ -388,10 +388,23 @@ class UserSheetsService {
   }
 
   Future<List<Item>> getItems({String? title}) async {
-    final targetTitle = title ?? _currentSheetTitle;
+    String targetTitle = title ?? _currentSheetTitle;
     if (_spreadsheetId == null) await _ensureSpreadsheetExists();
     final api = _sheetsApi;
     if (api == null) return [];
+
+    try {
+      final available = await getAvailableMonths();
+      final exactMatch = available.firstWhere(
+        (m) => m == targetTitle,
+        orElse: () => available.firstWhere(
+          (m) => m.trim().toLowerCase() == targetTitle.trim().toLowerCase() ||
+                 Utils.normalize(m) == Utils.normalize(targetTitle),
+          orElse: () => targetTitle,
+        ),
+      );
+      targetTitle = exactMatch;
+    } catch (_) {}
 
     try {
       final response = await api.spreadsheets.values.get(_spreadsheetId!, "'$targetTitle'!B2:H");

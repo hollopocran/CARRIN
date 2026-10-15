@@ -141,7 +141,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with AutomaticKeepA
 
   Widget _buildFilterTabs(bool isDarkMode, Color cardColor, Color textColor, ItemProvider provider) {
     return Container(
-      decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 2))]),
+      decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 2))]),
       padding: const EdgeInsets.all(4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -190,17 +190,18 @@ class _StatisticsScreenState extends State<StatisticsScreen> with AutomaticKeepA
     return Container(
       height: 350,
       padding: const EdgeInsets.only(top: 24, bottom: 10, left: 16, right: 24),
-      decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))]),
+      decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))]),
       child: TweenAnimationBuilder<double>(
         key: ValueKey('chart_anim_${months.length}_$_selectedFilterIndex'),
         tween: Tween<double>(begin: 0.0, end: 1.0),
         duration: useAnimations ? const Duration(milliseconds: 1500) : Duration.zero,
         curve: Curves.easeOutQuart,
         builder: (context, animValue, child) {
+          final Color barColor = Theme.of(context).primaryColor;
           return LineChart(
             LineChartData(
-              lineTouchData: LineTouchData(touchTooltipData: LineTouchTooltipData(getTooltipColor: (spot) => Colors.blueAccent.withOpacity(0.9), getTooltipItems: (spots) => spots.map((s) => LineTooltipItem(Utils.formatCurrency(s.y), const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))).toList())),
-              gridData: FlGridData(show: true, drawVerticalLine: false, horizontalInterval: (maxY - minY) / 4 == 0 ? 1 : (maxY - minY) / 4, getDrawingHorizontalLine: (v) => FlLine(color: Colors.grey.withOpacity(0.1), strokeWidth: 1, dashArray: [5, 5])),
+              lineTouchData: LineTouchData(touchTooltipData: LineTouchTooltipData(getTooltipColor: (spot) => Colors.blueAccent.withValues(alpha: 0.9), getTooltipItems: (spots) => spots.map((s) => LineTooltipItem(Utils.formatCurrency(s.y), const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))).toList())),
+              gridData: FlGridData(show: true, drawVerticalLine: false, horizontalInterval: (maxY - minY) / 4 == 0 ? 1 : (maxY - minY) / 4, getDrawingHorizontalLine: (v) => FlLine(color: Colors.grey.withValues(alpha: 0.1), strokeWidth: 1, dashArray: [5, 5])),
               titlesData: FlTitlesData(
                 show: true, rightTitles: const AxisTitles(), topTitles: const AxisTitles(),
                 bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 30, interval: 1, getTitlesWidget: (v, m) {
@@ -209,7 +210,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with AutomaticKeepA
                   String name = months[idx].split(' ').first;
                   return Padding(padding: const EdgeInsets.only(top: 10), child: Text(name.length > 3 ? name.substring(0, 3) : name, style: TextStyle(color: Colors.grey[400], fontSize: 11)));
                 })),
-                leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, interval: (maxY - minY) / 4 == 0 ? 1 : (maxY - minY) / 4, reservedSize: 50, getTitlesWidget: (v, m) => Text(v > 1000 ? '${(v/1000).toStringAsFixed(1)}k' : v.toStringAsFixed(0), style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5), fontSize: 11)))),
+                leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, interval: (maxY - minY) / 4 == 0 ? 1 : (maxY - minY) / 4, reservedSize: 50, getTitlesWidget: (v, m) => Text(v > 1000 ? '${(v/1000).toStringAsFixed(1)}k' : v.toStringAsFixed(0), style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 11)))),
               ),
               borderData: FlBorderData(show: false), minX: 0, maxX: (months.length - 1).toDouble(), minY: minY, maxY: maxY,
               lineBarsData: [
@@ -219,9 +220,9 @@ class _StatisticsScreenState extends State<StatisticsScreen> with AutomaticKeepA
                     final double delay = (s.x / (spots.length > 1 ? spots.length - 1 : 1)) * 0.4;
                     return FlSpot(s.x, minY + (s.y - minY) * Curves.easeInOutCubic.transform(((animValue - delay) / (1.0 - delay)).clamp(0.0, 1.0)));
                   }).toList(),
-                  isCurved: true, color: isDarkMode ? (seedColor.value == AppColors.navy.value ? const Color(0xFFAEB2FF) : seedColor.withOpacity(0.8)) : Theme.of(context).primaryColor, barWidth: 4, isStrokeCapRound: true,
-                  dotData: FlDotData(show: true, getDotPainter: (s, p, b, i) => FlDotCirclePainter(radius: 4, color: isDarkMode ? (seedColor.value == AppColors.navy.value ? const Color(0xFFAEB2FF) : seedColor.withOpacity(0.8)) : Theme.of(context).primaryColor, strokeWidth: 2, strokeColor: isDarkMode ? const Color(0xFF0D0E15) : Colors.white)),
-                  belowBarData: BarAreaData(show: true, gradient: LinearGradient(colors: [(isDarkMode ? (seedColor.value == AppColors.navy.value ? const Color(0xFFAEB2FF) : seedColor.withOpacity(0.8)) : Theme.of(context).primaryColor).withOpacity(0.3 * animValue), (isDarkMode ? (seedColor.value == AppColors.navy.value ? const Color(0xFFAEB2FF) : seedColor.withOpacity(0.8)) : Theme.of(context).primaryColor).withOpacity(0.0)], begin: Alignment.topCenter, end: Alignment.bottomCenter)),
+                  isCurved: true, color: barColor, barWidth: 4, isStrokeCapRound: true,
+                  dotData: FlDotData(show: true, getDotPainter: (s, p, b, i) => FlDotCirclePainter(radius: 4, color: barColor, strokeWidth: 2, strokeColor: isDarkMode ? const Color(0xFF0D0E15) : Colors.white)),
+                  belowBarData: BarAreaData(show: true, gradient: LinearGradient(colors: [barColor.withValues(alpha: 0.3 * animValue), barColor.withValues(alpha: 0.0)], begin: Alignment.topCenter, end: Alignment.bottomCenter)),
                 ),
               ],
             ),
@@ -242,7 +243,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with AutomaticKeepA
     if (months.length >= 2) { double last = data[months.last]?['total'] ?? 0; double prev = data[months[months.length - 2]]?['total'] ?? 0; if (prev > 0) { change = ((last - prev) / prev) * 100; isDown = change <= 0; } }
 
     return Container(
-      decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(24), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))]),
+      decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(24), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))]),
       padding: const EdgeInsets.all(28), 
       child: Column(children: [
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(_selectedFilterIndex == 3 ? 'Geral' : 'Filtro Ativo', style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 12)), Text(months.length > 1 ? '${months.first} a ${months.last}' : months.first, style: const TextStyle(color: Colors.grey, fontSize: 12))]),
@@ -268,7 +269,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with AutomaticKeepA
       children: months.map((m) {
         final b = data[m]?['budget'] ?? 0.0; final t = data[m]?['total'] ?? 0.0; final bal = b - t;
         Color statusC = bal < 1.0 ? Colors.redAccent : (bal <= 100.0 ? Colors.orangeAccent : Colors.green);
-        return Container(margin: const EdgeInsets.only(bottom: 16), decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(24), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))]), child: Material(color: Colors.transparent, child: InkWell(onTap: () => _showMonthDetail(m, b, t), borderRadius: BorderRadius.circular(24), child: Padding(padding: const EdgeInsets.all(24), child: Column(children: [Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(m, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor)), const Icon(Icons.chevron_right, color: Colors.grey, size: 22)]), const SizedBox(height: 20), Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [_buildListMetric('Orçamento', Utils.formatCurrency(b), null), _buildListMetric('Gasto', Utils.formatCurrency(t), Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Theme.of(context).primaryColor), _buildListMetric('Saldo', Utils.formatCurrency(bal), statusC)])])))));
+        return Container(margin: const EdgeInsets.only(bottom: 16), decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(24), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))]), child: Material(color: Colors.transparent, child: InkWell(onTap: () => _showMonthDetail(m, b, t), borderRadius: BorderRadius.circular(24), child: Padding(padding: const EdgeInsets.all(24), child: Column(children: [Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(m, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor)), const Icon(Icons.chevron_right, color: Colors.grey, size: 22)]), const SizedBox(height: 20), Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [_buildListMetric('Orçamento', Utils.formatCurrency(b), null), _buildListMetric('Gasto', Utils.formatCurrency(t), Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Theme.of(context).primaryColor), _buildListMetric('Saldo', Utils.formatCurrency(bal), statusC)])])))));
       }).toList(),
     )));
   }
@@ -287,7 +288,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with AutomaticKeepA
           'Resumo Geral',
           style: TextStyle(
             fontWeight: FontWeight.bold,
-            color: isDarkMode ? Colors.white : AppThemes.primaryNavy,
+            color: isDarkMode ? Colors.white : Theme.of(context).primaryColor,
           ),
         ),
         content: SizedBox(
@@ -335,7 +336,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with AutomaticKeepA
                             Icon(
                               Icons.shopping_cart_outlined,
                               size: 14,
-                              color: isDarkMode ? const Color(0xFFAEB2FF) : AppThemes.primaryNavy,
+                              color: Theme.of(context).primaryColor,
                             ),
                             const SizedBox(width: 4),
                             Text(
@@ -393,18 +394,12 @@ class _StatisticsScreenState extends State<StatisticsScreen> with AutomaticKeepA
 
   void _showMonthDetail(String month, double budget, double total) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
-    final seedColor = themeProvider.seedColor;
-    
     final balance = budget - total;
     final percent = budget > 0 ? (total / budget) : (total > 0 ? 1.1 : 0.0);
     Color statusC = balance < 1.0 ? Colors.redAccent : (balance <= 100.0 ? Colors.orangeAccent : Colors.green);
     
-    // Cor do botão adaptativa
-    final Color buttonBg = isDarkMode 
-        ? (seedColor.value == AppColors.navy.value ? const Color(0xFFAEB2FF) : seedColor.withOpacity(0.8))
-        : Theme.of(context).primaryColor;
-    final Color buttonFg = isDarkMode ? Colors.black : Colors.white;
+    final Color buttonBg = Theme.of(context).primaryColor;
+    final Color buttonFg = buttonBg.computeLuminance() > 0.5 ? Colors.black : Colors.white;
 
     showModalBottomSheet(
       context: context,
@@ -423,7 +418,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with AutomaticKeepA
               height: 4,
               margin: const EdgeInsets.only(bottom: 24),
               decoration: BoxDecoration(
-                color: Colors.grey.withOpacity(0.3),
+                color: Colors.grey.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -446,7 +441,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with AutomaticKeepA
                         color: Theme.of(context).cardColor,
                         boxShadow: [
                           BoxShadow(
-                            color: statusC.withOpacity(0.15),
+                            color: statusC.withValues(alpha: 0.15),
                             blurRadius: 20,
                             spreadRadius: 2,
                           )
@@ -459,7 +454,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with AutomaticKeepA
                       child: CircularProgressIndicator(
                         value: math.min(1.0, percent),
                         strokeWidth: 10,
-                        backgroundColor: statusC.withOpacity(0.1),
+                        backgroundColor: statusC.withValues(alpha: 0.1),
                         valueColor: AlwaysStoppedAnimation<Color>(statusC),
                         strokeCap: StrokeCap.round,
                       ),
@@ -508,9 +503,9 @@ class _StatisticsScreenState extends State<StatisticsScreen> with AutomaticKeepA
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               decoration: BoxDecoration(
-                color: statusC.withOpacity(0.1),
+                color: statusC.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: statusC.withOpacity(0.3)),
+                border: Border.all(color: statusC.withValues(alpha: 0.3)),
               ),
               child: Text(
                 balance < 1.0
@@ -541,14 +536,16 @@ class _StatisticsScreenState extends State<StatisticsScreen> with AutomaticKeepA
                     borderRadius: BorderRadius.circular(16),
                   ),
                 ),
-                onPressed: () {
+                onPressed: () async {
                   Navigator.pop(context);
                   final provider = Provider.of<ItemProvider>(context, listen: false);
-                  provider.switchMonth(month);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const ShoppingListScreen()),
-                  );
+                  await provider.switchMonth(month);
+                  if (context.mounted) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ShoppingListScreen()),
+                    );
+                  }
                 },
               ),
             ),
@@ -559,7 +556,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with AutomaticKeepA
   }
 
   Widget _buildHybridDetailItem(String label, double value, Color color, IconData icon) {
-    return Row(children: [Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle), child: Icon(icon, color: color, size: 16)), const SizedBox(width: 12), Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.w500)), Text(Utils.formatCurrency(value), style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: color == Colors.grey ? null : color))])]);
+    return Row(children: [Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle), child: Icon(icon, color: color, size: 16)), const SizedBox(width: 12), Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.w500)), Text(Utils.formatCurrency(value), style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: color == Colors.grey ? null : color))])]);
   }
 
   Widget _buildBuyerProfileBanner(bool isDarkMode, Color cardColor, Color textColor) {
@@ -568,7 +565,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with AutomaticKeepA
       color: cardColor,
       borderRadius: BorderRadius.circular(20),
       elevation: 2,
-      shadowColor: Colors.black.withOpacity(0.06),
+      shadowColor: Colors.black.withValues(alpha: 0.06),
       child: InkWell(
         borderRadius: BorderRadius.circular(20),
         onTap: () => Navigator.push(
@@ -582,7 +579,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with AutomaticKeepA
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: primaryColor.withOpacity(0.12),
+                  color: primaryColor.withValues(alpha: 0.12),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(Icons.psychology_alt_rounded, color: primaryColor, size: 26),

@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
@@ -17,8 +19,11 @@ import '../widgets/counting_text.dart';
 import '../widgets/skeleton_loader.dart';
 import '../widgets/sync_indicator.dart';
 import '../widgets/floating_calculator_popup.dart';
+import '../widgets/assistive_calculator_button.dart';
+import '../widgets/market_lock_overlay.dart';
 
 import 'barcode_scanner_screen.dart';
+import 'receipt_scanner_screen.dart';
 
 enum SortOption { name, quantity, price, category }
 
@@ -48,6 +53,8 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
   final Set<int> _selectedItemIndexes = {};
 
   bool _marketMode = false;
+  bool _isMarketLocked = false;
+  Timer? _marketInactivityTimer;
   Key _limiterKey = UniqueKey();
   int? _expandedIndex;
   final _inlinePriceController = TextEditingController();
@@ -65,12 +72,44 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
 
   @override
   void dispose() {
+    _marketInactivityTimer?.cancel();
     if (_marketMode) {
       WakelockPlus.disable();
     }
     _inlinePriceController.dispose();
     super.dispose();
   }
+
+  void _onUserInteraction() {
+    if (!_marketMode || _isMarketLocked) return;
+    _resetMarketInactivityTimer();
+  }
+
+  void _resetMarketInactivityTimer() {
+    _marketInactivityTimer?.cancel();
+    if (_marketMode && !_isMarketLocked) {
+      _marketInactivityTimer = Timer(const Duration(seconds: 15), () {
+        if (mounted && _marketMode && !_isMarketLocked && (ModalRoute.of(context)?.isCurrent ?? true)) {
+          setState(() {
+            _isMarketLocked = true;
+          });
+          try {
+            Vibration.vibrate(duration: 40);
+          } catch (_) {
+            HapticFeedback.mediumImpact();
+          }
+        }
+      });
+    }
+  }
+
+  void _unlockMarketMode() {
+    setState(() {
+      _isMarketLocked = false;
+    });
+    _resetMarketInactivityTimer();
+  }
+
 
   void _triggerListAnimation() {
     if (mounted) {
@@ -343,46 +382,57 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
       flatList.addAll(filteredItems);
     }
 
-    return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1000),
-            child: Stack(
-              children: [
-                NotificationListener<ScrollNotification>(
-                  onNotification: (notification) {
-                    if (notification is ScrollEndNotification) {
-                      if (_readyToRefresh && !showLoader) {
-                        setState(() => _manualLoading = true);
-                        itemProvider.loadItems(force: true).then((_) {
-                          if (mounted) {
-                            setState(() => _manualLoading = false);
-                            _triggerListAnimation();
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (_) => _onUserInteraction(),
+      onPointerMove: (_) => _onUserInteraction(),
+      child: Stack(
+        children: [
+          Scaffold(
+            extendBody: true,
+            body: SafeArea(
+              bottom: false,
+              child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1000),
+                child: Stack(
+                  children: [
+                    NotificationListener<ScrollNotification>(
+                      onNotification: (notification) {
+                        if (notification is ScrollEndNotification) {
+                          if (_readyToRefresh && !showLoader) {
+                            setState(() => _manualLoading = true);
+                            itemProvider.loadItems(force: true).then((_) {
+                              if (mounted) {
+                                setState(() => _manualLoading = false);
+                                _triggerListAnimation();
+                              }
+                            });
+                            _readyToRefresh = false;
                           }
-                        });
-                        _readyToRefresh = false;
-                      }
-                    }
-                    if (notification is ScrollUpdateNotification) {
-                      if (notification.metrics.pixels < -50) _readyToRefresh = true;
-                    }
-                    return false;
-                  },
-                  child: AbsorbPointer(
-                    absorbing: showLoader,
-                    child: CustomScrollView(
-                        physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-                        cacheExtent: 200, 
-                        slivers: [
-                           SliverAppBar(
-                            pinned: true,
-                            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-                            surfaceTintColor: Colors.transparent,
-                            scrolledUnderElevation: 0,
-                            elevation: 0,
-                            title: Text(itemProvider.currentMonth, style: const TextStyle(fontWeight: FontWeight.bold)),
-                            centerTitle: true,
+                        }
+                        if (notification is ScrollUpdateNotification) {
+                          if (notification.metrics.pixels < -50) _readyToRefresh = true;
+                        }
+                        return false;
+                      },
+                      child: AbsorbPointer(
+                        absorbing: showLoader,
+                        child: CustomScrollView(
+                            physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                            cacheExtent: 200, 
+                            slivers: [
+                               SliverAppBar(
+                                pinned: true,
+                                backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+                                surfaceTintColor: Colors.transparent,
+                                scrolledUnderElevation: 0,
+                                elevation: 0,
+                                title: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(itemProvider.currentMonth, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                ),
+                                centerTitle: true,
                             actions: [
                               const SyncIndicator(),
                               IconButton(
@@ -403,26 +453,30 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                                   _marketMode ? Icons.store_rounded : Icons.store_outlined,
                                   color: _marketMode ? Colors.amber : null,
                                 ),
-                                tooltip: _marketMode ? 'Modo Mercado Ativo (Tela Sempre Ligada)' : 'Ativar Modo Mercado',
+                                tooltip: _marketMode ? 'Modo Mercado Ativo (Tela Ligada & Bloqueio Ocioso)' : 'Ativar Modo Mercado',
                                 onPressed: () {
                                   setState(() {
                                     _marketMode = !_marketMode;
                                     if (_marketMode) {
                                       WakelockPlus.enable();
                                       Vibration.vibrate(duration: 40);
+                                      _isMarketLocked = false;
+                                      _resetMarketInactivityTimer();
                                       ScaffoldMessenger.of(context).showSnackBar(
                                         const SnackBar(
                                           content: Row(
                                             children: [
-                                              Icon(Icons.lightbulb_outline, color: Colors.amber),
+                                              Icon(Icons.storefront_rounded, color: Colors.amber),
                                               SizedBox(width: 8),
-                                              Expanded(child: Text('Modo Mercado ativo! A tela permanecerá ligada durante as compras.')),
+                                              Expanded(child: Text('Modo Mercado ativo! A tela ficará ligada e bloqueará toques após 15s ocioso.')),
                                             ],
                                           ),
-                                          duration: Duration(seconds: 3),
+                                          duration: Duration(seconds: 4),
                                         ),
                                       );
                                     } else {
+                                      _isMarketLocked = false;
+                                      _marketInactivityTimer?.cancel();
                                       WakelockPlus.disable();
                                       ScaffoldMessenger.of(context).showSnackBar(
                                         const SnackBar(
@@ -434,23 +488,52 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                                   });
                                 },
                               ),
-                              IconButton(
-                                icon: const Icon(Icons.calculate_outlined),
-                                tooltip: 'Calculadora Flutuante',
-                                onPressed: () => FloatingCalculatorPopup.show(context),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.share),
-                                tooltip: 'Compartilhar Lista',
-                                onPressed: showLoader ? null : () => _shareList(context, itemProvider),
-                              ),
-                              IconButton(
-                                icon: Icon(
-                                  itemProvider.isCurrentMonthFinalized ? Icons.lock : Icons.lock_open,
-                                  color: itemProvider.isCurrentMonthFinalized ? Colors.green : null,
-                                ),
-                                tooltip: itemProvider.isCurrentMonthFinalized ? 'Compra Finalizada (Reabrir)' : 'Finalizar Compra',
-                                onPressed: showLoader ? null : () => _toggleFinalizeStatus(context, itemProvider),
+                              PopupMenuButton<String>(
+                                icon: const Icon(Icons.more_vert),
+                                tooltip: 'Mais opções',
+                                onSelected: (value) async {
+                                  if (value == 'receipt') {
+                                    if (context.mounted) {
+                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const ReceiptScannerScreen()));
+                                    }
+                                  } else if (value == 'share') {
+                                    _shareList(context, itemProvider);
+                                  } else if (value == 'finalize') {
+                                    _toggleFinalizeStatus(context, itemProvider);
+                                  }
+                                },
+                                itemBuilder: (context) => [
+                                  const PopupMenuItem(
+                                    value: 'receipt',
+                                    child: ListTile(
+                                      leading: Icon(Icons.receipt_long_outlined),
+                                      title: Text('Escanear Nota Fiscal'),
+                                      dense: true,
+                                      contentPadding: EdgeInsets.zero,
+                                    ),
+                                  ),
+                                  const PopupMenuItem(
+                                    value: 'share',
+                                    child: ListTile(
+                                      leading: Icon(Icons.share_outlined),
+                                      title: Text('Compartilhar Lista'),
+                                      dense: true,
+                                      contentPadding: EdgeInsets.zero,
+                                    ),
+                                  ),
+                                  PopupMenuItem(
+                                    value: 'finalize',
+                                    child: ListTile(
+                                      leading: Icon(
+                                        itemProvider.isCurrentMonthFinalized ? Icons.lock_open : Icons.lock_outline,
+                                        color: itemProvider.isCurrentMonthFinalized ? Colors.orange : Colors.green,
+                                      ),
+                                      title: Text(itemProvider.isCurrentMonthFinalized ? 'Reabrir Compra' : 'Finalizar Compra'),
+                                      dense: true,
+                                      contentPadding: EdgeInsets.zero,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
@@ -508,6 +591,55 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                             const SliverFillRemaining(
                               child: ListSkeleton(),
                             )
+                          else if (flatList.isEmpty)
+                            SliverFillRemaining(
+                              hasScrollBody: false,
+                              child: Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 40.0),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(24),
+                                        decoration: BoxDecoration(
+                                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Icon(
+                                          Icons.shopping_cart_outlined,
+                                          size: 64,
+                                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 20),
+                                      Text(
+                                        itemProvider.items.isEmpty
+                                            ? 'Nenhum item nesta lista'
+                                            : 'Nenhum item com os filtros atuais',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                          color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.7),
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        itemProvider.items.isEmpty
+                                            ? 'Adicione itens pelo botão "+" ou escaneie um produto.'
+                                            : 'Altere os filtros de categoria para ver outros itens.',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.5),
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            )
                           else
                             SliverPadding(
                               padding: const EdgeInsets.only(bottom: 120),
@@ -562,7 +694,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                       decoration: BoxDecoration(
                         color: Theme.of(context).primaryColor,
                         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, -2))],
+                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, -2))],
                       ),
                       child: Row(
                         children: [
@@ -586,12 +718,14 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                           const SizedBox(width: 8),
                           TextButton(
                             onPressed: _toggleSelectionMode,
-                            child: Text('CANCELAR', style: TextStyle(color: Theme.of(context).colorScheme.onPrimary.withOpacity(0.8), fontSize: 12)),
+                            child: Text('CANCELAR', style: TextStyle(color: Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.8), fontSize: 12)),
                           ),
                         ],
                       ),
                     ),
                   ),
+                if (!_isSelectionMode)
+                  const AssistiveCalculatorButton(),
               ],
             ),
           ),
@@ -606,33 +740,32 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
               size: Size(MediaQuery.of(context).size.width, 100),
               painter: _WavyFooterPainter(Theme.of(context).cardColor),
             ),
-            SafeArea(
-              child: Container(
-                height: 75,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                alignment: Alignment.center,
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _buildFooterButton(
-                        context, 
-                        icon: Icons.edit_note_rounded, 
-                        label: 'Novo Item', 
-                        onTap: showLoader || itemProvider.isCurrentMonthFinalized ? null : () => _showEditDialog(context, null)
-                      ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 8,
+              height: 56,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _buildFooterButton(
+                      context, 
+                      icon: Icons.edit_note_rounded, 
+                      label: 'Novo Item', 
+                      onTap: showLoader || itemProvider.isCurrentMonthFinalized ? null : () => _showEditDialog(context, null),
                     ),
-                    const SizedBox(width: 80), 
-                    Expanded(
-                      child: _buildFooterButton(
-                        context, 
-                        icon: Icons.filter_list_rounded, 
-                        label: 'Filtros', 
-                        iconColor: (_hideZeroQuantity || _selectedCategories.isNotEmpty) ? Colors.orangeAccent : null,
-                        onTap: showLoader ? null : () => _showFilterBottomSheet(context)
-                      ),
+                  ),
+                  const SizedBox(width: 80), 
+                  Expanded(
+                    child: _buildFooterButton(
+                      context, 
+                      icon: Icons.filter_list_rounded, 
+                      label: 'Filtros', 
+                      iconColor: (_hideZeroQuantity || _selectedCategories.isNotEmpty) ? Colors.orangeAccent : null,
+                      onTap: showLoader ? null : () => _showFilterBottomSheet(context),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
             Positioned(
@@ -742,8 +875,19 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
           ],
         ),
       ),
-    );
-  }
+    ),
+    if (_isMarketLocked)
+      MarketLockOverlay(
+        onUnlock: _unlockMarketMode,
+        totalCost: itemProvider.totalCost,
+        boughtItemsCount: itemProvider.items.where((it) => it.isBought).length,
+        totalItemsCount: itemProvider.items.length,
+        budget: itemProvider.budget,
+      ),
+  ],
+),
+);
+}
 
   Widget _buildFooterButton(BuildContext context, {
     required IconData icon, 
@@ -755,22 +899,31 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: foregroundColor, size: 24),
-          const SizedBox(height: 2),
-          Text(
-            label, 
-            style: TextStyle(
-              color: foregroundColor, 
-              fontSize: 10, 
-              fontWeight: FontWeight.bold
-            )
-          ),
-        ],
+      borderRadius: BorderRadius.circular(16),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Icon(
+              icon, 
+              color: onTap == null ? foregroundColor.withValues(alpha: 0.38) : foregroundColor, 
+              size: 24,
+            ),
+            const SizedBox(height: 3),
+            Text(
+              label, 
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: onTap == null ? foregroundColor.withValues(alpha: 0.38) : foregroundColor, 
+                fontSize: 10.5, 
+                fontWeight: FontWeight.bold,
+                letterSpacing: -0.1,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -850,7 +1003,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
     final Color statusColor = badgeInfo['color'] as Color;
 
     return Material(
-      color: isSelected ? Theme.of(context).primaryColor.withOpacity(0.15) : Colors.transparent,
+      color: isSelected ? Theme.of(context).primaryColor.withValues(alpha: 0.15) : Colors.transparent,
       child: InkWell(
         onTap: () {
           if (_isSelectionMode) {
@@ -880,7 +1033,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
-                  border: Border(bottom: BorderSide(color: Colors.grey.withOpacity(0.05)))
+                  border: Border(bottom: BorderSide(color: Colors.grey.withValues(alpha: 0.05)))
                 ),
                 child: Row(
                   children: [
@@ -941,7 +1094,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                             children: [
                               Text(status, style: TextStyle(fontSize: 11, color: statusColor, fontWeight: FontWeight.bold)),
                               const SizedBox(width: 2),
-                              Icon(Icons.info, size: 12, color: statusColor.withOpacity(0.7)),
+                              Icon(Icons.info, size: 12, color: statusColor.withValues(alpha: 0.7)),
                             ],
                           ),
                         )
@@ -960,9 +1113,9 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                           padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                           decoration: BoxDecoration(
                             color: Theme.of(context).brightness == Brightness.dark
-                                ? Colors.white.withOpacity(0.03)
-                                : Theme.of(context).primaryColor.withOpacity(0.03),
-                            border: Border(bottom: BorderSide(color: Colors.grey.withOpacity(0.08))),
+                                ? Colors.white.withValues(alpha: 0.03)
+                                : Theme.of(context).primaryColor.withValues(alpha: 0.03),
+                            border: Border(bottom: BorderSide(color: Colors.grey.withValues(alpha: 0.08))),
                           ),
                           child: Row(
                             children: [
@@ -998,7 +1151,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                               // Kg/Un Toggle
                               Container(
                                 decoration: BoxDecoration(
-                                  color: Colors.grey.withOpacity(0.1),
+                                  color: Colors.grey.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Row(
@@ -1009,7 +1162,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                                       child: Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                         decoration: BoxDecoration(
-                                          color: !item.isKg ? Theme.of(context).primaryColor.withOpacity(0.2) : Colors.transparent,
+                                          color: !item.isKg ? Theme.of(context).primaryColor.withValues(alpha: 0.2) : Colors.transparent,
                                           borderRadius: BorderRadius.circular(8),
                                         ),
                                         child: Text('Un', style: TextStyle(fontWeight: !item.isKg ? FontWeight.bold : FontWeight.normal, fontSize: 13)),
@@ -1020,7 +1173,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                                       child: Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                         decoration: BoxDecoration(
-                                          color: item.isKg ? Theme.of(context).primaryColor.withOpacity(0.2) : Colors.transparent,
+                                          color: item.isKg ? Theme.of(context).primaryColor.withValues(alpha: 0.2) : Colors.transparent,
                                           borderRadius: BorderRadius.circular(8),
                                         ),
                                         child: Text('Kg', style: TextStyle(fontWeight: item.isKg ? FontWeight.bold : FontWeight.normal, fontSize: 13)),
@@ -1169,7 +1322,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                         controller: scrollController,
                         shrinkWrap: true,
                         itemCount: history.length,
-                        separatorBuilder: (context, index) => Divider(color: Colors.grey.withOpacity(0.05), height: 1),
+                        separatorBuilder: (context, index) => Divider(color: Colors.grey.withValues(alpha: 0.05), height: 1),
                         itemBuilder: (context, index) {
                           final entry = history[index];
                           final month = entry['month'] as String;
@@ -1186,7 +1339,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                             builder: (context, value, child) {
                               return Container(
                                 decoration: BoxDecoration(
-                                  color: Theme.of(context).primaryColor.withOpacity(0.15 * value),
+                                  color: Theme.of(context).primaryColor.withValues(alpha: 0.15 * value),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: ListTile(
@@ -1194,7 +1347,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                                   leading: Container(
                                     padding: const EdgeInsets.all(8),
                                     decoration: BoxDecoration(
-                                      color: (isCurrent ? Theme.of(context).primaryColor : (isHigher ? Colors.red : Colors.green)).withOpacity(0.1),
+                                      color: (isCurrent ? Theme.of(context).primaryColor : (isHigher ? Colors.red : Colors.green)).withValues(alpha: 0.1),
                                       shape: BoxShape.circle
                                     ),
                                     child: Icon(
@@ -1224,7 +1377,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                                         )
                                       ),
                                       if (isCurrent)
-                                        Text('ESTE MÊS', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Theme.of(context).primaryColor.withOpacity(0.6)))
+                                        Text('ESTE MÊS', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Theme.of(context).primaryColor.withValues(alpha: 0.6)))
                                       else if (item.unitPrice > 0)
                                         Text(
                                           isHigher ? '+ ${Utils.formatCurrency(price - item.unitPrice)}' : (isLower ? '- ${Utils.formatCurrency(item.unitPrice - price)}' : 'Mesmo preço'),
@@ -1508,7 +1661,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                   value: category, isExpanded: true,
                   dropdownColor: Theme.of(context).cardColor,
                   style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black),
-                  underline: Container(height: 1, color: Colors.grey.withOpacity(0.2)),
+                  underline: Container(height: 1, color: Colors.grey.withValues(alpha: 0.2)),
                   items: ItemProvider.categories.map((String value) => DropdownMenuItem<String>(value: value, child: Text(value))).toList(),
                   onChanged: (v) => setState(() => category = v!),
                 ),
@@ -1563,7 +1716,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                   contentPadding: EdgeInsets.zero,
                   title: Text('Vendido por Peso (kg)', style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black)),
                   value: isKg, 
-                  activeColor: const Color(0xFFAEB2FF),
+                  activeThumbColor: const Color(0xFFAEB2FF),
                   onChanged: (v) => setState(() => isKg = v)
                 ),
                 if (isKg) ...[
@@ -1604,10 +1757,10 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                               final price = (entry['price'] as num).toDouble();
                               return Card(
                                 elevation: 0,
-                                color: Theme.of(context).primaryColor.withOpacity(0.05),
+                                color: Theme.of(context).primaryColor.withValues(alpha: 0.05),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
-                                  side: BorderSide(color: Theme.of(context).primaryColor.withOpacity(0.15)),
+                                  side: BorderSide(color: Theme.of(context).primaryColor.withValues(alpha: 0.15)),
                                 ),
                                 margin: const EdgeInsets.only(right: 8),
                                 child: InkWell(
@@ -1645,6 +1798,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar', style: TextStyle(color: Colors.grey))),
             ElevatedButton(
               onPressed: () async {
+                final navigator = Navigator.of(context);
                 final name = nameController.text.trim();
                 if (name.isEmpty) return;
                 final provider = Provider.of<ItemProvider>(context, listen: false);
@@ -1687,13 +1841,13 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                     }
                     if (proceed == 'update') {
                       final updated = existingItem.copyWith(
-                        unitPrice: parsedPrice > 0 ? parsedPrice : existingItem.unitPrice,
+                         unitPrice: parsedPrice > 0 ? parsedPrice : existingItem.unitPrice,
                         quantity: parsedQty,
                         barcode: finalBarcode ?? existingItem.barcode,
                         category: category,
                       );
                       provider.updateItem(updated);
-                      Navigator.pop(context);
+                      navigator.pop();
                       return;
                     }
                   }
@@ -1710,7 +1864,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                   barcode: finalBarcode,
                 );
                 if (item == null) { provider.addItem(newItem); } else { provider.updateItem(newItem); }
-                Navigator.pop(context);
+                navigator.pop();
               },
               child: const Text('Salvar', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
@@ -2039,7 +2193,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
       final font = await PdfGoogleFonts.nunitoRegular();
       final fontBold = await PdfGoogleFonts.nunitoBold();
       final emojiFont = await PdfGoogleFonts.notoEmojiRegular();
-      final primaryColor = PdfColor.fromInt(0xFF1A1C2C);
+      const primaryColor = PdfColor.fromInt(0xFF1A1C2C);
 
       pdf.addPage(
         pw.MultiPage(
@@ -2068,7 +2222,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
               if (showFinancials) ...[
                 pw.Container(
                   padding: const pw.EdgeInsets.all(20),
-                  decoration: pw.BoxDecoration(color: primaryColor, borderRadius: const pw.BorderRadius.all(pw.Radius.circular(16))),
+                  decoration: const pw.BoxDecoration(color: primaryColor, borderRadius: pw.BorderRadius.all(pw.Radius.circular(16))),
                   child: pw.Row(
                     children: [
                       pw.Container(width: 50, height: 50, decoration: pw.BoxDecoration(shape: pw.BoxShape.circle, border: pw.Border.all(color: PdfColors.blueGrey700, width: 4)), child: pw.Center(child: pw.Text('${(healthPercent * 100).toInt()}%', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.white)))),
@@ -2077,7 +2231,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                         child: pw.Column(
                           crossAxisAlignment: pw.CrossAxisAlignment.start,
                           children: [
-                            pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('GASTO ATUAL', style: pw.TextStyle(fontSize: 9, color: PdfColors.grey300, letterSpacing: 1)), pw.Text('SALDO', style: pw.TextStyle(fontSize: 9, color: PdfColors.grey300, letterSpacing: 1))]),
+                            pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('GASTO ATUAL', style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey300, letterSpacing: 1)), pw.Text('SALDO', style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey300, letterSpacing: 1))]),
                             pw.SizedBox(height: 4),
                             pw.Row(
                               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
@@ -2235,7 +2389,7 @@ class _StickyHealthHeaderDelegate extends SliverPersistentHeaderDelegate {
     
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final Color primary = Theme.of(context).primaryColor;
-    final Color startColor = isDark ? Color.lerp(Theme.of(context).cardColor, primary, 0.15)! : Color.lerp(Colors.white, primary, 0.06)!;
+    final Color startColor = isDark ? Color.lerp(Theme.of(context).cardColor, primary, 0.15)! : Color.lerp(Theme.of(context).cardColor, primary, 0.06)!;
     final Color currentColor = Color.lerp(startColor, Theme.of(context).scaffoldBackgroundColor, percent)!;
 
     return Container(
@@ -2342,8 +2496,8 @@ class _WavyFooterPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final paint = Paint()..color = color..style = PaintingStyle.fill;
     final path = Path();
-    const double bH = 45.0; 
-    const double pH = 20.0;  
+    const double bH = 40.0; 
+    const double pH = 18.0;  
     path.moveTo(0, bH);
     path.lineTo(size.width * 0.28, bH);
     path.cubicTo(size.width * 0.38, bH, size.width * 0.40, pH, size.width * 0.50, pH);
@@ -2352,7 +2506,7 @@ class _WavyFooterPainter extends CustomPainter {
     path.lineTo(size.width, size.height);
     path.lineTo(0, size.height);
     path.close();
-    canvas.drawShadow(path.shift(const Offset(0, -2)), Colors.black.withOpacity(0.12), 8.0, true);
+    canvas.drawShadow(path.shift(const Offset(0, -2)), Colors.black.withValues(alpha: 0.08), 6.0, true);
     canvas.drawPath(path, paint);
   }
 

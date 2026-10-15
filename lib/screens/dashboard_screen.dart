@@ -354,15 +354,14 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
 
   Widget _buildGauge(double total, double percent, ItemProvider provider) {
     final bool useAnimations = provider.animationSettings['gauge_animations'] ?? true;
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final statusColor = percent > 1.0 ? Colors.redAccent : (percent > 0.8 ? Colors.orangeAccent : (isDarkMode ? const Color(0xFFAEB2FF) : Colors.blueAccent));
+    final statusColor = percent > 1.0 ? Colors.redAccent : (percent > 0.8 ? Colors.orangeAccent : Theme.of(context).primaryColor);
 
     return InkWell(
       onTap: () async {
         final targetMonth = provider.realCurrentMonthName;
         if (provider.months.contains(targetMonth)) {
           await provider.switchMonth(targetMonth);
-          if (context.mounted) {
+          if (mounted) {
             Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const ShoppingListScreen()),
@@ -375,7 +374,7 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
           } else {
             await provider.switchMonth(provider.months.first);
           }
-          if (context.mounted) {
+          if (mounted) {
             Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const ShoppingListScreen()),
@@ -394,16 +393,16 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
           children: [
             Container(
               width: 220, height: 220,
-              decoration: BoxDecoration(shape: BoxShape.circle, color: Theme.of(context).cardColor, boxShadow: [BoxShadow(color: statusColor.withOpacity(0.12), blurRadius: 25, spreadRadius: 8)]),
+              decoration: BoxDecoration(shape: BoxShape.circle, color: Theme.of(context).cardColor, boxShadow: [BoxShadow(color: statusColor.withValues(alpha: 0.12), blurRadius: 25, spreadRadius: 8)]),
             ),
             SizedBox(
               width: 195, height: 195,
               child: useAnimations
                 ? AnimatedBuilder(
                     animation: _gaugeAnimation,
-                    builder: (context, child) => CircularProgressIndicator(value: _gaugeAnimation.value, strokeWidth: 16, backgroundColor: statusColor.withOpacity(0.1), valueColor: AlwaysStoppedAnimation<Color>(statusColor), strokeCap: StrokeCap.round),
+                    builder: (context, child) => CircularProgressIndicator(value: _gaugeAnimation.value, strokeWidth: 16, backgroundColor: statusColor.withValues(alpha: 0.1), valueColor: AlwaysStoppedAnimation<Color>(statusColor), strokeCap: StrokeCap.round),
                   )
-                : CircularProgressIndicator(value: percent.clamp(0.0, 1.0), strokeWidth: 16, backgroundColor: statusColor.withOpacity(0.1), valueColor: AlwaysStoppedAnimation<Color>(statusColor), strokeCap: StrokeCap.round),
+                : CircularProgressIndicator(value: percent.clamp(0.0, 1.0), strokeWidth: 16, backgroundColor: statusColor.withValues(alpha: 0.1), valueColor: AlwaysStoppedAnimation<Color>(statusColor), strokeCap: StrokeCap.round),
             ),
             Column(
               mainAxisSize: MainAxisSize.min,
@@ -424,7 +423,7 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
                     scale: CurvedAnimation(parent: _gaugeController!, curve: const Interval(0.0, 1.0, curve: Curves.elasticOut)),
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                      decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
+                      decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
                       child: Text('${(percent * 100).toStringAsFixed(1)}%', style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 12)),
                     ),
                   ),
@@ -442,12 +441,12 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
       borderRadius: BorderRadius.circular(24),
       child: Container(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: Theme.of(context).cardColor, borderRadius: BorderRadius.circular(24), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))]),
+        decoration: BoxDecoration(color: Theme.of(context).cardColor, borderRadius: BorderRadius.circular(24), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 4))]),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Icon(icon, color: color.withOpacity(0.6), size: 20), Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle))]),
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Icon(icon, color: color.withValues(alpha: 0.6), size: 20), Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle))]),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -588,12 +587,12 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
       borderRadius: BorderRadius.circular(24),
       child: Container(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: Theme.of(context).cardColor, borderRadius: BorderRadius.circular(24), border: Border.all(color: Colors.grey.withOpacity(0.05))),
+        decoration: BoxDecoration(color: Theme.of(context).cardColor, borderRadius: BorderRadius.circular(24), border: Border.all(color: Colors.grey.withValues(alpha: 0.05))),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Icon(icon, color: iconColor.withOpacity(0.9), size: 24),
+            Icon(icon, color: iconColor.withValues(alpha: 0.9), size: 24),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

@@ -359,6 +359,7 @@ class AccountsScreen extends StatelessWidget {
           ElevatedButton(
             onPressed: () async {
               final navigator = Navigator.of(context);
+              final itemProvider = context.read<ItemProvider>();
               navigator.pop(); // Close dialog
               
               showDialog(
@@ -371,7 +372,6 @@ class AccountsScreen extends StatelessWidget {
               await Future.delayed(const Duration(milliseconds: 150));
 
               try {
-                final itemProvider = context.read<ItemProvider>();
                 await itemProvider.removeAllSavedAccounts();
                 
                 // Remove o loading

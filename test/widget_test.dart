@@ -10,6 +10,10 @@ import 'package:lista_compras/providers/item_provider.dart';
 import 'package:lista_compras/theme/app_themes.dart';
 import 'package:lista_compras/services/receipt_parser.dart';
 import 'package:lista_compras/services/auth_service.dart';
+import 'package:lista_compras/widgets/assistive_calculator_button.dart';
+import 'package:lista_compras/widgets/market_lock_overlay.dart';
+import 'package:lista_compras/widgets/item_search_delegate.dart';
+import 'package:lista_compras/models/item.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 void main() {
@@ -219,4 +223,163 @@ void main() {
       expect(didPopOnHome, isFalse);
     });
   });
+
+  group('AssistiveCalculatorButton Widget Tests', () {
+    testWidgets('renders, drags and triggers callback on tap', (WidgetTester tester) async {
+      bool tapped = false;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Stack(
+              children: [
+                AssistiveCalculatorButton(onTap: () => tapped = true),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      expect(find.byType(AssistiveCalculatorButton), findsOneWidget);
+      expect(find.byIcon(Icons.calculate_rounded), findsOneWidget);
+
+      // Tap on the button
+      await tester.tap(find.byType(AssistiveCalculatorButton));
+      await tester.pumpAndSettle();
+
+      expect(tapped, isTrue);
+
+      // Drag the button across the screen to test snapping
+      await tester.drag(find.byType(AssistiveCalculatorButton), const Offset(-300, -100));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AssistiveCalculatorButton), findsOneWidget);
+    });
+  });
+
+  group('MarketLockOverlay Widget Tests', () {
+    testWidgets('renders shopping metrics and lock state', (WidgetTester tester) async {
+      bool unlocked = false;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: MarketLockOverlay(
+              onUnlock: () => unlocked = true,
+              totalCost: 154.50,
+              boughtItemsCount: 8,
+              totalItemsCount: 12,
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Modo Mercado Ativo'), findsOneWidget);
+      expect(find.text('Segure para desbloquear'), findsOneWidget);
+      expect(find.text('8 de 12'), findsOneWidget);
+      expect(find.textContaining('154,50'), findsOneWidget);
+      expect(find.text('Sair'), findsNothing); // Redundant button removed
+      expect(unlocked, isFalse);
+    });
+
+    testWidgets('completing 1-second hold triggers onUnlock', (WidgetTester tester) async {
+      bool unlocked = false;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: MarketLockOverlay(
+              onUnlock: () => unlocked = true,
+              totalCost: 50.0,
+              boughtItemsCount: 2,
+              totalItemsCount: 5,
+            ),
+          ),
+        ),
+      );
+
+      final lockFinder = find.byIcon(Icons.lock_outline_rounded);
+      expect(lockFinder, findsOneWidget);
+
+      // Press and hold for 1.2 seconds
+      final gesture = await tester.startGesture(tester.getCenter(lockFinder));
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(unlocked, isFalse); // not yet 1000ms
+
+      await tester.pump(const Duration(milliseconds: 1000));
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      expect(unlocked, isTrue);
+    });
+  });
+
+  group('ItemSearchDelegate Widget Tests', () {
+    testWidgets('renders search list with fluid animation and filters items', (WidgetTester tester) async {
+      final provider = ItemProvider();
+      provider.items.add(Item(name: 'Maçã Fuji', category: 'Frutas', unitPrice: 8.50, quantity: 2, isBought: false, index: 1));
+      provider.items.add(Item(name: 'Banana Prata', category: 'Frutas', unitPrice: 5.00, quantity: 1, isBought: true, index: 2));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () {
+                  showSearch(
+                    context: context,
+                    delegate: ItemSearchDelegate(
+                      provider,
+                      onEdit: (_) {},
+                      onDelete: (_) {},
+                    ),
+                  );
+                },
+                child: const Text('Buscar'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Buscar'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Maçã Fuji'), findsOneWidget);
+      expect(find.text('Banana Prata'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), 'Maçã');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Maçã Fuji'), findsOneWidget);
+      expect(find.text('Banana Prata'), findsNothing);
+    });
+  });
+
+  group('AppColors & ThemeProvider Unit Tests', () {
+    test('AppColors contains curated named colors and formats names', () {
+      expect(AppColors.curated.length, greaterThanOrEqualTo(12));
+      expect(AppColors.getColorName(AppColors.navy), equals('Azul Marinho'));
+      expect(AppColors.getColorName(AppColors.ocean), equals('Azul Oceano'));
+      expect(AppColors.getColorName(const Color(0xFF123456)), contains('#123456'));
+    });
+
+    test('ThemeProvider switches colors and dark mode correctly', () async {
+      SharedPreferences.setMockInitialValues({});
+      final provider = ThemeProvider();
+      await provider.init();
+
+      await provider.setSeedColor(AppColors.emerald);
+      expect(provider.seedColor, equals(AppColors.emerald));
+
+      await provider.setTheme(true);
+      expect(provider.isDarkMode, isTrue);
+      expect(provider.currentTheme.brightness, equals(Brightness.dark));
+
+      await provider.toggleTheme();
+      expect(provider.isDarkMode, isFalse);
+      expect(provider.currentTheme.brightness, equals(Brightness.light));
+    });
+  });
 }
+

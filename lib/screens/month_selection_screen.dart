@@ -20,6 +20,7 @@ class MonthSelectionScreen extends StatefulWidget {
 class _MonthSelectionScreenState extends State<MonthSelectionScreen> with AutomaticKeepAliveClientMixin {
   bool _readyToRefresh = false;
   bool _manualLoading = false;
+  String? _openingMonth;
   
   bool _shouldShowContent = false;
 
@@ -70,7 +71,6 @@ class _MonthSelectionScreenState extends State<MonthSelectionScreen> with Automa
     super.build(context);
     final provider = Provider.of<ItemProvider>(context);
     final bool showLoader = provider.isMonthsLoading || _manualLoading;
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final bool hasData = provider.months.isNotEmpty;
     final bool useAnimations = provider.animationSettings['list_animations'] ?? true;
 
@@ -80,7 +80,7 @@ class _MonthSelectionScreenState extends State<MonthSelectionScreen> with Automa
         final double padding = constraints.maxWidth < 600 ? 16 : 40;
 
         return Scaffold(
-          backgroundColor: isDarkMode ? null : const Color(0xFFF5F7FA),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           appBar: AppBar(
             title: const Text('Meus Carrinhos', style: TextStyle(fontWeight: FontWeight.bold)),
             centerTitle: true,
@@ -93,7 +93,7 @@ class _MonthSelectionScreenState extends State<MonthSelectionScreen> with Automa
               preferredSize: const Size.fromHeight(2),
               child: LinearProgressIndicator(
                 backgroundColor: Colors.transparent,
-                valueColor: AlwaysStoppedAnimation<Color>(AppThemes.primaryNavy.withOpacity(0.5)),
+                valueColor: AlwaysStoppedAnimation<Color>(AppThemes.primaryNavy.withValues(alpha: 0.5)),
                 minHeight: 2,
               ),
             ) : null,
@@ -101,9 +101,9 @@ class _MonthSelectionScreenState extends State<MonthSelectionScreen> with Automa
           body: AnimatedSwitcher(
             duration: useAnimations ? const Duration(milliseconds: 400) : Duration.zero,
             child: !_shouldShowContent && !hasData && provider.isMonthsLoading
-                ? Center(child: CartLoadingIndicator(key: const ValueKey('carrinhos_loader'), message: 'Buscando seus carrinhos...'))
+                ? const Center(child: CartLoadingIndicator(key: ValueKey('carrinhos_loader'), message: 'Buscando seus carrinhos...'))
                 : provider.months.isEmpty
-                    ? Center(child: const Text('Nenhum carrinho ainda. Crie um carrinho para começar.', style: TextStyle(color: Colors.grey, fontSize: 16)))
+                    ? const Center(child: Text('Nenhum carrinho ainda. Crie um carrinho para começar.', style: TextStyle(color: Colors.grey, fontSize: 16)))
                     : Stack(
                         children: [
                           NotificationListener<ScrollNotification>(
@@ -175,13 +175,33 @@ class _MonthSelectionScreenState extends State<MonthSelectionScreen> with Automa
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor, 
         borderRadius: BorderRadius.circular(24), 
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 12, offset: const Offset(0, 4))]
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 4))]
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(24),
-          onTap: () { provider.switchMonth(title); Navigator.push(context, MaterialPageRoute(builder: (_) => const ShoppingListScreen())); },
+          onTap: () async {
+            if (_openingMonth != null) return;
+            setState(() {
+              _openingMonth = title;
+            });
+            try {
+              await provider.switchMonth(title);
+              if (context.mounted) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ShoppingListScreen()),
+                );
+              }
+            } finally {
+              if (mounted) {
+                setState(() {
+                  _openingMonth = null;
+                });
+              }
+            }
+          },
           child: Padding(
             padding: const EdgeInsets.all(20),
             child: Column(
@@ -201,11 +221,17 @@ class _MonthSelectionScreenState extends State<MonthSelectionScreen> with Automa
                                 : Colors.blueAccent.withValues(alpha: 0.1), 
                               shape: BoxShape.circle
                             ), 
-                            child: Icon(
-                              provider.isMonthFinalized(title) ? Icons.lock : Icons.calendar_month, 
-                              color: provider.isMonthFinalized(title) ? Colors.green : Colors.blueAccent, 
-                              size: 20
-                            )
+                            child: _openingMonth == title
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : Icon(
+                                  provider.isMonthFinalized(title) ? Icons.lock : Icons.calendar_month, 
+                                  color: provider.isMonthFinalized(title) ? Colors.green : Colors.blueAccent, 
+                                  size: 20
+                                )
                           ),
                           const SizedBox(width: 10),
                           Expanded(
@@ -453,7 +479,7 @@ class _MonthSelectionScreenState extends State<MonthSelectionScreen> with Automa
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 12), 
                       side: BorderSide(color: primaryColor, width: 1.5),
-                      backgroundColor: isDark ? primaryColor.withOpacity(0.1) : Colors.transparent,
+                      backgroundColor: isDark ? primaryColor.withValues(alpha: 0.1) : Colors.transparent,
                     )
                   )
                 )
