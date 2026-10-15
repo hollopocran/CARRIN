@@ -6,6 +6,7 @@ import '../models/item.dart';
 import '../providers/item_provider.dart';
 import '../services/receipt_parser.dart';
 import '../services/utils.dart';
+import 'barcode_scanner_screen.dart';
 
 class ReceiptScannerScreen extends StatefulWidget {
   const ReceiptScannerScreen({super.key});
@@ -20,7 +21,11 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
   
   bool _isProcessing = false;
   List<Item> _extractedItems = [];
-  String _statusMessage = 'Tire uma foto ou escolha da galeria.';
+  String? _storeName;
+  String? _cnpj;
+  String? _nfcKey;
+  String? _uf;
+  String _statusMessage = 'Tire uma foto, escolha da galeria ou escaneie o QR Code NFC-e.';
 
   @override
   void dispose() {
@@ -43,12 +48,16 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
       final inputImage = InputImage.fromFilePath(image.path);
       final RecognizedText recognizedText = await _textRecognizer.processImage(inputImage);
 
-      final foundItems = ReceiptParser.parse(recognizedText.text);
+      final parseResult = ReceiptParser.parseWithMetadata(recognizedText.text);
 
       setState(() {
-        _extractedItems = foundItems;
+        _extractedItems = parseResult.items;
+        _storeName = parseResult.storeName ?? _storeName;
+        _cnpj = parseResult.cnpj ?? _cnpj;
+        _nfcKey = parseResult.nfcKey ?? _nfcKey;
+        _uf = parseResult.uf ?? _uf;
         _isProcessing = false;
-        if (foundItems.isEmpty) {
+        if (parseResult.items.isEmpty) {
           _statusMessage = 'Não foi possível identificar itens ou preços claros neste cupom.';
         } else {
           _statusMessage = 'Encontrados ${_extractedItems.length} itens. Toque em um item para editar.';
@@ -61,6 +70,106 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
         _isProcessing = false;
       });
     }
+  }
+
+  Future<void> _scanNfcQrCode() async {
+    final scanned = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const BarcodeScannerScreen(title: 'Escanear QR Code NFC-e'),
+      ),
+    );
+
+    if (scanned == null || scanned.isEmpty) return;
+
+    final result = ReceiptParser.parseNfcUrl(scanned);
+    if (result.nfcKey != null) {
+      setState(() {
+        _nfcKey = result.nfcKey;
+        _cnpj = result.cnpj ?? _cnpj;
+        _uf = result.uf ?? _uf;
+        _statusMessage = 'NFC-e detectada (UF: ${_uf ?? 'BR'}, CNPJ: ${_cnpj ?? '-'}).';
+      });
+
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: const Row(
+              children: [
+                Icon(Icons.qr_code_2, color: Colors.green),
+                SizedBox(width: 8),
+                Text('NFC-e Reconhecida'),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (_uf != null) Text('Estado (UF): $_uf', style: const TextStyle(fontWeight: FontWeight.bold)),
+                if (_cnpj != null) Text('CNPJ: $_cnpj'),
+                const SizedBox(height: 8),
+                Text('Chave: $_nfcKey', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                const SizedBox(height: 12),
+                const Text(
+                  'Para carregar todos os itens com detalhes, você também pode tirar uma foto do cupom fiscal com IA.',
+                  style: TextStyle(fontSize: 13),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('OK'),
+              ),
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _processImage(ImageSource.camera);
+                },
+                icon: const Icon(Icons.camera_alt, size: 16),
+                label: const Text('Tirar Foto dos Itens'),
+              ),
+            ],
+          ),
+        );
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('O código lido não corresponde a uma URL de NFC-e válida.')),
+        );
+      }
+    }
+  }
+
+  void _editStoreNameDialog() {
+    final ctrl = TextEditingController(text: _storeName ?? '');
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Nome do Estabelecimento'),
+        content: TextField(
+          controller: ctrl,
+          decoration: const InputDecoration(labelText: 'Supermercado / Loja', hintText: 'Ex: Supermercados BH'),
+          textCapitalization: TextCapitalization.words,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          ElevatedButton(
+            onPressed: () {
+              setState(() {
+                _storeName = ctrl.text.trim().isEmpty ? null : ctrl.text.trim();
+              });
+              Navigator.pop(ctx);
+            },
+            child: const Text('Salvar'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _editItemDialog(int index) {
@@ -154,23 +263,41 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
 
   void _saveItems() async {
     final provider = Provider.of<ItemProvider>(context, listen: false);
+    int addedCount = 0;
+    int updatedCount = 0;
+
     for (var item in _extractedItems) {
-      final existingIndex = provider.items.indexWhere((it) => it.name.toLowerCase() == item.name.toLowerCase());
+      final normalized = Utils.normalize(item.name);
+      final existingIndex = provider.items.indexWhere(
+        (it) => Utils.normalize(it.name) == normalized,
+      );
+
       if (existingIndex != -1) {
         final existingItem = provider.items[existingIndex];
-        existingItem.unitPrice = item.unitPrice;
-        existingItem.quantity = item.quantity;
-        existingItem.isBought = true;
-        await provider.updateItem(existingItem);
+        final updated = existingItem.copyWith(
+          unitPrice: item.unitPrice > 0 ? item.unitPrice : existingItem.unitPrice,
+          quantity: item.quantity,
+          isBought: true,
+          category: item.category.isNotEmpty ? item.category : existingItem.category,
+        );
+        await provider.updateItem(updated);
+        updatedCount++;
       } else {
         await provider.addItem(item);
+        addedCount++;
       }
     }
     
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('${_extractedItems.length} itens salvos com sucesso na lista!'),
+          content: Text(
+            addedCount > 0 && updatedCount > 0
+                ? '$addedCount novos adicionados e $updatedCount itens da lista atualizados!'
+                : (addedCount > 0
+                    ? '$addedCount novos itens salvos na lista!'
+                    : '$updatedCount itens da lista foram atualizados e marcados como comprados!'),
+          ),
           backgroundColor: Colors.green,
         ),
       );
@@ -180,6 +307,8 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final provider = Provider.of<ItemProvider>(context, listen: false);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Escanear Nota Fiscal'),
@@ -191,7 +320,11 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
               onPressed: () {
                 setState(() {
                   _extractedItems = [];
-                  _statusMessage = 'Tire uma foto ou escolha da galeria.';
+                  _storeName = null;
+                  _cnpj = null;
+                  _nfcKey = null;
+                  _uf = null;
+                  _statusMessage = 'Tire uma foto, escolha da galeria ou escaneie o QR Code NFC-e.';
                 });
               },
             ),
@@ -216,12 +349,61 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
             Expanded(
               child: Column(
                 children: [
+                  // Banner de Estabelecimento Detectado
+                  if (_storeName != null || _cnpj != null)
+                    Container(
+                      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).cardColor,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.grey.withValues(alpha: 0.15)),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.storefront, size: 20),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _storeName ?? 'Estabelecimento',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                ),
+                                if (_cnpj != null)
+                                  Text(
+                                    'CNPJ: $_cnpj${_uf != null ? ' • $_uf' : ''}',
+                                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.edit_outlined, size: 18),
+                            tooltip: 'Editar loja',
+                            onPressed: _editStoreNameDialog,
+                          ),
+                        ],
+                      ),
+                    ),
+
+                  // Resumo financeiro dos itens extraídos
                   Container(
                     width: double.infinity,
+                    margin: const EdgeInsets.all(16),
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primaryContainer.withAlpha(80),
-                      border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor)),
+                      color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Theme.of(context).dividerColor),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -241,12 +423,17 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
                       ],
                     ),
                   ),
+
+                  // Lista de Itens com badge inteligente de correspondência
                   Expanded(
                     child: ListView.builder(
                       itemCount: _extractedItems.length,
                       itemBuilder: (context, index) {
                         final item = _extractedItems[index];
                         final subtotal = item.unitPrice * item.quantity;
+                        final normalized = Utils.normalize(item.name);
+                        final alreadyInList = provider.items.any((it) => Utils.normalize(it.name) == normalized);
+
                         return Dismissible(
                           key: Key('item_${item.name}_$index'),
                           direction: DismissDirection.endToStart,
@@ -269,7 +456,49 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
                                 style: const TextStyle(fontSize: 20),
                               ),
                             ),
-                            title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                            title: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    item.name,
+                                    style: const TextStyle(fontWeight: FontWeight.w600),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                if (alreadyInList)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.green.withValues(alpha: 0.12),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.check, size: 10, color: Colors.green),
+                                        SizedBox(width: 2),
+                                        Text('Na Lista', style: TextStyle(fontSize: 9, color: Colors.green, fontWeight: FontWeight.bold)),
+                                      ],
+                                    ),
+                                  )
+                                else
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(context).primaryColor.withValues(alpha: 0.12),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      '+ Novo',
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        color: Theme.of(context).primaryColor,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
                             subtitle: Text(
                               '${Utils.formatNumber(item.quantity)}x ${Utils.formatCurrency(item.unitPrice)} • ${item.category}',
                             ),
@@ -296,11 +525,13 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
                       },
                     ),
                   ),
+
+                  // Botão de Confirmação e Salvamento
                   Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: SizedBox(
                       width: double.infinity,
-                      height: 48,
+                      height: 50,
                       child: ElevatedButton.icon(
                         onPressed: _saveItems,
                         icon: const Icon(Icons.check_circle_outline),
@@ -322,7 +553,7 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.receipt_long, size: 80, color: Theme.of(context).colorScheme.primary.withAlpha(150)),
+                      Icon(Icons.receipt_long, size: 80, color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.6)),
                       const SizedBox(height: 16),
                       Text(
                         _statusMessage,
@@ -330,19 +561,25 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
                         style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                       ),
                       const SizedBox(height: 32),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                      Wrap(
+                        alignment: WrapAlignment.center,
+                        spacing: 12,
+                        runSpacing: 12,
                         children: [
                           ElevatedButton.icon(
                             onPressed: () => _processImage(ImageSource.camera),
                             icon: const Icon(Icons.camera_alt),
-                            label: const Text('Câmera'),
+                            label: const Text('Câmera (Foto)'),
                           ),
-                          const SizedBox(width: 16),
                           OutlinedButton.icon(
                             onPressed: () => _processImage(ImageSource.gallery),
                             icon: const Icon(Icons.photo_library),
                             label: const Text('Galeria'),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: _scanNfcQrCode,
+                            icon: const Icon(Icons.qr_code_scanner),
+                            label: const Text('QR Code NFC-e'),
                           ),
                         ],
                       )

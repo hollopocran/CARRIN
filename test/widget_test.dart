@@ -67,6 +67,33 @@ void main() {
       expect(items[1].quantity, equals(3.0));
       expect(items[1].unitPrice, equals(3.20));
     });
+
+    test('extracts store name, CNPJ and items with parseWithMetadata', () {
+      const receipt = '''
+      SUPERMERCADOS BH LTDA
+      CNPJ: 12.345.678/0001-90
+      001 7891000123456 LEITE INTEGRAL 1L 2 UN X 4,99 9,98
+      TOTAL R\$ 9,98
+      ''';
+
+      final result = ReceiptParser.parseWithMetadata(receipt);
+
+      expect(result.storeName, contains('Supermercados Bh'));
+      expect(result.cnpj, equals('12.345.678/0001-90'));
+      expect(result.items.length, equals(1));
+      expect(result.items.first.name, contains('Leite integral 1l'));
+      expect(result.items.first.unitPrice, equals(4.99));
+    });
+
+    test('parses NFC-e QR code URL and extracts 44-digit key, UF and CNPJ', () {
+      const nfcUrl = 'https://portalsped.fazenda.mg.gov.br/portalnfce/sistema/qrcode.xhtml?p=31230512345678000195650010000123451000123456|2|1|1|HASH';
+
+      final result = ReceiptParser.parseNfcUrl(nfcUrl);
+
+      expect(result.nfcKey, equals('31230512345678000195650010000123451000123456'));
+      expect(result.uf, equals('MG'));
+      expect(result.cnpj, equals('12.345.678/0001-95'));
+    });
   });
 
   group('Utils Unit Tests', () {
