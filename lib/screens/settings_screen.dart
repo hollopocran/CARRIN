@@ -9,6 +9,7 @@ import 'tutorial_screen.dart';
 import 'terms_screen.dart';
 import '../widgets/supermarket_avatar.dart';
 import '../widgets/theme_color_picker_sheet.dart';
+import '../services/google_places_service.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -82,10 +83,16 @@ class SettingsScreen extends StatelessWidget {
             icon: Icons.delete_sweep_outlined,
             onTap: () => _showClearCacheDialog(context, itemProvider),
           ),
-
-          
-
-          
+          const SizedBox(height: 24),
+          const Text('SUPERMERCADOS & LOCALIZAÇÃO', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.1)),
+          const SizedBox(height: 12),
+          _buildSettingItem(
+            context,
+            title: 'Google Places API',
+            subtitle: 'Detecção inteligente de supermercados por GPS',
+            icon: Icons.place_outlined,
+            onTap: () => _showGooglePlacesDialog(context),
+          ),
           const SizedBox(height: 24),
           const Text('PLANEJAMENTO', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.1)),
           const SizedBox(height: 12),
@@ -185,7 +192,7 @@ class SettingsScreen extends StatelessWidget {
           const ListTile(
             leading: Icon(Icons.info_outline),
             title: Text('Versão', style: TextStyle(fontWeight: FontWeight.w500)),
-            trailing: Text('1.3.517', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+            trailing: Text('1.3.518', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -881,6 +888,212 @@ class SettingsScreen extends StatelessWidget {
         provider.setFontScale(targetScale);
         setDialogState(() {});
       },
+    );
+  }
+
+  void _showGooglePlacesDialog(BuildContext context) async {
+    final currentKey = await GooglePlacesService.instance.getApiKey();
+    final controller = TextEditingController(text: currentKey ?? '');
+    bool isTesting = false;
+    String? testResult;
+    bool? testSuccess;
+
+    if (!context.mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (dialogCtx, setDialogState) {
+          final hasKey = controller.text.trim().isNotEmpty;
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            title: const Row(
+              children: [
+                Icon(Icons.place_rounded, color: Colors.blue),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Google Places API',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                  ),
+                ),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'A API do Google permite reconhecer automaticamente em qual supermercado você está via GPS assim que você chega ao local.',
+                    style: TextStyle(fontSize: 13, color: Colors.grey, height: 1.4),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: hasKey ? Colors.green.withValues(alpha: 0.1) : Colors.orange.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: hasKey ? Colors.green.withValues(alpha: 0.3) : Colors.orange.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          hasKey ? Icons.check_circle_rounded : Icons.info_outline_rounded,
+                          size: 16,
+                          color: hasKey ? Colors.green : Colors.orange,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            hasKey 
+                                ? 'Chave do Google ativa' 
+                                : 'Sem chave: usando OpenStreetMap (grátis)',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: hasKey ? Colors.green : Colors.orange,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: controller,
+                    decoration: InputDecoration(
+                      labelText: 'Chave de API (API Key)',
+                      hintText: 'Ex: AIzaSyD...',
+                      prefixIcon: const Icon(Icons.key_rounded),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                      suffixIcon: controller.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear, size: 18),
+                              onPressed: () {
+                                controller.clear();
+                                setDialogState(() {
+                                  testResult = null;
+                                  testSuccess = null;
+                                });
+                              },
+                            )
+                          : null,
+                    ),
+                    onChanged: (_) => setDialogState(() {}),
+                  ),
+                  if (testResult != null) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: testSuccess == true 
+                            ? Colors.green.withValues(alpha: 0.12)
+                            : Colors.red.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: testSuccess == true ? Colors.green : Colors.red,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            testSuccess == true ? Icons.check_circle : Icons.error_outline,
+                            size: 18,
+                            color: testSuccess == true ? Colors.green : Colors.red,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              testResult!,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: testSuccess == true ? Colors.green : Colors.red,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  const Text(
+                    '💡 Como obter uma chave:\n'
+                    '1. Acesse console.cloud.google.com\n'
+                    '2. Ative a "Places API"\n'
+                    '3. Em Credenciais, crie uma "Chave de API"\n'
+                    '4. O Google oferece US\$ 200 de crédito gratuito todo mês.',
+                    style: TextStyle(fontSize: 11, color: Colors.grey, height: 1.4),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              if (currentKey != null && currentKey.isNotEmpty)
+                TextButton(
+                  onPressed: () async {
+                    await GooglePlacesService.instance.saveApiKey(null);
+                    if (dialogCtx.mounted) {
+                      Navigator.pop(dialogCtx);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Chave removida. Detecção voltou ao OpenStreetMap.')),
+                      );
+                    }
+                  },
+                  child: const Text('Remover', style: TextStyle(color: Colors.red)),
+                ),
+              TextButton(
+                onPressed: isTesting
+                    ? null
+                    : () async {
+                        final keyToTest = controller.text.trim();
+                        if (keyToTest.isEmpty) {
+                          setDialogState(() {
+                            testResult = 'Insira a chave para testar.';
+                            testSuccess = false;
+                          });
+                          return;
+                        }
+                        setDialogState(() {
+                          isTesting = true;
+                          testResult = null;
+                        });
+                        final result = await GooglePlacesService.instance.testApiKey(keyToTest);
+                        setDialogState(() {
+                          isTesting = false;
+                          testSuccess = result['valid'] == true;
+                          testResult = result['message'];
+                        });
+                      },
+                child: isTesting
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Text('Testar Chave'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  final key = controller.text.trim();
+                  await GooglePlacesService.instance.saveApiKey(key);
+                  if (dialogCtx.mounted) {
+                    Navigator.pop(dialogCtx);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        backgroundColor: Colors.green,
+                        content: Text(key.isNotEmpty 
+                            ? 'Chave do Google Places salva com sucesso!' 
+                            : 'Configuração salva.'),
+                      ),
+                    );
+                  }
+                },
+                child: const Text('Salvar', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 }

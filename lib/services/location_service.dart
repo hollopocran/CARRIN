@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
+import 'google_places_service.dart';
 
 class LocationService {
   LocationService._privateConstructor();
@@ -116,8 +117,74 @@ class LocationService {
     return closestMarket;
   }
 
-  /// Tries to fetch commercial name of nearby place using OpenStreetMap Nominatim reverse geocode.
+  /// Comprehensive nearby supermarket detection:
+  /// 1. Saved markets registered by the user (highest priority, custom radius)
+  /// 2. Google Places API (if API key is configured in GooglePlacesService)
+  /// 3. OpenStreetMap reverse geocode fallback
+  Future<Map<String, dynamic>?> identifyNearbySupermarket(
+    Position position,
+    List<Map<String, dynamic>> savedMarkets,
+  ) async {
+    // 1. Prioridade máxima: Mercados salvos/customizados pelo usuário
+    if (savedMarkets.isNotEmpty) {
+      final savedMatch = findNearbyMarket(position, savedMarkets);
+      if (savedMatch != null) {
+        return savedMatch;
+      }
+    }
+
+    // 2. Google Places API (se chave configurada)
+    try {
+      final googleMatch = await GooglePlacesService.instance.findNearbySupermarket(
+        latitude: position.latitude,
+        longitude: position.longitude,
+        radiusMeters: 350.0,
+      );
+      if (googleMatch != null) {
+        return googleMatch;
+      }
+    } catch (e) {
+      debugPrint('📍 LocationService: Erro no Google Places: $e');
+    }
+
+    // 3. Fallback inteligente: OpenStreetMap Nominatim
+    try {
+      final osmName = await identifyPlaceName(position.latitude, position.longitude);
+      if (osmName != null && osmName.isNotEmpty) {
+        return {
+          'name': osmName,
+          'latitude': position.latitude,
+          'longitude': position.longitude,
+          'radius_meters': 150.0,
+          'current_distance_meters': 0.0,
+          'formatted_distance': '0m',
+          'source': 'osm',
+        };
+      }
+    } catch (e) {
+      debugPrint('📍 LocationService: Erro no fallback OSM: $e');
+    }
+
+    return null;
+  }
+
+  /// Tries to fetch commercial name of nearby place using Google Places first, then OpenStreetMap Nominatim.
   Future<String?> identifyPlaceName(double lat, double lng) async {
+    // 1. Tenta pelo Google Places se houver chave configurada
+    try {
+      final googlePlace = await GooglePlacesService.instance.findNearbySupermarket(
+        latitude: lat,
+        longitude: lng,
+        radiusMeters: 350.0,
+      );
+      if (googlePlace != null && googlePlace['name'] != null) {
+        return googlePlace['name'] as String;
+      }
+    } catch (e) {
+      debugPrint('📍 LocationService: Erro ao buscar pelo Google Places: $e');
+    }
+
+    // 2. Fallback OpenStreetMap Nominatim reverse geocode
     try {
       final url = Uri.parse(
         'https://nominatim.openstreetmap.org/reverse?lat=$lat&lon=$lng&format=json&addressdetails=1',

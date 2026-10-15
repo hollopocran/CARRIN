@@ -2619,8 +2619,8 @@ class ItemProvider with ChangeNotifier {
         await loadSupermarkets();
       }
       final position = await LocationService.instance.getCurrentPosition();
-      if (position != null && _supermarkets.isNotEmpty) {
-        final found = LocationService.instance.findNearbyMarket(position, _supermarkets);
+      if (position != null) {
+        final found = await LocationService.instance.identifyNearbySupermarket(position, _supermarkets);
         _detectedSupermarket = found;
         if (found != null && autoFilter) {
           final marketName = found['name'] as String?;

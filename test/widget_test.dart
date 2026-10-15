@@ -18,6 +18,7 @@ import 'package:lista_compras/widgets/weight_calculator_dialog.dart';
 import 'package:lista_compras/models/item.dart';
 import 'package:lista_compras/services/location_service.dart';
 import 'package:lista_compras/widgets/market_and_purpose_widgets.dart';
+import 'package:lista_compras/services/google_places_service.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 void main() {
@@ -506,6 +507,15 @@ void main() {
       expect(result.items.isNotEmpty, isTrue);
       expect(result.storeName, contains('Supermercado Dia Brasil'));
       expect(result.items.first.supermarket, contains('Supermercado Dia Brasil'));
+    });
+
+    test('GooglePlacesService saves, loads and removes API key', () async {
+      SharedPreferences.setMockInitialValues({});
+      final service = GooglePlacesService.instance;
+      await service.saveApiKey('test_key_abc_123');
+      expect(await service.getApiKey(), equals('test_key_abc_123'));
+      await service.saveApiKey(null);
+      expect(await service.getApiKey(), isNull);
     });
   });
 
