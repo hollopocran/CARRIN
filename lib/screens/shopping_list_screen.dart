@@ -23,6 +23,7 @@ import '../widgets/assistive_calculator_button.dart';
 import '../widgets/market_lock_overlay.dart';
 
 import 'barcode_scanner_screen.dart';
+import 'receipt_scanner_screen.dart';
 
 /// The main shopping list view for a specific month.
 /// 
@@ -385,8 +386,10 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
       child: Stack(
         children: [
           Scaffold(
-      body: SafeArea(
-        child: Center(
+            extendBody: true,
+            body: SafeArea(
+              bottom: false,
+              child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 1000),
             child: Stack(
@@ -479,23 +482,52 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                                   });
                                 },
                               ),
-                              IconButton(
-                                icon: const Icon(Icons.calculate_outlined),
-                                tooltip: 'Calculadora Flutuante',
-                                onPressed: () => FloatingCalculatorPopup.show(context),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.share),
-                                tooltip: 'Compartilhar Lista',
-                                onPressed: showLoader ? null : () => _shareList(context, itemProvider),
-                              ),
-                              IconButton(
-                                icon: Icon(
-                                  itemProvider.isCurrentMonthFinalized ? Icons.lock : Icons.lock_open,
-                                  color: itemProvider.isCurrentMonthFinalized ? Colors.green : null,
-                                ),
-                                tooltip: itemProvider.isCurrentMonthFinalized ? 'Compra Finalizada (Reabrir)' : 'Finalizar Compra',
-                                onPressed: showLoader ? null : () => _toggleFinalizeStatus(context, itemProvider),
+                              PopupMenuButton<String>(
+                                icon: const Icon(Icons.more_vert),
+                                tooltip: 'Mais opções',
+                                onSelected: (value) async {
+                                  if (value == 'receipt') {
+                                    if (context.mounted) {
+                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const ReceiptScannerScreen()));
+                                    }
+                                  } else if (value == 'share') {
+                                    _shareList(context, itemProvider);
+                                  } else if (value == 'finalize') {
+                                    _toggleFinalizeStatus(context, itemProvider);
+                                  }
+                                },
+                                itemBuilder: (context) => [
+                                  const PopupMenuItem(
+                                    value: 'receipt',
+                                    child: ListTile(
+                                      leading: Icon(Icons.receipt_long_outlined),
+                                      title: Text('Escanear Nota Fiscal'),
+                                      dense: true,
+                                      contentPadding: EdgeInsets.zero,
+                                    ),
+                                  ),
+                                  const PopupMenuItem(
+                                    value: 'share',
+                                    child: ListTile(
+                                      leading: Icon(Icons.share_outlined),
+                                      title: Text('Compartilhar Lista'),
+                                      dense: true,
+                                      contentPadding: EdgeInsets.zero,
+                                    ),
+                                  ),
+                                  PopupMenuItem(
+                                    value: 'finalize',
+                                    child: ListTile(
+                                      leading: Icon(
+                                        itemProvider.isCurrentMonthFinalized ? Icons.lock_open : Icons.lock_outline,
+                                        color: itemProvider.isCurrentMonthFinalized ? Colors.orange : Colors.green,
+                                      ),
+                                      title: Text(itemProvider.isCurrentMonthFinalized ? 'Reabrir Compra' : 'Finalizar Compra'),
+                                      dense: true,
+                                      contentPadding: EdgeInsets.zero,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
@@ -691,8 +723,6 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                       ),
                     ),
                   ),
-                if (!_isSelectionMode)
-                  const AssistiveCalculatorButton(),
               ],
             ),
           ),
@@ -844,6 +874,8 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
         ),
       ),
     ),
+    if (!_isSelectionMode)
+      const AssistiveCalculatorButton(),
     if (_isMarketLocked)
       MarketLockOverlay(
         onUnlock: _unlockMarketMode,
