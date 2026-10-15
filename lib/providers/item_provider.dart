@@ -9,6 +9,7 @@ import '../services/notification_service.dart';
 import '../services/utils.dart';
 import '../services/database_helper.dart';
 import '../services/auth_service.dart';
+import '../services/quick_summary_service.dart';
 
 /// Main state management provider for the application.
 /// 
@@ -822,6 +823,13 @@ class ItemProvider with ChangeNotifier {
 
     if (target == realCurrentMonthName) _dashboardData = newData;
     _updateCacheForMonth(target, newData);
+    QuickSummaryService.saveQuickSummary(
+      month: target,
+      totalSpent: total,
+      budget: b,
+      totalItems: _items.length,
+      boughtItems: _items.where((it) => it.isBought).length,
+    );
   }
 
   Map<String, dynamic>? findProductByBarcode(String barcode) {

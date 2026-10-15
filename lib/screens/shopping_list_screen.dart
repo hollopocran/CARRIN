@@ -504,6 +504,58 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                               ),
                             ),
 
+                          if (_marketMode)
+                            SliverToBoxAdapter(
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.amber.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.store_rounded, color: Colors.amber, size: 22),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Modo Mercado Ativo • Tela Sempre Ligada',
+                                              style: TextStyle(
+                                                color: Theme.of(context).brightness == Brightness.dark
+                                                    ? Colors.amberAccent
+                                                    : Colors.amber[900],
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            Text(
+                                              '${itemProvider.items.where((it) => it.isBought).length} de ${itemProvider.items.length} itens no carrinho',
+                                              style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.close, size: 18),
+                                        tooltip: 'Sair do Modo Mercado',
+                                        onPressed: () {
+                                          setState(() {
+                                            _marketMode = false;
+                                            WakelockPlus.disable();
+                                          });
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+
                           if (itemProvider.items.isEmpty && showLoader)
                             const SliverFillRemaining(
                               child: ListSkeleton(),
@@ -878,7 +930,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: _marketMode ? 16 : 12),
                 decoration: BoxDecoration(
                   border: Border(bottom: BorderSide(color: Colors.grey.withValues(alpha: 0.05)))
                 ),
@@ -894,15 +946,15 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                       )
                     else
                       SizedBox(
-                        width: 40,
-                        height: 40,
+                        width: _marketMode ? 48 : 40,
+                        height: _marketMode ? 48 : 40,
                         child: Checkbox(
                           value: item.isBought,
                           onChanged: itemProvider.isCurrentMonthFinalized ? null : (_) {
-                            Vibration.vibrate(duration: 35);
+                            Vibration.vibrate(duration: 40);
                             itemProvider.toggleBought(item);
                           },
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_marketMode ? 8 : 6)),
                           activeColor: Colors.green,
                         ),
                       ),
@@ -914,7 +966,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                           Text(
                             item.name, 
                             style: TextStyle(
-                              fontSize: 16, 
+                              fontSize: _marketMode ? 18 : 16, 
                               fontWeight: FontWeight.bold, 
                               decoration: item.isBought ? TextDecoration.lineThrough : null
                             ),
@@ -922,7 +974,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                             overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 4),
-                          Text('${Utils.formatNumber(item.quantity)}${item.isKg ? "kg" : " un"} x ${Utils.formatCurrency(item.unitPrice)}', style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+                          Text('${Utils.formatNumber(item.quantity)}${item.isKg ? "kg" : " un"} x ${Utils.formatCurrency(item.unitPrice)}', style: TextStyle(color: Colors.grey[500], fontSize: _marketMode ? 13 : 12)),
                         ],
                       ),
                     ),
@@ -1163,83 +1215,156 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                       child: Center(child: Text('Nenhum registro anterior encontrado.', style: TextStyle(color: Colors.grey))),
                     )
                   else
-                    ConstrainedBox(
-                      constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.5),
-                      child: ListView.separated(
-                        controller: scrollController,
-                        shrinkWrap: true,
-                        itemCount: history.length,
-                        separatorBuilder: (context, index) => Divider(color: Colors.grey.withValues(alpha: 0.05), height: 1),
-                        itemBuilder: (context, index) {
-                          final entry = history[index];
-                          final month = entry['month'] as String;
-                          final price = (entry['price'] as num?)?.toDouble() ?? 0.0;
-                          final isCurrent = Utils.normalize(month) == Utils.normalize(activeMonth);
+                    Builder(
+                      builder: (context) {
+                        final positivePrices = history
+                            .map((e) => (e['price'] as num?)?.toDouble() ?? 0.0)
+                            .where((p) => p > 0.01)
+                            .toList();
+                    final double minPrice = positivePrices.isNotEmpty
+                        ? positivePrices.reduce((a, b) => a < b ? a : b)
+                        : 0.0;
+                    final double maxPrice = positivePrices.isNotEmpty
+                        ? positivePrices.reduce((a, b) => a > b ? a : b)
+                        : 0.0;
+                    final double priceDiff = maxPrice - minPrice;
 
-                          final isHigher = price > item.unitPrice && item.unitPrice > 0.01;
-                          final isLower = price < item.unitPrice && item.unitPrice > 0.01;
-
-                          return TweenAnimationBuilder<double>(
-                            duration: const Duration(milliseconds: 1500),
-                            curve: Curves.easeOutExpo,
-                            tween: Tween(begin: isCurrent ? 1.0 : 0.0, end: 0.0),
-                            builder: (context, value, child) {
-                              return Container(
-                                decoration: BoxDecoration(
-                                  color: Theme.of(context).primaryColor.withValues(alpha: 0.15 * value),
-                                  borderRadius: BorderRadius.circular(12),
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (positivePrices.length > 1)
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).cardColor,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(Icons.insights, size: 16, color: Colors.amber),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Menor: ${Utils.formatCurrency(minPrice)}',
+                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.green),
+                                    ),
+                                  ],
                                 ),
-                                child: ListTile(
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                                  leading: Container(
-                                    padding: const EdgeInsets.all(8),
+                                Text(
+                                  'Maior: ${Utils.formatCurrency(maxPrice)}',
+                                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                ),
+                                Text(
+                                  'Dif: ${Utils.formatCurrency(priceDiff)}',
+                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Theme.of(context).primaryColor),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ConstrainedBox(
+                          constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.45),
+                          child: ListView.separated(
+                            controller: scrollController,
+                            shrinkWrap: true,
+                            itemCount: history.length,
+                            separatorBuilder: (context, index) => Divider(color: Colors.grey.withValues(alpha: 0.05), height: 1),
+                            itemBuilder: (context, index) {
+                              final entry = history[index];
+                              final month = entry['month'] as String;
+                              final price = (entry['price'] as num?)?.toDouble() ?? 0.0;
+                              final isCurrent = Utils.normalize(month) == Utils.normalize(activeMonth);
+                              final isBestPrice = price > 0.01 && (price - minPrice).abs() < 0.005;
+
+                              final isHigher = price > item.unitPrice && item.unitPrice > 0.01;
+                              final isLower = price < item.unitPrice && item.unitPrice > 0.01;
+
+                              return TweenAnimationBuilder<double>(
+                                duration: const Duration(milliseconds: 1500),
+                                curve: Curves.easeOutExpo,
+                                tween: Tween(begin: isCurrent ? 1.0 : 0.0, end: 0.0),
+                                builder: (context, value, child) {
+                                  return Container(
                                     decoration: BoxDecoration(
-                                      color: (isCurrent ? Theme.of(context).primaryColor : (isHigher ? Colors.red : Colors.green)).withValues(alpha: 0.1),
-                                      shape: BoxShape.circle
+                                      color: Theme.of(context).primaryColor.withValues(alpha: 0.15 * value),
+                                      borderRadius: BorderRadius.circular(12),
                                     ),
-                                    child: Icon(
-                                      isCurrent ? Icons.gps_fixed : (isHigher ? Icons.trending_up : (isLower ? Icons.trending_down : Icons.trending_flat)), 
-                                      color: isCurrent ? Theme.of(context).primaryColor : (isHigher ? Colors.red : (isLower ? Colors.green : Colors.grey)), 
-                                      size: 18
-                                    ),
-                                  ),
-                                  title: Text(
-                                    month, 
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: isCurrent ? FontWeight.bold : FontWeight.w500,
-                                      color: isCurrent ? Theme.of(context).primaryColor : null,
-                                    )
-                                  ),
-                                  trailing: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    crossAxisAlignment: CrossAxisAlignment.end,
-                                    children: [
-                                      Text(
-                                        Utils.formatCurrency(price), 
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                          color: isCurrent ? Theme.of(context).primaryColor : null,
-                                        )
-                                      ),
-                                      if (isCurrent)
-                                        Text('ESTE MÊS', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Theme.of(context).primaryColor.withValues(alpha: 0.6)))
-                                      else if (item.unitPrice > 0)
-                                        Text(
-                                          isHigher ? '+ ${Utils.formatCurrency(price - item.unitPrice)}' : (isLower ? '- ${Utils.formatCurrency(item.unitPrice - price)}' : 'Mesmo preço'),
-                                          style: TextStyle(fontSize: 10, color: isHigher ? Colors.red : (isLower ? Colors.green : Colors.grey)),
+                                    child: ListTile(
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                      leading: Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          color: (isBestPrice ? Colors.amber : (isCurrent ? Theme.of(context).primaryColor : (isHigher ? Colors.red : Colors.green))).withValues(alpha: 0.12),
+                                          shape: BoxShape.circle,
                                         ),
-                                    ],
-                                  ),
-                                ),
+                                        child: Icon(
+                                          isBestPrice ? Icons.star_rounded : (isCurrent ? Icons.gps_fixed : (isHigher ? Icons.trending_up : (isLower ? Icons.trending_down : Icons.trending_flat))), 
+                                          color: isBestPrice ? Colors.amber[800] : (isCurrent ? Theme.of(context).primaryColor : (isHigher ? Colors.red : (isLower ? Colors.green : Colors.grey))), 
+                                          size: 18,
+                                        ),
+                                      ),
+                                      title: Row(
+                                        children: [
+                                          Text(
+                                            month, 
+                                            style: TextStyle(
+                                              fontSize: 15,
+                                              fontWeight: isCurrent ? FontWeight.bold : FontWeight.w500,
+                                              color: isCurrent ? Theme.of(context).primaryColor : null,
+                                            ),
+                                          ),
+                                          if (isBestPrice && positivePrices.length > 1) ...[
+                                            const SizedBox(width: 6),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                              decoration: BoxDecoration(
+                                                color: Colors.amber.withValues(alpha: 0.15),
+                                                borderRadius: BorderRadius.circular(4),
+                                              ),
+                                              child: const Text(
+                                                'MELHOR',
+                                                style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.amber),
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                      trailing: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        crossAxisAlignment: CrossAxisAlignment.end,
+                                        children: [
+                                          Text(
+                                            Utils.formatCurrency(price), 
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                              color: isBestPrice ? Colors.green[700] : (isCurrent ? Theme.of(context).primaryColor : null),
+                                            ),
+                                          ),
+                                          if (isCurrent)
+                                            Text('ESTE MÊS', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Theme.of(context).primaryColor.withValues(alpha: 0.6)))
+                                          else if (item.unitPrice > 0)
+                                            Text(
+                                              isHigher ? '+ ${Utils.formatCurrency(price - item.unitPrice)}' : (isLower ? '- ${Utils.formatCurrency(item.unitPrice - price)}' : 'Mesmo preço'),
+                                              style: TextStyle(fontSize: 10, color: isHigher ? Colors.red : (isLower ? Colors.green : Colors.grey)),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
                               );
-                            }
-                          );
-                        },
-                      ),
-                    ),
-                  const SizedBox(height: 20),
+                            },
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: 20),
                 ],
               ),
             );

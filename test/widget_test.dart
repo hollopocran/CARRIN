@@ -10,6 +10,7 @@ import 'package:lista_compras/providers/item_provider.dart';
 import 'package:lista_compras/theme/app_themes.dart';
 import 'package:lista_compras/services/receipt_parser.dart';
 import 'package:lista_compras/services/auth_service.dart';
+import 'package:lista_compras/services/quick_summary_service.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 void main() {
@@ -112,6 +113,29 @@ void main() {
       // currencyFormat relies on pt_BR locale initialized in setUpAll
       final formatted = Utils.formatCurrency(15.99);
       expect(formatted, contains('15,99'));
+    });
+  });
+
+  group('QuickSummaryService Tests', () {
+    test('saves and retrieves quick summary correctly', () async {
+      SharedPreferences.setMockInitialValues({});
+      await QuickSummaryService.saveQuickSummary(
+        month: 'Outubro 2026',
+        totalSpent: 150.0,
+        budget: 500.0,
+        totalItems: 10,
+        boughtItems: 6,
+      );
+
+      final summary = await QuickSummaryService.getQuickSummary();
+      expect(summary, isNotNull);
+      expect(summary!['month'], equals('Outubro 2026'));
+      expect(summary['totalSpent'], equals(150.0));
+      expect(summary['budget'], equals(500.0));
+      expect(summary['balance'], equals(350.0));
+      expect(summary['totalItems'], equals(10));
+      expect(summary['boughtItems'], equals(6));
+      expect(summary['pendingItems'], equals(4));
     });
   });
 
