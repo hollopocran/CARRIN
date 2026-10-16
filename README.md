@@ -9,6 +9,7 @@ O **CARRIN** é um ecossistema mobile inteligente em Flutter para gestão financ
 * 📱 **Privacidade Total com Google Sheets:** Sincronização direta com a planilha pessoal do seu Google Drive via OAuth 2.0. Seus dados nunca passam por servidores de terceiros.
 * ⚡ **Arquitetura Offline-First (SQLite):** Todas as operações funcionam instantaneamente mesmo sem sinal no supermercado, com fila resiliente de sincronização.
 * 📡 **Radar de Preços Comunitário (Supabase):** Feed em tempo real de preços colaborativos, com comparador de economia (%) e ranking de mercados mais baratos por proximidade GPS.
+* 🗺️ **Mapa Geográfico Interativo (OpenStreetMap):** Visualização de supermercados no mapa em tempo real com GPS do usuário, destaque visual do mercado mais barato (`👑`), carrossel sincronizado e rotas externas para Google Maps e Waze.
 * 📍 **Geofencing e Reconhecimento de Supermercado:** Identificação automática de quando você chega ao supermercado (calibrado para *Supermercados Guanabara Niterói*).
 * 🧾 **Scanner Duplo Inteligente:**
   * **Código de Barras (EAN-13):** Preenchimento automático de nome, preço e categoria a partir do seu histórico de compras.

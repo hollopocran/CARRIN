@@ -490,6 +490,8 @@ class CommunityPriceService {
 
     List<MarketComparison> comparisons = [];
 
+    final savedSupermarkets = await DatabaseHelper.instance.getSupermarkets();
+
     for (var entry in marketMap.entries) {
       final market = entry.key;
       final prices = entry.value;
@@ -507,20 +509,66 @@ class CommunityPriceService {
 
       final avgPrice = prices.isNotEmpty ? totalSum / prices.length : 0.0;
       final posRef = marketPosMap[market];
+      double? lat = posRef?.latitude;
+      double? lng = posRef?.longitude;
+
+      if (lat == null || lng == null) {
+        for (var s in savedSupermarkets) {
+          final sName = (s['name'] as String? ?? '').trim().toLowerCase();
+          if (sName == market.toLowerCase()) {
+            lat = (s['latitude'] as num?)?.toDouble();
+            lng = (s['longitude'] as num?)?.toDouble();
+            break;
+          }
+        }
+      }
+
+      if (lat == null || lng == null) {
+        if (market.toLowerCase().contains('guanabara')) {
+          lat = defaultStoreLat;
+          lng = defaultStoreLng;
+        }
+      }
+
       double? dist;
-      if (posRef?.latitude != null && posRef?.longitude != null) {
-        dist = LocationService.instance.calculateDistance(userLat, userLng, posRef!.latitude!, posRef.longitude!);
+      if (lat != null && lng != null) {
+        dist = LocationService.instance.calculateDistance(userLat, userLng, lat, lng);
       }
 
       comparisons.add(MarketComparison(
         supermarketName: market,
-        latitude: posRef?.latitude,
-        longitude: posRef?.longitude,
+        latitude: lat,
+        longitude: lng,
         distanceMeters: dist,
         itemsCount: prices.length,
         averageItemPrice: avgPrice,
         cheapestCount: cheapestCount,
       ));
+    }
+
+    // Inclui mercados salvos no SQLite mesmo que ainda não tenham compras cadastradas
+    for (var s in savedSupermarkets) {
+      final sName = (s['name'] as String? ?? '').trim();
+      if (sName.isEmpty) continue;
+      final exists = comparisons.any((c) => c.supermarketName.toLowerCase() == sName.toLowerCase());
+      if (!exists) {
+        final lat = (s['latitude'] as num?)?.toDouble();
+        final lng = (s['longitude'] as num?)?.toDouble();
+        double? dist;
+        if (lat != null && lng != null) {
+          dist = LocationService.instance.calculateDistance(userLat, userLng, lat, lng);
+          if (dist > radiusKm * 1000) continue;
+        }
+        comparisons.add(MarketComparison(
+          supermarketName: sName,
+          latitude: lat,
+          longitude: lng,
+          distanceMeters: dist,
+          itemsCount: 0,
+          averageItemPrice: 0.0,
+          cheapestCount: 0,
+        ));
+      }
     }
 
     // Ordena pelo maior número de itens mais baratos e menor média
@@ -546,6 +594,34 @@ class CommunityPriceService {
     }
 
     return comparisons;
+  }
+
+  /// Retorna as principais ofertas ou itens cadastrados de um supermercado específico
+  Future<List<CommunityPrice>> getTopDealsForMarket(
+    String marketName, {
+    int limit = 6,
+    double? userLat,
+    double? userLng,
+  }) async {
+    final cleanMarket = marketName.trim().toLowerCase();
+    final allPrices = await getRecentFeed(userLat: userLat, userLng: userLng, radiusKm: 50.0);
+    final marketPrices = allPrices.where((p) => p.supermarketName.trim().toLowerCase() == cleanMarket).toList();
+
+    // Remove produtos duplicados pelo nome, mantendo o menor preço
+    final Map<String, CommunityPrice> uniqueByName = {};
+    for (var p in marketPrices) {
+      final k = p.productName.trim().toLowerCase();
+      if (!uniqueByName.containsKey(k) || p.price < uniqueByName[k]!.price) {
+        uniqueByName[k] = p;
+      }
+    }
+
+    final result = uniqueByName.values.toList();
+    result.sort((a, b) => a.price.compareTo(b.price));
+    if (result.length > limit) {
+      return result.sublist(0, limit);
+    }
+    return result;
   }
 
   /// Busca e compara preços de um determinado produto entre diferentes mercados

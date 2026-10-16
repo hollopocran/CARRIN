@@ -21,6 +21,7 @@ import 'package:lista_compras/widgets/market_and_purpose_widgets.dart';
 import 'package:lista_compras/services/google_places_service.dart';
 import 'package:lista_compras/models/community_price.dart';
 import 'package:lista_compras/services/community_price_service.dart';
+import 'package:lista_compras/screens/market_map_screen.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 void main() {
@@ -678,6 +679,35 @@ void main() {
       expect(CommunityPriceService.defaultStoreName, equals('Supermercados Guanabara'));
       expect(CommunityPriceService.defaultStoreLat, closeTo(-22.88975, 0.0001));
       expect(CommunityPriceService.defaultStoreLng, closeTo(-43.11515, 0.0001));
+    });
+
+    test('MarketComparison handles null distance and coordinates gracefully', () {
+      final market = MarketComparison(
+        supermarketName: 'Supermercado Central',
+        itemsCount: 5,
+        averageItemPrice: 8.50,
+        cheapestCount: 2,
+      );
+
+      expect(market.supermarketName, equals('Supermercado Central'));
+      expect(market.latitude, isNull);
+      expect(market.longitude, isNull);
+      expect(market.distanceMeters, isNull);
+      expect(market.formattedDistance, equals(''));
+      expect(market.isCheapest, isFalse);
+    });
+
+    testWidgets('MarketMapScreen instantiates with default params without throwing', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: MarketMapScreen(
+            initialUserLat: -22.88975,
+            initialUserLng: -43.11515,
+            initialRadiusKm: 15.0,
+          ),
+        ),
+      );
+      expect(find.byType(MarketMapScreen), findsOneWidget);
     });
   });
 }

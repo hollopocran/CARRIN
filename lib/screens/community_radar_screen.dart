@@ -5,6 +5,7 @@ import '../providers/item_provider.dart';
 import '../services/community_price_service.dart';
 import '../services/location_service.dart';
 import '../services/utils.dart';
+import 'market_map_screen.dart';
 
 class CommunityRadarScreen extends StatefulWidget {
   const CommunityRadarScreen({super.key});
@@ -128,6 +129,27 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen> with Single
     }
   }
 
+  Future<void> _openMapScreen({String? focusMarket}) async {
+    final selectedMarket = await Navigator.push<String?>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MarketMapScreen(
+          initialUserLat: _userLat,
+          initialUserLng: _userLng,
+          initialRadiusKm: _radiusKm,
+          initialFocusMarket: focusMarket,
+        ),
+      ),
+    );
+
+    if (selectedMarket != null && mounted) {
+      setState(() {
+        _selectedMarketFilter = selectedMarket;
+        _tabController.animateTo(0);
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -146,6 +168,11 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen> with Single
         ),
         centerTitle: false,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.map_outlined),
+            tooltip: 'Mapa dos Mercados',
+            onPressed: () => _openMapScreen(),
+          ),
           PopupMenuButton<double>(
             icon: Row(
               mainAxisSize: MainAxisSize.min,
@@ -219,14 +246,25 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen> with Single
                 Icon(Icons.store_outlined, size: 64, color: Colors.grey[400]),
                 const SizedBox(height: 16),
                 const Text('Nenhum mercado com preços no raio selecionado.', style: TextStyle(color: Colors.grey, fontSize: 15)),
-                const SizedBox(height: 8),
-                TextButton.icon(
-                  onPressed: () {
-                    setState(() => _radiusKm = 30.0);
-                    _fetchData();
-                  },
-                  icon: const Icon(Icons.near_me),
-                  label: const Text('Expandir raio para 30 km'),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: () => _openMapScreen(),
+                      icon: const Icon(Icons.map_rounded),
+                      label: const Text('Abrir no Mapa'),
+                    ),
+                    const SizedBox(width: 10),
+                    TextButton.icon(
+                      onPressed: () {
+                        setState(() => _radiusKm = 30.0);
+                        _fetchData();
+                      },
+                      icon: const Icon(Icons.near_me),
+                      label: const Text('Raio de 30 km'),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -240,68 +278,145 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen> with Single
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        // Card do Mercado Campeão em Economia
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [primary, primary.withValues(alpha: 0.8)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+        // Banner para Abrir o Mapa Interativo dos Mercados
+        InkWell(
+          onTap: () => _openMapScreen(),
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  primary.withValues(alpha: 0.12),
+                  primary.withValues(alpha: 0.04),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: primary.withValues(alpha: 0.3)),
             ),
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: primary.withValues(alpha: 0.3),
-                blurRadius: 15,
-                offset: const Offset(0, 6),
-              ),
-            ],
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: primary,
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(
+                        color: primary.withValues(alpha: 0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(Icons.map_rounded, color: Colors.white, size: 24),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Mapa Interativo dos Mercados',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: isDark ? Colors.white : Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Veja mercados geolocalizados, rotas GPS e ofertas',
+                        style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.arrow_forward_ios_rounded, size: 14, color: primary),
+              ],
+            ),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.25),
-                      borderRadius: BorderRadius.circular(12),
+        ),
+
+        // Card do Mercado Campeão em Economia
+        InkWell(
+          onTap: () => _openMapScreen(focusMarket: cheapest.supermarketName),
+          borderRadius: BorderRadius.circular(24),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [primary, primary.withValues(alpha: 0.8)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: primary.withValues(alpha: 0.3),
+                  blurRadius: 15,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.25),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text('🏆 ', style: TextStyle(fontSize: 14)),
+                          Text('MAIS ECONÔMICO DA REGIÃO', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
                     ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text('🏆 ', style: TextStyle(fontSize: 14)),
-                        Text('MAIS ECONÔMICO DA REGIÃO', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
-                      ],
+                    if (cheapest.formattedDistance.isNotEmpty)
+                      Text('📍 ${cheapest.formattedDistance}', style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600)),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  cheapest.supermarketName,
+                  style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Text(
+                      'Preço médio dos itens: ${Utils.formatCurrency(cheapest.averageItemPrice)}',
+                      style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
                     ),
-                  ),
-                  if (cheapest.formattedDistance.isNotEmpty)
-                    Text('📍 ${cheapest.formattedDistance}', style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600)),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Text(
-                cheapest.supermarketName,
-                style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Text(
-                    'Preço médio dos itens: ${Utils.formatCurrency(cheapest.averageItemPrice)}',
-                    style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Lidera como menor preço em ${cheapest.cheapestCount} de ${cheapest.itemsCount} produtos monitorados',
-                style: const TextStyle(color: Colors.white70, fontSize: 12),
-              ),
-            ],
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Lidera como menor preço em ${cheapest.cheapestCount} de ${cheapest.itemsCount} produtos',
+                        style: const TextStyle(color: Colors.white70, fontSize: 12),
+                      ),
+                    ),
+                    const Icon(Icons.touch_app_rounded, color: Colors.white70, size: 16),
+                    const SizedBox(width: 4),
+                    const Text('Ver no mapa', style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600)),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
 
@@ -314,79 +429,85 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen> with Single
 
         ..._marketRankings.map((market) {
           final isBest = market.isCheapest;
-          return Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: cardColor,
-              borderRadius: BorderRadius.circular(18),
-              border: isBest ? Border.all(color: Colors.greenAccent.shade700, width: 1.5) : null,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  backgroundColor: isBest ? Colors.green.withValues(alpha: 0.15) : Colors.grey.withValues(alpha: 0.15),
-                  child: Icon(
-                    isBest ? Icons.savings_rounded : Icons.store_rounded,
-                    color: isBest ? Colors.green : Colors.grey[700],
+          return InkWell(
+            onTap: () => _openMapScreen(focusMarket: market.supermarketName),
+            borderRadius: BorderRadius.circular(18),
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: cardColor,
+                borderRadius: BorderRadius.circular(18),
+                border: isBest ? Border.all(color: Colors.greenAccent.shade700, width: 1.5) : null,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
                   ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              market.supermarketName,
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          if (market.formattedDistance.isNotEmpty)
-                            Text(
-                              market.formattedDistance,
-                              style: TextStyle(fontSize: 11, color: Colors.grey[500], fontWeight: FontWeight.w600),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Text(
-                            'Média: ${Utils.formatCurrency(market.averageItemPrice)}',
-                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                          ),
-                          const SizedBox(width: 10),
-                          Text(
-                            '• ${market.itemsCount} produtos',
-                            style: TextStyle(fontSize: 11, color: Colors.grey[500]),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                if (isBest)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.green.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(8),
+                ],
+              ),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    backgroundColor: isBest ? Colors.green.withValues(alpha: 0.15) : Colors.grey.withValues(alpha: 0.15),
+                    child: Icon(
+                      isBest ? Icons.savings_rounded : Icons.store_rounded,
+                      color: isBest ? Colors.green : Colors.grey[700],
                     ),
-                    child: const Text('Menor Preço', style: TextStyle(color: Colors.green, fontSize: 10, fontWeight: FontWeight.bold)),
                   ),
-              ],
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                market.supermarketName,
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (market.formattedDistance.isNotEmpty)
+                              Text(
+                                market.formattedDistance,
+                                style: TextStyle(fontSize: 11, color: Colors.grey[500], fontWeight: FontWeight.w600),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Text(
+                              'Média: ${Utils.formatCurrency(market.averageItemPrice)}',
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              '• ${market.itemsCount} produtos',
+                              style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  if (isBest)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Text('Menor Preço', style: TextStyle(color: Colors.green, fontSize: 10, fontWeight: FontWeight.bold)),
+                    )
+                  else
+                    Icon(Icons.location_on_outlined, size: 18, color: primary),
+                ],
+              ),
             ),
           );
         }),
