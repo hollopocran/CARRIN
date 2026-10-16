@@ -194,14 +194,6 @@ class _StatisticsScreenState extends State<StatisticsScreen> with AutomaticKeepA
     double maxY = maxTotal + (maxTotal - minTotal) * 0.2;
     if (minY == maxY) { minY = 0; maxY += 100; }
 
-    final String? activeMonth = (_activeSpotIndex != null && _activeSpotIndex! >= 0 && _activeSpotIndex! < months.length)
-        ? months[_activeSpotIndex!]
-        : null;
-    final Map<String, double>? activeSummary = activeMonth != null ? data[activeMonth] : null;
-    final double activeTotal = activeSummary?['total'] ?? 0.0;
-    final double activeBudget = activeSummary?['budget'] ?? 0.0;
-    final double activeBalance = activeSummary?['balance'] ?? (activeBudget > 0 ? activeBudget - activeTotal : 0.0);
-
     return Listener(
       behavior: HitTestBehavior.translucent,
       onPointerDown: (_) {
@@ -220,8 +212,8 @@ class _StatisticsScreenState extends State<StatisticsScreen> with AutomaticKeepA
         }
       },
       child: Container(
-        height: 390,
-        padding: const EdgeInsets.only(top: 14, bottom: 10, left: 16, right: 24),
+        height: 380,
+        padding: const EdgeInsets.only(top: 18, bottom: 10, left: 16, right: 24),
         decoration: BoxDecoration(
           color: cardColor, 
           borderRadius: BorderRadius.circular(20), 
@@ -236,80 +228,21 @@ class _StatisticsScreenState extends State<StatisticsScreen> with AutomaticKeepA
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Live Inspector Header
             Padding(
-              padding: const EdgeInsets.only(left: 4, bottom: 10),
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 200),
-                child: activeMonth != null
-                    ? Container(
-                        key: ValueKey('inspector_$activeMonth'),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).primaryColor.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: Theme.of(context).primaryColor.withValues(alpha: 0.35),
-                            width: 1.2,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(Icons.touch_app_rounded, size: 16, color: Theme.of(context).primaryColor),
-                                const SizedBox(width: 6),
-                                Text(
-                                  activeMonth,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                    color: Theme.of(context).primaryColor,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            Row(
-                              children: [
-                                Text(
-                                  'Gasto: ${Utils.formatCurrency(activeTotal)}',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                                ),
-                                if (activeBudget > 0) ...[
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    '•  Saldo: ${Utils.formatCurrency(activeBalance)}',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12,
-                                      color: activeBalance < 0 ? Colors.redAccent : Colors.green,
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ],
-                        ),
-                      )
-                    : Container(
-                        key: const ValueKey('inspector_hint'),
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-                        child: Row(
-                          children: [
-                            Icon(Icons.touch_app_rounded, size: 16, color: Theme.of(context).primaryColor),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Arraste o dedo pelo gráfico para ver os valores de cada mês',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+              padding: const EdgeInsets.only(left: 4, bottom: 12),
+              child: Row(
+                children: [
+                  Icon(Icons.touch_app_rounded, size: 16, color: Theme.of(context).primaryColor),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Arraste o dedo pelo gráfico para ver os valores de cada mês',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                    ),
+                  ),
+                ],
               ),
             ),
             Expanded(
@@ -332,9 +265,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with AutomaticKeepA
                               final spot = touchResponse.lineBarSpots!.first;
                               final idx = spot.x.toInt();
                               if (idx >= 0 && idx < months.length && idx != _activeSpotIndex) {
-                                setState(() {
-                                  _activeSpotIndex = idx;
-                                });
+                                _activeSpotIndex = idx;
                                 HapticFeedback.mediumImpact();
                               }
                             }
