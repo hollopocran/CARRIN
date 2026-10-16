@@ -832,6 +832,31 @@ class DatabaseHelper {
     }
   }
 
+  /// Retorna todos os produtos registrados nas listas do usuário com preço > 0
+  Future<List<Map<String, dynamic>>> getAllUserPurchasedProducts() async {
+    final db = await database;
+    try {
+      final List<Map<String, dynamic>> results = await db.rawQuery('''
+        SELECT 
+          name, 
+          unit_price, 
+          is_kg, 
+          category, 
+          supermarket, 
+          month_title
+        FROM items
+        WHERE unit_price > 0 
+          AND name IS NOT NULL 
+          AND TRIM(name) != ''
+        ORDER BY id DESC
+      ''');
+      return results;
+    } catch (e) {
+      debugPrint('Erro ao obter produtos do usuário: $e');
+      return [];
+    }
+  }
+
   Future<void> clearCommunityPrices() async {
     final db = await database;
     try {

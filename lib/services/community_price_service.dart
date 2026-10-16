@@ -138,6 +138,135 @@ class CommunityPriceService {
     return true;
   }
 
+  /// Publica uma lista de preços em lote na nuvem do Supabase e no SQLite local
+  Future<int> publishPricesBatch(List<CommunityPrice> prices) async {
+    if (prices.isEmpty) return 0;
+    await init();
+
+    // 1. Salva no SQLite local
+    await DatabaseHelper.instance.saveCommunityPrices(prices);
+
+    // 2. Se o Supabase estiver configurado, envia em lote via REST API
+    if (isConfigured) {
+      try {
+        final endpoint = Uri.parse('${_cachedUrl!}/rest/v1/community_prices');
+        final payload = prices.map((p) => {
+          'product_name': p.productName,
+          'category': p.category,
+          'unit': p.unit,
+          'price': p.price,
+          'supermarket_name': p.supermarketName,
+          'latitude': p.latitude,
+          'longitude': p.longitude,
+          'submitted_by': p.submittedBy,
+          'verified_receipt': p.verifiedReceipt,
+          'created_at': p.createdAt.toIso8601String(),
+        }).toList();
+
+        final response = await http.post(
+          endpoint,
+          headers: _buildHeaders(isPost: true),
+          body: jsonEncode(payload),
+        ).timeout(const Duration(seconds: 12));
+
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          debugPrint('✅ ${prices.length} preços publicados em lote no Supabase com sucesso!');
+          return prices.length;
+        } else {
+          debugPrint('⚠️ Erro no batch Supabase: ${response.statusCode} - ${response.body}');
+        }
+      } catch (e) {
+        debugPrint('⚠️ Erro ao enviar lote para o Supabase: $e');
+      }
+    }
+
+    return prices.length;
+  }
+
+  /// Coleta os produtos que o usuário possui com preços reais registrados no app
+  Future<List<CommunityPrice>> getUserRegisteredPrices({
+    String? fallbackSupermarket,
+    double? fallbackLat,
+    double? fallbackLng,
+    Map<String, List<Map<String, dynamic>>>? priceHistoryCache,
+  }) async {
+    final List<CommunityPrice> list = [];
+    final Set<String> seenKeys = {};
+
+    // 1. Coleta do SQLite (todas as listas de compras registradas)
+    final dbRows = await DatabaseHelper.instance.getAllUserPurchasedProducts();
+    for (var row in dbRows) {
+      final name = (row['name'] as String? ?? '').trim();
+      final price = (row['unit_price'] as num?)?.toDouble() ?? 0.0;
+      if (name.isEmpty || price <= 0) continue;
+
+      String market = (row['supermarket'] as String? ?? '').trim();
+      if (market.isEmpty) {
+        market = fallbackSupermarket ?? 'Supermercado Local';
+      }
+
+      final normName = name.toLowerCase();
+      final normMarket = market.toLowerCase();
+      final key = '${normName}_$normMarket';
+
+      if (!seenKeys.contains(key)) {
+        seenKeys.add(key);
+        list.add(CommunityPrice(
+          id: 'user_${DateTime.now().millisecondsSinceEpoch}_${key.hashCode.abs()}',
+          productName: name,
+          category: row['category'] as String?,
+          unit: row['is_kg'] == 1 ? 'kg' : 'un',
+          price: price,
+          supermarketName: market,
+          latitude: fallbackLat,
+          longitude: fallbackLng,
+          submittedBy: 'Minhas Compras',
+          verifiedReceipt: false,
+          createdAt: DateTime.now(),
+        ));
+      }
+    }
+
+    // 2. Se houver histórico de preços em memória/cache, adiciona os que faltam
+    if (priceHistoryCache != null) {
+      for (var entryList in priceHistoryCache.values) {
+        for (var entry in entryList) {
+          final name = (entry['name'] as String? ?? '').trim();
+          final price = (entry['price'] as num?)?.toDouble() ?? 0.0;
+          if (name.isEmpty || price <= 0) continue;
+
+          String market = (entry['supermarket'] as String? ?? '').trim();
+          if (market.isEmpty) {
+            market = fallbackSupermarket ?? 'Supermercado Local';
+          }
+
+          final normName = name.toLowerCase();
+          final normMarket = market.toLowerCase();
+          final key = '${normName}_$normMarket';
+
+          if (!seenKeys.contains(key)) {
+            seenKeys.add(key);
+            list.add(CommunityPrice(
+              id: 'hist_${DateTime.now().millisecondsSinceEpoch}_${key.hashCode.abs()}',
+              productName: name,
+              category: entry['category'] as String?,
+              unit: 'un',
+              price: price,
+              supermarketName: market,
+              latitude: fallbackLat,
+              longitude: fallbackLng,
+              submittedBy: 'Minhas Compras',
+              verifiedReceipt: false,
+              createdAt: DateTime.now(),
+            ));
+          }
+        }
+      }
+    }
+
+    return list;
+  }
+
   /// Busca os preços mais recentes e sincroniza com a nuvem se disponível
   Future<List<CommunityPrice>> getRecentFeed({
     double? userLat,
