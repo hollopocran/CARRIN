@@ -822,13 +822,62 @@ class DatabaseHelper {
         where: where,
         whereArgs: whereArgs.isNotEmpty ? whereArgs : null,
         orderBy: 'created_at DESC',
-        limit: 300,
+        limit: 500,
       );
 
       return maps.map((m) => CommunityPrice.fromMap(m, userLat: userLat, userLng: userLng)).toList();
     } catch (e) {
       debugPrint('Erro ao carregar preços da comunidade do SQLite: $e');
       return [];
+    }
+  }
+
+  /// Popula o cache local da comunidade imediatamente a partir das compras do próprio usuário
+  Future<int> seedCommunityPricesFromUserPurchases() async {
+    final db = await database;
+    try {
+      final userItems = await getAllUserPurchasedProducts();
+      if (userItems.isEmpty) return 0;
+
+      int inserted = 0;
+      await db.transaction((txn) async {
+        final batch = txn.batch();
+        for (var row in userItems) {
+          final name = (row['name'] as String? ?? '').trim();
+          final price = (row['unit_price'] as num?)?.toDouble() ?? 0.0;
+          if (name.isEmpty || price <= 0) continue;
+
+          String market = (row['supermarket'] as String? ?? '').trim();
+          if (market.isEmpty || market.toLowerCase() == 'supermercado local' || market.toLowerCase() == 'supermercado') {
+            market = 'Supermercados Guanabara';
+          }
+
+          final id = 'local_${name.toLowerCase()}_${market.toLowerCase()}';
+          batch.insert(
+            'community_prices_cache',
+            {
+              'id': id,
+              'product_name': name,
+              'category': row['category'] as String? ?? 'Outros',
+              'unit': row['is_kg'] == 1 ? 'kg' : 'un',
+              'price': price,
+              'supermarket_name': market,
+              'latitude': -22.88975,
+              'longitude': -43.11515,
+              'submitted_by': 'Cliente CARRIN',
+              'verified_receipt': 0,
+              'created_at': DateTime.now().toIso8601String(),
+            },
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+          inserted++;
+        }
+        await batch.commit(noResult: true);
+      });
+      return inserted;
+    } catch (e) {
+      debugPrint('Erro ao semear preços locais da comunidade: $e');
+      return 0;
     }
   }
 

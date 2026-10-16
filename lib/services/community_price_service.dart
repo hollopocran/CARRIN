@@ -36,6 +36,7 @@ class CommunityPriceService {
       await DatabaseHelper.instance.purgeSeedCommunityPrices();
       await DatabaseHelper.instance.ensureDefaultSupermarkets();
       await DatabaseHelper.instance.assignDefaultSupermarket(defaultStoreName);
+      await DatabaseHelper.instance.seedCommunityPricesFromUserPurchases();
 
       // Auto-sincronização obrigatória e transparente das compras do usuário para a comunidade
       _autoSyncUserPurchasesInBackground();
@@ -391,7 +392,7 @@ class CommunityPriceService {
     // 1. Tenta buscar dados novos do Supabase se configurado
     if (isConfigured) {
       try {
-        String urlStr = '${_cachedUrl!}/rest/v1/community_prices?select=*&order=created_at.desc&limit=100';
+        String urlStr = '${_cachedUrl!}/rest/v1/community_prices?select=*&order=created_at.desc&limit=500';
         if (query != null && query.trim().isNotEmpty) {
           urlStr += '&product_name=ilike.*${Uri.encodeComponent(query.trim())}*';
         }
@@ -436,7 +437,9 @@ class CommunityPriceService {
         final distB = b.distanceMeters ?? double.infinity;
         return distA.compareTo(distB);
       });
-      return filtered;
+      if (filtered.isNotEmpty) {
+        return filtered;
+      }
     }
 
     return localPrices;
@@ -571,6 +574,57 @@ class CommunityPriceService {
       totalQuotes: matching.length,
       prices: matching,
     );
+  }
+
+  /// Retorna a lista comparativa de todos os produtos distintos monitorados na comunidade
+  Future<List<ProductComparison>> getAllProductComparisons({
+    double? userLat,
+    double? userLng,
+    double radiusKm = 25.0,
+    String? query,
+  }) async {
+    final prices = await getRecentFeed(userLat: userLat, userLng: userLng, radiusKm: radiusKm, query: query);
+    if (prices.isEmpty) return [];
+
+    final Map<String, List<CommunityPrice>> grouped = {};
+    for (var p in prices) {
+      final key = p.productName.toLowerCase().trim();
+      grouped.putIfAbsent(key, () => []).add(p);
+    }
+
+    final List<ProductComparison> result = [];
+    for (var entry in grouped.entries) {
+      final list = entry.value;
+      list.sort((a, b) => a.price.compareTo(b.price));
+
+      double sum = 0;
+      for (var p in list) {
+        sum += p.price;
+      }
+
+      final minPrice = list.first.price;
+      final maxPrice = list.last.price;
+      final avgPrice = sum / list.length;
+      final cheapest = list.first;
+      final mostExpensive = list.last;
+
+      result.add(ProductComparison(
+        productName: cheapest.productName,
+        unit: cheapest.unit ?? 'un',
+        averagePrice: avgPrice,
+        minPrice: minPrice,
+        maxPrice: maxPrice,
+        cheapestMarket: cheapest.supermarketName,
+        cheapestMarketDistance: cheapest.distanceMeters,
+        mostExpensiveMarket: mostExpensive.supermarketName,
+        totalQuotes: list.length,
+        prices: list,
+      ));
+    }
+
+    // Ordena alfabeticamente pelo nome do produto
+    result.sort((a, b) => a.productName.toLowerCase().compareTo(b.productName.toLowerCase()));
+    return result;
   }
 
   /// Retorna o SQL para criar a tabela no Supabase com 1 clique
