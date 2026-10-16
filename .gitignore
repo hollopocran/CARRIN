@@ -71,4 +71,5 @@ assets/credentials.json
 # Logs & temp files
 analyze.txt
 .antigravitycli/
+WhatsApp*.jpeg
 

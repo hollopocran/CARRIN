@@ -28,6 +28,7 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen> with Single
   List<ProductComparison> _allComparisons = [];
   ProductComparison? _searchedProduct;
   String _selectedCategory = 'Todos';
+  String _selectedMarketFilter = 'Todos';
 
   @override
   void initState() {
@@ -92,9 +93,6 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen> with Single
         userLng: lng,
         radiusKm: _radiusKm,
       );
-    } else if (allComps.isNotEmpty) {
-      // PREENCHIDO JÁ: Auto-seleciona o primeiro produto para o comparador já abrir preenchido!
-      prodComp = allComps.first;
     }
 
     if (mounted) {
@@ -113,7 +111,7 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen> with Single
 
     if (val.trim().isEmpty) {
       setState(() {
-        _searchedProduct = _allComparisons.isNotEmpty ? _allComparisons.first : null;
+        _searchedProduct = null;
       });
       return;
     }
@@ -656,10 +654,41 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen> with Single
   // --- ABA 2: COMPARADOR DE PRODUTOS ---
   // ==========================================
   Widget _buildComparatorTab(bool isDark, Color cardColor, Color primary, ItemProvider provider) {
+    // 1. Extrai a lista de supermercados únicos disponíveis para o filtro
+    final List<String> availableMarkets = ['Todos'];
+    final Set<String> seenMarkets = {};
+    for (var m in _marketRankings) {
+      final name = m.supermarketName.trim();
+      if (name.isNotEmpty && !seenMarkets.contains(name.toLowerCase())) {
+        seenMarkets.add(name.toLowerCase());
+        availableMarkets.add(name);
+      }
+    }
+    for (var p in _recentFeed) {
+      final name = p.supermarketName.trim();
+      if (name.isNotEmpty && !seenMarkets.contains(name.toLowerCase())) {
+        seenMarkets.add(name.toLowerCase());
+        availableMarkets.add(name);
+      }
+    }
+    if (!seenMarkets.contains(CommunityPriceService.defaultStoreName.toLowerCase())) {
+      availableMarkets.add(CommunityPriceService.defaultStoreName);
+    }
+
+    // 2. Filtra os produtos comparados pelo supermercado selecionado
+    final filteredByMarket = _selectedMarketFilter == 'Todos'
+        ? _allComparisons
+        : _allComparisons.where((c) {
+            final filter = _selectedMarketFilter.toLowerCase();
+            return c.cheapestMarket.toLowerCase() == filter ||
+                   c.prices.any((p) => p.supermarketName.toLowerCase() == filter);
+          }).toList();
+
+    // 3. Filtra pelo texto de pesquisa
     final query = _searchController.text.trim().toLowerCase();
     final displayedComparisons = query.isEmpty
-        ? _allComparisons
-        : _allComparisons.where((c) => c.productName.toLowerCase().contains(query)).toList();
+        ? filteredByMarket
+        : filteredByMarket.where((c) => c.productName.toLowerCase().contains(query)).toList();
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -690,20 +719,32 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen> with Single
         ),
         const SizedBox(height: 14),
 
-        // Atalhos de produtos rápidos
+        // Filtro por Supermercados
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
-            children: ['Arroz', 'Feijão', 'Leite', 'Café', 'Azeite', 'Bisteca', 'Creme de Leite', 'Desodorante', 'Óleo', 'Açúcar'].map((item) {
-              final isSelected = _searchedProduct?.productName.toLowerCase().contains(item.toLowerCase()) ?? false;
+            children: availableMarkets.map((market) {
+              final isSelected = _selectedMarketFilter == market;
               return Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: FilterChip(
-                  label: Text(item),
+                  avatar: Icon(
+                    market == 'Todos' ? Icons.store_mall_directory_outlined : Icons.storefront_rounded,
+                    size: 16,
+                    color: isSelected ? Colors.white : primary,
+                  ),
+                  label: Text(market == 'Todos' ? 'Todos os Mercados' : market),
                   selected: isSelected,
+                  selectedColor: primary,
+                  labelStyle: TextStyle(
+                    color: isSelected ? Colors.white : (isDark ? Colors.white70 : Colors.black87),
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                    fontSize: 12.5,
+                  ),
                   onSelected: (selected) {
-                    _searchController.text = selected ? item : '';
-                    _onSearchChanged(_searchController.text);
+                    setState(() {
+                      _selectedMarketFilter = selected ? market : 'Todos';
+                    });
                   },
                 ),
               );
@@ -712,14 +753,49 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen> with Single
         ),
         const SizedBox(height: 18),
 
+        // Se nenhum produto foi selecionado ainda, mostra um card explicativo amigável
+        if (_searchedProduct == null) ...[
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: primary.withValues(alpha: 0.2)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.touch_app_rounded, color: primary, size: 28),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Compare os Preços dos Mercados',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: primary),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Toque em qualquer produto abaixo para abrir a comparação detalhada de preços entre os supermercados.',
+                        style: TextStyle(fontSize: 12, color: isDark ? Colors.white70 : Colors.black87),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 18),
+        ],
+
+        // Card do Produto Selecionado
         if (_searchedProduct != null) ...[
-          // Card de Resumo do Produto Selecionado/Pesquisado
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
               color: cardColor,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: primary.withValues(alpha: 0.25), width: 1.5),
+              border: Border.all(color: primary.withValues(alpha: 0.35), width: 1.5),
               boxShadow: [
                 BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10, offset: const Offset(0, 3)),
               ],
@@ -736,34 +812,46 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen> with Single
                         style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.green.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        _searchedProduct!.maxSavingsPercent > 0
-                            ? 'Economia de até ${_searchedProduct!.maxSavingsPercent.toStringAsFixed(0)}%'
-                            : 'Melhor Preço Registrado',
-                        style: const TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.bold),
-                      ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, size: 20),
+                      tooltip: 'Fechar detalhes',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () {
+                        setState(() {
+                          _searchedProduct = null;
+                        });
+                      },
                     ),
                   ],
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    _searchedProduct!.maxSavingsPercent > 0
+                        ? 'Economia de até ${_searchedProduct!.maxSavingsPercent.toStringAsFixed(0)}%'
+                        : 'Melhor Preço Registrado',
+                    style: const TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.bold),
+                  ),
                 ),
                 const SizedBox(height: 14),
                 Row(
                   children: [
-                    _buildStatBox('Média Regional', Utils.formatCurrency(_searchedProduct!.averagePrice), Colors.blueAccent),
-                    const SizedBox(width: 10),
+                    _buildStatBox('Média', Utils.formatCurrency(_searchedProduct!.averagePrice), Colors.blueAccent),
+                    const SizedBox(width: 8),
                     _buildStatBox('Menor Preço', Utils.formatCurrency(_searchedProduct!.minPrice), Colors.green),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 8),
                     _buildStatBox('Maior Preço', Utils.formatCurrency(_searchedProduct!.maxPrice), Colors.redAccent),
                   ],
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  '💡 Mais barato em: ${_searchedProduct!.cheapestMarket}',
+                  '💡 Mais vantajoso em: ${_searchedProduct!.cheapestMarket}',
                   style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade600, fontSize: 13),
                 ),
               ],
@@ -773,63 +861,20 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen> with Single
           const Text('Preços por Supermercado:', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
           const SizedBox(height: 10),
 
-          ..._searchedProduct!.prices.map((p) {
-            final isBest = p.price == _searchedProduct!.minPrice;
-            return Container(
-              margin: const EdgeInsets.only(bottom: 10),
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: cardColor,
-                borderRadius: BorderRadius.circular(14),
-                border: isBest ? Border.all(color: Colors.green, width: 1.5) : null,
-              ),
-              child: Row(
-                children: [
-                  Icon(isBest ? Icons.check_circle_rounded : Icons.store_rounded, color: isBest ? Colors.green : Colors.grey),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(p.supermarketName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                        Row(
-                          children: [
-                            if (p.formattedDistance.isNotEmpty)
-                              Text('📍 ${p.formattedDistance} • ', style: TextStyle(color: Colors.grey[500], fontSize: 11)),
-                            Text(Utils.formatDate(p.createdAt), style: TextStyle(color: Colors.grey[500], fontSize: 11)),
-                            if (p.verifiedReceipt) ...[
-                              const SizedBox(width: 4),
-                              const Icon(Icons.verified_rounded, size: 12, color: Colors.blueAccent),
-                              const Text(' Nota Fiscal', style: TextStyle(color: Colors.blueAccent, fontSize: 10, fontWeight: FontWeight.bold)),
-                            ],
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  Text(
-                    Utils.formatCurrency(p.price),
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: isBest ? Colors.green : null,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }),
+          // Agrupamento por supermercado único (elimina repetições absurdas!)
+          ..._buildGroupedMarketCards(_searchedProduct!, cardColor),
+          const SizedBox(height: 20),
         ],
 
-        const SizedBox(height: 24),
-
-        // --- LISTA DE TODOS OS PRODUTOS COMPARADOS ---
+        // --- LISTA DE PRODUTOS COMPARADOS ---
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
-              'Todos os Produtos Comparados',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            Text(
+              _selectedMarketFilter == 'Todos'
+                  ? 'Todos os Produtos Comparados'
+                  : 'Produtos em $_selectedMarketFilter',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
@@ -851,8 +896,11 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen> with Single
           return InkWell(
             onTap: () {
               setState(() {
-                _searchedProduct = comp;
-                _searchController.text = comp.productName;
+                if (isSelected) {
+                  _searchedProduct = null;
+                } else {
+                  _searchedProduct = comp;
+                }
               });
             },
             borderRadius: BorderRadius.circular(16),
@@ -917,10 +965,119 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen> with Single
             ),
           );
         }),
-
         const SizedBox(height: 80),
       ],
     );
+  }
+
+  List<Widget> _buildGroupedMarketCards(ProductComparison prod, Color cardColor) {
+    final Map<String, List<CommunityPrice>> marketGroups = {};
+    for (var p in prod.prices) {
+      final mName = p.supermarketName.trim();
+      if (mName.isNotEmpty) {
+        marketGroups.putIfAbsent(mName, () => []).add(p);
+      }
+    }
+
+    if (marketGroups.isEmpty) {
+      return [
+        const Padding(
+          padding: EdgeInsets.all(12),
+          child: Text('Nenhum supermercado registrado com preço para este produto.', style: TextStyle(color: Colors.grey)),
+        ),
+      ];
+    }
+
+    final List<Widget> widgets = [];
+    for (var entry in marketGroups.entries) {
+      final marketName = entry.key;
+      final quotes = entry.value;
+
+      quotes.sort((a, b) => a.price.compareTo(b.price));
+      final lowest = quotes.first;
+      final highest = quotes.last;
+      final isBest = lowest.price <= prod.minPrice;
+      final hasVariation = quotes.length > 1 && (highest.price - lowest.price).abs() > 0.01;
+
+      quotes.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      final latest = quotes.first;
+
+      widgets.add(
+        Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(14),
+            border: isBest ? Border.all(color: Colors.green, width: 1.5) : null,
+          ),
+          child: Row(
+            children: [
+              Icon(
+                isBest ? Icons.check_circle_rounded : Icons.store_rounded,
+                color: isBest ? Colors.green : Colors.grey,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      marketName,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        if (latest.formattedDistance.isNotEmpty)
+                          Text('📍 ${latest.formattedDistance} • ', style: TextStyle(color: Colors.grey[500], fontSize: 11)),
+                        Text(
+                          quotes.length > 1
+                              ? '${quotes.length} compras registradas'
+                              : Utils.formatDate(latest.createdAt),
+                          style: TextStyle(color: Colors.grey[500], fontSize: 11),
+                        ),
+                        if (quotes.any((q) => q.verifiedReceipt)) ...[
+                          const SizedBox(width: 4),
+                          const Icon(Icons.verified_rounded, size: 12, color: Colors.blueAccent),
+                          const Text(' NF', style: TextStyle(color: Colors.blueAccent, fontSize: 10, fontWeight: FontWeight.bold)),
+                        ],
+                      ],
+                    ),
+                    if (hasVariation) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        'Variação: ${Utils.formatCurrency(lowest.price)} a ${Utils.formatCurrency(highest.price)}',
+                        style: TextStyle(color: Colors.grey[600], fontSize: 10.5, fontStyle: FontStyle.italic),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    Utils.formatCurrency(lowest.price),
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: isBest ? Colors.green : null,
+                    ),
+                  ),
+                  Text(
+                    quotes.length > 1 ? 'menor preço' : '/ ${lowest.unit ?? "un"}',
+                    style: TextStyle(fontSize: 10.5, color: Colors.grey[500]),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return widgets;
   }
 
   Widget _buildStatBox(String label, String value, Color color) {
