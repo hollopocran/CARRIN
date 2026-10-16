@@ -320,7 +320,7 @@ class _SaveCurrentMarketDialogState extends State<SaveCurrentMarketDialog> {
                   autofocus: true,
                   decoration: InputDecoration(
                     labelText: 'Nome do Supermercado',
-                    hintText: 'Ex: Assaí Atacadista, Carrefour, Açougue...',
+                    hintText: 'Ex: Supermercados Guanabara, Açougue...',
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
                   ),
                 ),

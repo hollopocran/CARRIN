@@ -949,7 +949,7 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen> with Single
     final nameCtrl = TextEditingController();
     final priceCtrl = TextEditingController();
     final marketCtrl = TextEditingController(
-      text: provider.detectedSupermarket?['name'] ?? provider.selectedSupermarketFilter ?? '',
+      text: provider.detectedSupermarket?['name'] ?? provider.selectedSupermarketFilter ?? CommunityPriceService.defaultStoreName,
     );
 
     showDialog(

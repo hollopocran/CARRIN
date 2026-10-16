@@ -315,7 +315,8 @@ class CommunityPriceService {
       if (name.isEmpty || price <= 0) continue;
 
       String market = (row['supermarket'] as String? ?? '').trim();
-      if (market.isEmpty || market.toLowerCase() == 'supermercado local' || market.toLowerCase() == 'supermercado') {
+      final lMarket = market.toLowerCase();
+      if (market.isEmpty || lMarket == 'supermercado local' || lMarket == 'supermercado' || lMarket == 'carrefour' || lMarket.contains('atacad') || lMarket.contains('assa')) {
         market = fallbackSupermarket ?? defaultStoreName;
       }
 
@@ -350,7 +351,8 @@ class CommunityPriceService {
           if (name.isEmpty || price <= 0) continue;
 
           String market = (entry['supermarket'] as String? ?? '').trim();
-          if (market.isEmpty || market.toLowerCase() == 'supermercado local' || market.toLowerCase() == 'supermercado') {
+          final lMarket = market.toLowerCase();
+          if (market.isEmpty || lMarket == 'supermercado local' || lMarket == 'supermercado' || lMarket == 'carrefour' || lMarket.contains('atacad') || lMarket.contains('assa')) {
             market = fallbackSupermarket ?? defaultStoreName;
           }
 

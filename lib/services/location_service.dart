@@ -213,7 +213,7 @@ class LocationService {
             shopType.isNotEmpty;
 
         final bool isSupermarketName = rawName.toLowerCase().contains(RegExp(
-          r'supermercado|hipermercado|atacad[aã]o|assa[ií]|carrefour|extra|p[aã]o de a[cç][uú]car|mercado|hortifruti|sacol[aã]o|a[cç]ougue|mercearia'
+          r'guanabara|supermercado|hipermercado|atacad[aã]o|assa[ií]|carrefour|extra|p[aã]o de a[cç][uú]car|mercado|hortifruti|sacol[aã]o|a[cç]ougue|mercearia'
         ));
 
         if (isCommercialShop || isSupermarketName) {

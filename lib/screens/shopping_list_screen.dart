@@ -1664,7 +1664,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                   style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black),
                   decoration: InputDecoration(
                     labelText: 'Supermercado / Loja (Opcional)',
-                    hintText: 'Ex: Assaí, Carrefour, Açougue...',
+                    hintText: 'Ex: Supermercados Guanabara, Açougue...',
                     floatingLabelBehavior: FloatingLabelBehavior.always,
                     border: const UnderlineInputBorder(),
                     prefixIcon: const Icon(Icons.storefront_outlined, size: 20),
