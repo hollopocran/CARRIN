@@ -136,6 +136,17 @@ class ItemProvider with ChangeNotifier {
   String get currentWorkspace => _currentWorkspace;
   bool get isFamilyWorkspace => _currentWorkspace == 'family';
 
+  // --- Módulo: Interação com o Gráfico de Análises ---
+  bool _isInteractingWithChart = false;
+  bool get isInteractingWithChart => _isInteractingWithChart;
+
+  void setInteractingWithChart(bool value) {
+    if (_isInteractingWithChart != value) {
+      _isInteractingWithChart = value;
+      notifyListeners();
+    }
+  }
+
   ItemProvider() {
     initialization = _initProvider();
   }

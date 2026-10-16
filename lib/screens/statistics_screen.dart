@@ -34,6 +34,16 @@ class _StatisticsScreenState extends State<StatisticsScreen> with AutomaticKeepA
     _loadData();
   }
 
+  @override
+  void dispose() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        Provider.of<ItemProvider>(context, listen: false).setInteractingWithChart(false);
+      }
+    });
+    super.dispose();
+  }
+
   Future<void> _loadData() async {
     final provider = Provider.of<ItemProvider>(context, listen: false);
     if (provider.cachedSummary.isNotEmpty) {
@@ -118,7 +128,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with AutomaticKeepA
                             const SizedBox(height: 20),
                             _buildBuyerProfileBanner(isDarkMode, cardColor, textColor),
                             const SizedBox(height: 20),
-                            _buildChartCard(filteredMonths, cardColor, provider.cachedSummary, useChartAnimations, themeProvider.seedColor),
+                            _buildChartCard(filteredMonths, cardColor, provider.cachedSummary, useChartAnimations, themeProvider.seedColor, provider),
                             const SizedBox(height: 24),
                             _buildSummaryCards(filteredMonths, cardColor, textColor, provider.cachedSummary),
                             const SizedBox(height: 24),
@@ -176,7 +186,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with AutomaticKeepA
     );
   }
 
-  Widget _buildChartCard(List<String> months, Color cardColor, Map<String, Map<String, double>> data, bool useAnimations, Color seedColor) {
+  Widget _buildChartCard(List<String> months, Color cardColor, Map<String, Map<String, double>> data, bool useAnimations, Color seedColor, ItemProvider provider) {
     if (months.isEmpty) return const SizedBox.shrink();
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     List<FlSpot> spots = [];
@@ -199,16 +209,19 @@ class _StatisticsScreenState extends State<StatisticsScreen> with AutomaticKeepA
       onPointerDown: (_) {
         if (!_isInteractingWithChart) {
           setState(() => _isInteractingWithChart = true);
+          provider.setInteractingWithChart(true);
         }
       },
       onPointerUp: (_) {
         if (_isInteractingWithChart) {
           setState(() => _isInteractingWithChart = false);
+          provider.setInteractingWithChart(false);
         }
       },
       onPointerCancel: (_) {
         if (_isInteractingWithChart) {
           setState(() => _isInteractingWithChart = false);
+          provider.setInteractingWithChart(false);
         }
       },
       child: Container(
@@ -261,6 +274,10 @@ class _StatisticsScreenState extends State<StatisticsScreen> with AutomaticKeepA
                         touchSpotThreshold: 50,
                         touchCallback: (FlTouchEvent event, LineTouchResponse? touchResponse) {
                           if (event is FlPanUpdateEvent || event is FlPanStartEvent || event is FlTapDownEvent) {
+                            if (!_isInteractingWithChart) {
+                              setState(() => _isInteractingWithChart = true);
+                              provider.setInteractingWithChart(true);
+                            }
                             if (touchResponse != null && touchResponse.lineBarSpots != null && touchResponse.lineBarSpots!.isNotEmpty) {
                               final spot = touchResponse.lineBarSpots!.first;
                               final idx = spot.x.toInt();
@@ -268,6 +285,11 @@ class _StatisticsScreenState extends State<StatisticsScreen> with AutomaticKeepA
                                 _activeSpotIndex = idx;
                                 HapticFeedback.mediumImpact();
                               }
+                            }
+                          } else if (event is FlPanEndEvent || event is FlTapUpEvent || event is FlPointerExitEvent) {
+                            if (_isInteractingWithChart) {
+                              setState(() => _isInteractingWithChart = false);
+                              provider.setInteractingWithChart(false);
                             }
                           }
                         },

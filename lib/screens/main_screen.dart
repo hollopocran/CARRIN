@@ -55,6 +55,7 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   void _onPageChanged(int index) {
+    Provider.of<ItemProvider>(context, listen: false).setInteractingWithChart(false);
     setState(() {
       _currentIndex = index;
     });
@@ -70,6 +71,9 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    final itemProvider = Provider.of<ItemProvider>(context);
+    final isChartInteracting = itemProvider.isInteractingWithChart;
+
     return PopScope(
       canPop: _currentIndex == 0,
       onPopInvokedWithResult: (didPop, result) {
@@ -83,7 +87,7 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         body: PageView(
           controller: _pageController,
           onPageChanged: _onPageChanged,
-          physics: _currentIndex == 2
+          physics: isChartInteracting
               ? const NeverScrollableScrollPhysics()
               : const BouncingScrollPhysics(),
           children: const [
