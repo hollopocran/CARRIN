@@ -860,6 +860,10 @@ class DatabaseHelper {
             market = 'Supermercados Guanabara';
           }
 
+          final match = DefaultSupermarketsData.findMatch(market);
+          final mLat = match?.latitude ?? -22.89012;
+          final mLng = match?.longitude ?? -43.11535;
+
           final id = 'local_${name.toLowerCase()}_${market.toLowerCase()}';
           batch.insert(
             'community_prices_cache',
@@ -870,8 +874,8 @@ class DatabaseHelper {
               'unit': row['is_kg'] == 1 ? 'kg' : 'un',
               'price': price,
               'supermarket_name': market,
-              'latitude': -22.88975,
-              'longitude': -43.11515,
+              'latitude': mLat,
+              'longitude': mLng,
               'submitted_by': 'Cliente CARRIN',
               'verified_receipt': 0,
               'created_at': DateTime.now().toIso8601String(),
@@ -946,6 +950,17 @@ class DatabaseHelper {
             whereArgs: [row['id']],
           );
         }
+
+        // Atualiza também o cache de preços comunitários para alinhar os pinos antigos
+        await db.update(
+          'community_prices_cache',
+          {
+            'latitude': s.latitude,
+            'longitude': s.longitude,
+          },
+          where: 'LOWER(supermarket_name) = ?',
+          whereArgs: [s.name.toLowerCase().trim()],
+        );
       }
       debugPrint('📍 ${DefaultSupermarketsData.all.length} supermercados pré-cadastrados (Niterói, São Gonçalo, Maricá, Itaboraí e Rio) assegurados e calibrados no SQLite');
     } catch (e) {

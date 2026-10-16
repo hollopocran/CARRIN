@@ -28,7 +28,13 @@ class CommunityPriceService {
     final clean = marketName.trim();
     if (clean.isEmpty) return null;
 
-    // 1. Tenta buscar no SQLite (supermercados salvos / padrão calibrados)
+    // 1. Tenta no catálogo estático calibrado DefaultSupermarketsData (fonte de verdade oficial)
+    final preloaded = DefaultSupermarketsData.findMatch(clean, userLat: userLat, userLng: userLng);
+    if (preloaded != null) {
+      return {'latitude': preloaded.latitude, 'longitude': preloaded.longitude};
+    }
+
+    // 2. Tenta buscar no SQLite (supermercados customizados salvos)
     final saved = await DatabaseHelper.instance.findSupermarketByName(clean);
     if (saved != null) {
       final lat = (saved['latitude'] as num?)?.toDouble();
@@ -36,12 +42,6 @@ class CommunityPriceService {
       if (lat != null && lng != null) {
         return {'latitude': lat, 'longitude': lng};
       }
-    }
-
-    // 2. Tenta no catálogo estático DefaultSupermarketsData
-    final preloaded = DefaultSupermarketsData.findMatch(clean, userLat: userLat, userLng: userLng);
-    if (preloaded != null) {
-      return {'latitude': preloaded.latitude, 'longitude': preloaded.longitude};
     }
 
     // 3. Fallback se contiver guanabara
@@ -550,16 +550,10 @@ class CommunityPriceService {
 
       final avgPrice = prices.isNotEmpty ? totalSum / prices.length : 0.0;
       final posRef = marketPosMap[market];
-      double? lat = posRef?.latitude;
-      double? lng = posRef?.longitude;
-
-      if (lat == null || lng == null) {
-        final resolved = await resolveMarketCoordinates(market, userLat: userLat, userLng: userLng);
-        if (resolved != null) {
-          lat = resolved['latitude'];
-          lng = resolved['longitude'];
-        }
-      }
+      // PRIORIDADE MÁXIMA: Catálogo oficial calibrado (DefaultSupermarketsData / SQLite)
+      final resolved = await resolveMarketCoordinates(market, userLat: userLat, userLng: userLng);
+      double? lat = resolved?['latitude'] ?? posRef?.latitude;
+      double? lng = resolved?['longitude'] ?? posRef?.longitude;
 
       double? dist;
       if (lat != null && lng != null) {
