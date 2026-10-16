@@ -22,6 +22,7 @@ import 'package:lista_compras/services/google_places_service.dart';
 import 'package:lista_compras/models/community_price.dart';
 import 'package:lista_compras/services/community_price_service.dart';
 import 'package:lista_compras/screens/market_map_screen.dart';
+import 'package:lista_compras/services/default_supermarkets.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 void main() {
@@ -708,6 +709,22 @@ void main() {
         ),
       );
       expect(find.byType(MarketMapScreen), findsOneWidget);
+    });
+
+    test('DefaultSupermarketsData contains valid geolocated markets for all 4 target cities', () {
+      const markets = DefaultSupermarketsData.all;
+      expect(markets.length, greaterThanOrEqualTo(50));
+
+      final cities = markets.map((m) => m.city).toSet();
+      expect(cities, containsAll(['Niterói', 'São Gonçalo', 'Itaboraí', 'Rio de Janeiro']));
+
+      for (var market in markets) {
+        expect(market.name.trim().isNotEmpty, isTrue);
+        expect(market.latitude, inInclusiveRange(-23.5, -22.5));
+        expect(market.longitude, inInclusiveRange(-44.0, -42.5));
+        expect(market.radiusMeters, greaterThan(50));
+        expect(market.colorHex.startsWith('#'), isTrue);
+      }
     });
   });
 }

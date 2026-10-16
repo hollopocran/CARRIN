@@ -316,7 +316,7 @@ class CommunityPriceService {
 
       String market = (row['supermarket'] as String? ?? '').trim();
       final lMarket = market.toLowerCase();
-      if (market.isEmpty || lMarket == 'supermercado local' || lMarket == 'supermercado' || lMarket == 'carrefour' || lMarket.contains('atacad') || lMarket.contains('assa')) {
+      if (market.isEmpty || lMarket == 'supermercado local' || lMarket == 'supermercado') {
         market = fallbackSupermarket ?? defaultStoreName;
       }
 
@@ -352,7 +352,7 @@ class CommunityPriceService {
 
           String market = (entry['supermarket'] as String? ?? '').trim();
           final lMarket = market.toLowerCase();
-          if (market.isEmpty || lMarket == 'supermercado local' || lMarket == 'supermercado' || lMarket == 'carrefour' || lMarket.contains('atacad') || lMarket.contains('assa')) {
+          if (market.isEmpty || lMarket == 'supermercado local' || lMarket == 'supermercado') {
             market = fallbackSupermarket ?? defaultStoreName;
           }
 
@@ -410,11 +410,7 @@ class CommunityPriceService {
           final cloudPrices = list
               .map((item) => CommunityPrice.fromMap(item as Map<String, dynamic>, userLat: userLat, userLng: userLng))
               .where((p) {
-                final market = p.supermarketName.toLowerCase().trim();
-                final isMock = market == 'carrefour' ||
-                               market.contains('atacad') ||
-                               market.contains('assa') ||
-                               p.submittedBy.contains('Teste') ||
+                final isMock = p.submittedBy.contains('Teste') ||
                                p.submittedBy == 'Comunidade CARRIN' ||
                                p.id.startsWith('seed_');
                 return !isMock;

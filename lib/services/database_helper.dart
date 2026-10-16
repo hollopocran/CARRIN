@@ -7,6 +7,7 @@ import '../models/item.dart';
 import '../models/sync_operation.dart';
 import '../models/community_price.dart';
 import 'utils.dart';
+import 'default_supermarkets.dart';
 
 class DatabaseHelper {
   static const _databaseVersion = 4;
@@ -658,7 +659,7 @@ class DatabaseHelper {
     try {
       return await db.query(
         'supermarkets',
-        where: "LOWER(name) NOT IN ('carrefour', 'atacadão', 'atacadao', 'assaí atacadista', 'assai atacadista', 'supermercado local', 'supermercado')",
+        where: "LOWER(name) NOT IN ('supermercado local', 'supermercado')",
         orderBy: 'name ASC',
       );
     } catch (e) {
@@ -899,7 +900,6 @@ class DatabaseHelper {
            OR TRIM(supermarket) = '' 
            OR LOWER(supermarket) = 'supermercado local'
            OR LOWER(supermarket) = 'supermercado'
-           OR LOWER(supermarket) IN ('carrefour', 'atacadão', 'atacadao', 'assaí atacadista', 'assai atacadista')
       ''', [defaultMarket.trim()]);
       if (count > 0) {
         debugPrint('🛒 $count itens migrados para o supermercado "$defaultMarket"');
@@ -911,28 +911,45 @@ class DatabaseHelper {
     }
   }
 
-  /// Garante que o supermercado padrão (Supermercados Guanabara Niterói) esteja registrado
+  /// Garante que todos os supermercados padrão de Niterói, São Gonçalo, Itaboraí e Rio de Janeiro estejam registrados no SQLite
   Future<void> ensureDefaultSupermarkets() async {
     final db = await database;
     try {
-      final existing = await db.query(
-        'supermarkets',
-        where: 'LOWER(name) = ? OR LOWER(name) LIKE ?',
-        whereArgs: ['supermercados guanabara', '%guanabara%'],
-      );
-      if (existing.isEmpty) {
-        await saveSupermarket(
-          name: 'Supermercados Guanabara',
-          latitude: -22.88975,
-          longitude: -43.11515,
-          radiusMeters: 250.0,
-          icon: 'store',
-          colorHex: '#E53935',
+      for (final s in DefaultSupermarketsData.all) {
+        final existing = await db.query(
+          'supermarkets',
+          where: 'LOWER(name) = ?',
+          whereArgs: [s.name.toLowerCase().trim()],
         );
-        debugPrint('🏪 Supermercados Guanabara cadastrado automaticamente no SQLite');
+        if (existing.isEmpty) {
+          await saveSupermarket(
+            name: s.name,
+            latitude: s.latitude,
+            longitude: s.longitude,
+            radiusMeters: s.radiusMeters,
+            icon: s.icon,
+            colorHex: s.colorHex,
+          );
+        } else {
+          final row = existing.first;
+          if (row['latitude'] == null || row['longitude'] == null) {
+            await db.update(
+              'supermarkets',
+              {
+                'latitude': s.latitude,
+                'longitude': s.longitude,
+                'radius_meters': s.radiusMeters,
+                'color_hex': s.colorHex,
+              },
+              where: 'id = ?',
+              whereArgs: [row['id']],
+            );
+          }
+        }
       }
+      debugPrint('📍 ${DefaultSupermarketsData.all.length} supermercados pré-cadastrados (Niterói, São Gonçalo, Itaboraí e Rio) assegurados no SQLite');
     } catch (e) {
-      debugPrint('Erro ao assegurar mercado padrão: $e');
+      debugPrint('Erro ao assegurar mercados padrão: $e');
     }
   }
 
@@ -973,7 +990,7 @@ class DatabaseHelper {
     try {
       await db.delete(
         'community_prices_cache',
-        where: "id LIKE 'seed_%' OR submitted_by = 'Comunidade CARRIN' OR submitted_by LIKE 'Teste%' OR LOWER(supermarket_name) IN ('carrefour', 'atacadão', 'atacadao', 'assaí atacadista', 'assai atacadista')",
+        where: "id LIKE 'seed_%' OR submitted_by = 'Comunidade CARRIN' OR submitted_by LIKE 'Teste%'",
       );
     } catch (_) {}
   }
@@ -983,7 +1000,7 @@ class DatabaseHelper {
     try {
       await db.delete(
         'supermarkets',
-        where: "LOWER(name) IN ('carrefour', 'atacadão', 'atacadao', 'assaí atacadista', 'assai atacadista', 'supermercado local', 'supermercado')",
+        where: "LOWER(name) IN ('supermercado local', 'supermercado')",
       );
     } catch (_) {}
   }
