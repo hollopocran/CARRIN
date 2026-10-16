@@ -666,7 +666,8 @@ void main() {
       expect(sql.toLowerCase(), contains('enable row level security'));
       expect(sql.toLowerCase(), contains('create policy'));
 
-      expect(service.isConfigured, isFalse);
+      expect(service.isConfigured, isTrue);
+      expect(service.supabaseUrl, contains('supabase.co'));
       await service.saveConfig('https://xyzcompany.supabase.co', 'anon_sample_key_456');
       expect(service.isConfigured, isTrue);
       expect(service.supabaseUrl, equals('https://xyzcompany.supabase.co'));

@@ -14,6 +14,10 @@ class CommunityPriceService {
   static const String _prefAnonKey = 'supabase_community_anon_key';
   static const String _prefSeedDoneKey = 'community_seed_prices_v1_done';
 
+  /// Credenciais padrão do Supabase embutidas (zero configuração para o usuário)
+  static const String defaultSupabaseUrl = 'https://togbshissjtctvlsvapc.supabase.co';
+  static const String defaultSupabaseAnonKey = 'sb_publishable_DikvfAMTza89HWcTX5zNBQ_Z987Ak_y';
+
   String? _cachedUrl;
   String? _cachedAnonKey;
   bool _isInitialized = false;
@@ -22,8 +26,8 @@ class CommunityPriceService {
     if (_isInitialized) return;
     try {
       final prefs = await SharedPreferences.getInstance();
-      _cachedUrl = prefs.getString(_prefUrlKey);
-      _cachedAnonKey = prefs.getString(_prefAnonKey);
+      _cachedUrl = prefs.getString(_prefUrlKey) ?? defaultSupabaseUrl;
+      _cachedAnonKey = prefs.getString(_prefAnonKey) ?? defaultSupabaseAnonKey;
 
       final seedDone = prefs.getBool(_prefSeedDoneKey) ?? false;
       if (!seedDone) {
@@ -40,8 +44,27 @@ class CommunityPriceService {
       _cachedUrl != null && _cachedUrl!.trim().isNotEmpty && 
       _cachedAnonKey != null && _cachedAnonKey!.trim().isNotEmpty;
 
-  String? get supabaseUrl => _cachedUrl;
-  String? get supabaseAnonKey => _cachedAnonKey;
+  String? get supabaseUrl => _cachedUrl ?? defaultSupabaseUrl;
+  String? get supabaseAnonKey => _cachedAnonKey ?? defaultSupabaseAnonKey;
+
+  Map<String, String> _buildHeaders({bool isPost = false}) {
+    final key = _cachedAnonKey ?? defaultSupabaseAnonKey;
+    final headers = <String, String>{
+      'apikey': key,
+      'Accept': 'application/json',
+    };
+    // As chaves legadas do Supabase são JWTs (iniciando em eyJ).
+    // Apenas JWTs devem ser enviados no header Authorization: Bearer.
+    // As novas chaves (sb_publishable_...) não devem ir no Authorization Bearer.
+    if (key.startsWith('eyJ')) {
+      headers['Authorization'] = 'Bearer $key';
+    }
+    if (isPost) {
+      headers['Content-Type'] = 'application/json';
+      headers['Prefer'] = 'return=minimal';
+    }
+    return headers;
+  }
 
   Future<void> saveConfig(String url, String anonKey) async {
     final prefs = await SharedPreferences.getInstance();
@@ -91,12 +114,7 @@ class CommunityPriceService {
         final endpoint = Uri.parse('${_cachedUrl!}/rest/v1/community_prices');
         final response = await http.post(
           endpoint,
-          headers: {
-            'apikey': _cachedAnonKey!,
-            'Authorization': 'Bearer ${_cachedAnonKey!}',
-            'Content-Type': 'application/json',
-            'Prefer': 'return=minimal',
-          },
+          headers: _buildHeaders(isPost: true),
           body: jsonEncode({
             'product_name': newPrice.productName,
             'category': newPrice.category,
@@ -144,10 +162,7 @@ class CommunityPriceService {
         final endpoint = Uri.parse(urlStr);
         final response = await http.get(
           endpoint,
-          headers: {
-            'apikey': _cachedAnonKey!,
-            'Authorization': 'Bearer ${_cachedAnonKey!}',
-          },
+          headers: _buildHeaders(isPost: false),
         ).timeout(const Duration(seconds: 4));
 
         if (response.statusCode == 200) {
