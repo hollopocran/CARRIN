@@ -6,6 +6,7 @@ import '../models/community_price.dart';
 import '../services/community_price_service.dart';
 import '../services/location_service.dart';
 import '../services/utils.dart';
+import '../services/default_supermarkets.dart';
 
 class MarketMapScreen extends StatefulWidget {
   final double? initialUserLat;
@@ -257,6 +258,11 @@ class _MarketMapScreenState extends State<MarketMapScreen> with SingleTickerProv
                             separatorBuilder: (_, __) => const Divider(height: 1),
                             itemBuilder: (context, index) {
                               final item = filtered[index];
+                              final pre = DefaultSupermarketsData.findMatch(item.supermarketName);
+                              final addr = pre?.address;
+                              final distText = item.formattedDistance.isNotEmpty ? item.formattedDistance : '';
+                              final sub = [if (distText.isNotEmpty) distText, if (addr != null && addr.isNotEmpty) addr].join(' • ');
+
                               return ListTile(
                                 leading: CircleAvatar(
                                   backgroundColor: primary.withValues(alpha: 0.15),
@@ -267,8 +273,10 @@ class _MarketMapScreenState extends State<MarketMapScreen> with SingleTickerProv
                                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                                 ),
                                 subtitle: Text(
-                                  item.formattedDistance.isNotEmpty ? item.formattedDistance : 'Coordenadas salvas',
+                                  sub.isNotEmpty ? sub : 'Coordenadas salvas',
                                   style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                                 trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
                                 onTap: () {
@@ -457,6 +465,23 @@ class _MarketMapScreenState extends State<MarketMapScreen> with SingleTickerProv
                                     ),
                                 ],
                               ),
+                              if (DefaultSupermarketsData.findMatch(market.supermarketName)?.address != null) ...[
+                                const SizedBox(height: 3),
+                                Row(
+                                  children: [
+                                    Icon(Icons.location_on_outlined, size: 12, color: Colors.grey.shade500),
+                                    const SizedBox(width: 3),
+                                    Expanded(
+                                      child: Text(
+                                        DefaultSupermarketsData.findMatch(market.supermarketName)!.address!,
+                                        style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ],
                           ),
                         ),
