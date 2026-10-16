@@ -108,8 +108,9 @@ class _SyncIndicatorState extends State<SyncIndicator> with SingleTickerProvider
     );
   }
 
-  void _showSyncDetails(BuildContext context, ItemProvider provider) {
-    provider.purgeObsoleteSyncOperations();
+  void _showSyncDetails(BuildContext context, ItemProvider provider) async {
+    await provider.purgeObsoleteSyncOperations();
+    if (!context.mounted) return;
     final count = provider.pendingSyncCount;
     final isProcessing = provider.isProcessingQueue;
     final isOfflineUser = provider.isActiveUserOffline;
@@ -155,9 +156,33 @@ class _SyncIndicatorState extends State<SyncIndicator> with SingleTickerProvider
                 'Ocorreu uma falha ao comunicar com o Google Sheets:\n\n$syncError\n\nSuas alterações continuam salvas em segurança no dispositivo.',
                 style: const TextStyle(fontSize: 13),
               ),
-            ] else if (count > 0)
-              Text('Você tem $count alterações salvas localmente e aguardando conexão para sincronizar com o Google Sheets.')
-            else
+            ] else if (count > 0) ...[
+              Text('Você tem $count ${count == 1 ? 'alteração pendente' : 'alterações pendentes'} para envio à nuvem:'),
+              const SizedBox(height: 8),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 120),
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: provider.syncQueue.map((op) {
+                      String desc;
+                      switch (op.type) {
+                        case 'sync_items': desc = 'Atualização de itens'; break;
+                        case 'update_budget': desc = 'Ajuste de orçamento'; break;
+                        case 'create_month': desc = 'Criação de lista'; break;
+                        case 'rename_month': desc = 'Renomeação de lista'; break;
+                        case 'finalize_month': desc = 'Finalização de lista'; break;
+                        default: desc = op.type;
+                      }
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Text('• ${op.month}: $desc', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+            ] else
               const Text('Todos os dados estão devidamente sincronizados e salvos na nuvem (Google Sheets).'),
           ],
         ),

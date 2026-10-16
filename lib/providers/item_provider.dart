@@ -213,7 +213,8 @@ class ItemProvider with ChangeNotifier {
     await _updateActiveUserMetadata();
 
     await _checkAndMigrateToSqlite();
-    await loadSyncQueue();
+    await loadSyncQueue(force: true);
+    await purgeObsoleteSyncOperations();
     
     // Carrega configurações com base no usuário
     await loadAnimationSettings();
@@ -605,7 +606,8 @@ class ItemProvider with ChangeNotifier {
   void _runBackgroundUserDataSync() async {
     try {
       await _service.init();
-      await loadSyncQueue();
+      await loadSyncQueue(force: true);
+      await purgeObsoleteSyncOperations();
       if (_syncQueue.isNotEmpty) {
         processSyncQueue();
       }
@@ -678,8 +680,8 @@ class ItemProvider with ChangeNotifier {
     debugPrint('Migração concluída com segurança.');
   }
 
-  Future<void> loadSyncQueue() async {
-    if (_isSyncQueueLoaded) return;
+  Future<void> loadSyncQueue({bool force = false}) async {
+    if (_isSyncQueueLoaded && !force) return;
     try {
       _syncQueue = await _dbHelper.getSyncQueue();
       await purgeObsoleteSyncOperations();
@@ -691,18 +693,35 @@ class ItemProvider with ChangeNotifier {
   }
 
   /// Remove operações pendentes na fila que apontam para meses que não existem mais localmente no SQLite
+  /// ou operações que já foram resolvidas localmente (como delete_month).
   Future<void> purgeObsoleteSyncOperations() async {
     try {
       final allMonths = await _dbHelper.getMonthsList();
       final initialCount = _syncQueue.length;
       _syncQueue.removeWhere((op) {
-        if ((op.type == 'sync_items' || op.type == 'update_budget' || op.type == 'finalize_month') &&
-            !allMonths.contains(op.month)) {
+        // 1. Operações de delete_month não devem ficar na fila offline (o mês já não existe localmente)
+        if (op.type == 'delete_month') {
+          debugPrint('🧹 Purgando operação de delete_month da fila: ${op.month}');
+          return true;
+        }
+
+        // 2. Renomeação de mês: válida se o novo nome ainda existir localmente
+        if (op.type == 'rename_month') {
+          final newTitle = op.payload['newTitle'] as String?;
+          if (newTitle != null && allMonths.contains(newTitle)) {
+            return false;
+          }
+        }
+
+        // 3. Qualquer operação cujo mês não existe mais localmente no SQLite é obsoleta
+        if (!allMonths.contains(op.month)) {
           debugPrint('🧹 Purgando operação de sync obsoleta para mês apagado: ${op.type} (${op.month})');
           return true;
         }
+
         return false;
       });
+
       if (_syncQueue.length != initialCount) {
         await _saveSyncQueue();
         if (_syncQueue.isEmpty) {
@@ -732,6 +751,15 @@ class ItemProvider with ChangeNotifier {
   }
 
   void _enqueueOperation(String type, String month, Map<String, dynamic> payload) {
+    if (!isSyncEnabled) {
+      // Se a conta atual não sincroniza com o Sheets (offline, deslogado ou workspace não pessoal), não enfileira
+      return;
+    }
+    if (type == 'delete_month') {
+      // Deleções de mês na nuvem são executadas diretamente e não bloqueiam a fila offline
+      return;
+    }
+
     if (type == 'sync_items') {
       _syncQueue.removeWhere((op) => op.type == 'sync_items' && op.month == month);
     }
@@ -762,10 +790,26 @@ class ItemProvider with ChangeNotifier {
         final op = _syncQueue.first;
         debugPrint('Processando operação de sync offline: ${op.type} para o mês ${op.month}');
         
+        // Se a operação for delete_month, descarta imediatamente
+        if (op.type == 'delete_month') {
+          debugPrint('🧹 Descartando delete_month da fila: ${op.month}');
+          _syncQueue.removeAt(0);
+          await _saveSyncQueue();
+          _safeNotify();
+          continue;
+        }
+
         final allLocalMonths = await _dbHelper.getMonthsList();
-        // Se a operação for de itens/orçamento/finalização e o mês foi excluído localmente, descarta imediatamente
-        if ((op.type == 'sync_items' || op.type == 'update_budget' || op.type == 'finalize_month') &&
-            !allLocalMonths.contains(op.month)) {
+        bool isMonthMissingLocally = !allLocalMonths.contains(op.month);
+        if (op.type == 'rename_month') {
+          final newTitle = op.payload['newTitle'] as String?;
+          if (newTitle != null && allLocalMonths.contains(newTitle)) {
+            isMonthMissingLocally = false;
+          }
+        }
+
+        // Se o mês foi excluído localmente, descarta imediatamente qualquer operação pendente
+        if (isMonthMissingLocally) {
           debugPrint('🧹 Descartando operação de sync para mês inexistente localmente: ${op.type} (${op.month})');
           _syncQueue.removeAt(0);
           await _saveSyncQueue();
@@ -797,18 +841,6 @@ class ItemProvider with ChangeNotifier {
             final oldTitle = op.payload['oldTitle'] as String;
             final newTitle = op.payload['newTitle'] as String;
             await _service.renameMonth(oldTitle, newTitle);
-          } else if (op.type == 'delete_month') {
-            final title = op.payload['title'] as String;
-            try {
-              await _service.deleteMonth(title);
-            } catch (e) {
-              final errStr = e.toString().toLowerCase();
-              if (errStr.contains('not found') || errStr.contains('não encontrada') || errStr.contains('invalid request')) {
-                debugPrint('Mês "$title" já não existia no Google Sheets. Operação de deleção finalizada.');
-              } else {
-                rethrow;
-              }
-            }
           } else if (op.type == 'finalize_month') {
             final isFinalized = op.payload['isFinalized'] as bool;
             final previousMonth = _service.currentMonthTitle;
@@ -837,6 +869,20 @@ class ItemProvider with ChangeNotifier {
           final cleanErr = (errStr.contains('<!DOCTYPE html>') || errStr.toLowerCase().contains('<html'))
               ? 'FormatException: Resposta HTML inválida do Sheets API (portal captivo ou erro do servidor)'
               : errStr;
+          
+          final lowerErr = errStr.toLowerCase();
+          // Se for erro permanente de aba inexistente, intervalo inválido ou requisição inválida, descarta a operação
+          if (lowerErr.contains('not found') || 
+              lowerErr.contains('não encontrada') || 
+              lowerErr.contains('unable to parse range') || 
+              lowerErr.contains('invalid request')) {
+            debugPrint('Operação ${op.type} falhou com erro permanente no Sheets ($cleanErr). Descartando operação da fila.');
+            _syncQueue.removeAt(0);
+            await _saveSyncQueue();
+            _safeNotify();
+            continue;
+          }
+
           debugPrint('Erro de conexão ao processar sync offline: $cleanErr. Pausando fila.');
           _lastSyncError = cleanErr;
           break;
@@ -1690,6 +1736,7 @@ class ItemProvider with ChangeNotifier {
           _itemsCache.remove(m);
         }
       }
+      await purgeObsoleteSyncOperations();
 
       // Load summaries
       final allSummaries = await _dbHelper.getMonthsSummaries();
@@ -1915,8 +1962,8 @@ class ItemProvider with ChangeNotifier {
 
   Future<void> deleteMonth(String title) async {
     await initialization;
-    // Purgar qualquer operação pendente na fila para este mês excluído (exceto a própria delete_month)
-    _syncQueue.removeWhere((op) => op.month == title && op.type != 'delete_month');
+    // Purgar qualquer operação pendente na fila para este mês excluído
+    _syncQueue.removeWhere((op) => op.month == title);
     await _saveSyncQueue();
 
     if (_months.contains(title)) {
@@ -1938,9 +1985,16 @@ class ItemProvider with ChangeNotifier {
       _safeNotify();
     }
     
-    _enqueueOperation('delete_month', title, {
-      'title': title,
-    });
+    // Se a sincronização com a nuvem estiver ativa, dispara a exclusão no Google Sheets sem travar a fila offline
+    if (isSyncEnabled) {
+      try {
+        _service.deleteMonth(title).catchError((e) {
+          debugPrint('Aviso ao excluir aba "$title" no Google Sheets: $e');
+        });
+      } catch (e) {
+        debugPrint('Erro ao invocar deleteMonth no Google Sheets: $e');
+      }
+    }
   }
 
   Future<void> finalizeMonth(String month, {bool finalize = true}) async {
