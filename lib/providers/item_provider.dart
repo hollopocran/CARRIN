@@ -11,6 +11,7 @@ import '../services/database_helper.dart';
 import '../services/auth_service.dart';
 import '../services/quick_summary_service.dart';
 import '../services/location_service.dart';
+import '../services/community_price_service.dart';
 
 /// Main state management provider for the application.
 /// 
@@ -232,6 +233,7 @@ class ItemProvider with ChangeNotifier {
     await loadEssentialItems();
     await _loadFullPriceHistory();
     await loadSupermarkets();
+    await CommunityPriceService.instance.init();
     detectNearbySupermarket(notify: false);
 
     // Se a sincronização estiver ativada, processa a fila de sync
@@ -2079,6 +2081,24 @@ class ItemProvider with ChangeNotifier {
     } catch (e) {
       debugPrint('Erro ao salvar item adicionado no SQLite: $e');
     }
+
+    // Compartilha automaticamente na base da comunidade se tiver preço e mercado conhecido
+    if (newItem.unitPrice > 0) {
+      final market = newItem.supermarket ?? _selectedSupermarketFilter ?? _detectedSupermarket?['name'];
+      if (market != null && market.isNotEmpty) {
+        CommunityPriceService.instance.publishPrice(
+          productName: newItem.name,
+          price: newItem.unitPrice,
+          supermarketName: market,
+          category: newItem.category,
+          unit: newItem.isKg ? 'kg' : 'un',
+          latitude: (_detectedSupermarket?['latitude'] as num?)?.toDouble(),
+          longitude: (_detectedSupermarket?['longitude'] as num?)?.toDouble(),
+          submittedBy: _activeUserDisplayName,
+          verifiedReceipt: false,
+        ).catchError((_) => false);
+      }
+    }
     
     _safeNotify();
     
@@ -2110,6 +2130,24 @@ class ItemProvider with ChangeNotifier {
         _itemsCache[month] = List.from(_items);
       } catch (e) {
         debugPrint('Erro ao atualizar item no SQLite: $e');
+      }
+
+      // Compartilha automaticamente na base da comunidade se tiver preço e mercado conhecido
+      if (updatedItem.unitPrice > 0) {
+        final market = updatedItem.supermarket ?? _selectedSupermarketFilter ?? _detectedSupermarket?['name'];
+        if (market != null && market.isNotEmpty) {
+          CommunityPriceService.instance.publishPrice(
+            productName: updatedItem.name,
+            price: updatedItem.unitPrice,
+            supermarketName: market,
+            category: updatedItem.category,
+            unit: updatedItem.isKg ? 'kg' : 'un',
+            latitude: (_detectedSupermarket?['latitude'] as num?)?.toDouble(),
+            longitude: (_detectedSupermarket?['longitude'] as num?)?.toDouble(),
+            submittedBy: _activeUserDisplayName,
+            verifiedReceipt: false,
+          ).catchError((_) => false);
+        }
       }
       
       _safeNotify();

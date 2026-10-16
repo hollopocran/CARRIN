@@ -14,6 +14,12 @@ class Utils {
         : value.toString().replaceAll('.', ',');
   }
 
+  static final dateFormat = DateFormat('dd/MM/yyyy', 'pt_BR');
+
+  static String formatDate(DateTime date) {
+    return dateFormat.format(date);
+  }
+
   static final Map<String, String> _normalizeCache = {};
   static final Map<int, String> _charMap = _buildCharMap();
 

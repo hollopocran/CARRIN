@@ -5,10 +5,11 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/item.dart';
 import '../models/sync_operation.dart';
+import '../models/community_price.dart';
 import 'utils.dart';
 
 class DatabaseHelper {
-  static const _databaseVersion = 3;
+  static const _databaseVersion = 4;
   static String _currentDatabaseName = "carrin_database_guest.db";
 
   DatabaseHelper._privateConstructor();
@@ -147,6 +148,27 @@ class DatabaseHelper {
         await db.execute("ALTER TABLE months ADD COLUMN workspace TEXT NOT NULL DEFAULT 'personal';");
       } catch (_) {}
     }
+    if (oldVersion < 4) {
+      try {
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS community_prices_cache (
+            id TEXT PRIMARY KEY,
+            product_name TEXT NOT NULL,
+            category TEXT,
+            unit TEXT,
+            price REAL NOT NULL,
+            supermarket_name TEXT NOT NULL,
+            latitude REAL,
+            longitude REAL,
+            submitted_by TEXT,
+            verified_receipt INTEGER DEFAULT 0,
+            created_at TEXT NOT NULL
+          );
+        ''');
+      } catch (e) {
+        debugPrint('Aviso ao criar tabela community_prices_cache no upgrade: $e');
+      }
+    }
   }
 
   Future _onCreate(Database db, int version) async {
@@ -205,6 +227,23 @@ class DatabaseHelper {
         icon TEXT DEFAULT 'store',
         color_hex TEXT DEFAULT '#1E88E5',
         created_at TEXT
+      )
+    ''');
+
+    // Tabela de Preços Compartilhados da Comunidade (Cache Local)
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS community_prices_cache (
+        id TEXT PRIMARY KEY,
+        product_name TEXT NOT NULL,
+        category TEXT,
+        unit TEXT,
+        price REAL NOT NULL,
+        supermarket_name TEXT NOT NULL,
+        latitude REAL,
+        longitude REAL,
+        submitted_by TEXT,
+        verified_receipt INTEGER DEFAULT 0,
+        created_at TEXT NOT NULL
       )
     ''');
   }
@@ -719,6 +758,87 @@ class DatabaseHelper {
     }
   }
 
+  // --- Operações de Preços da Comunidade (Cache Local) ---
+
+  Future<void> saveCommunityPrice(CommunityPrice price) async {
+    final db = await database;
+    try {
+      await db.insert(
+        'community_prices_cache',
+        price.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    } catch (e) {
+      debugPrint('Erro ao salvar preço da comunidade no SQLite: $e');
+    }
+  }
+
+  Future<void> saveCommunityPrices(List<CommunityPrice> prices) async {
+    final db = await database;
+    try {
+      await db.transaction((txn) async {
+        final batch = txn.batch();
+        for (var p in prices) {
+          batch.insert(
+            'community_prices_cache',
+            p.toMap(),
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+        }
+        await batch.commit(noResult: true);
+      });
+    } catch (e) {
+      debugPrint('Erro ao salvar lote de preços da comunidade no SQLite: $e');
+    }
+  }
+
+  Future<List<CommunityPrice>> getCachedCommunityPrices({
+    String? query, 
+    String? supermarket,
+    double? userLat,
+    double? userLng,
+  }) async {
+    final db = await database;
+    try {
+      String? where;
+      List<dynamic> whereArgs = [];
+
+      if (query != null && query.trim().isNotEmpty) {
+        where = 'product_name LIKE ?';
+        whereArgs.add('%${query.trim()}%');
+      }
+
+      if (supermarket != null && supermarket.trim().isNotEmpty) {
+        if (where != null) {
+          where += ' AND supermarket_name = ?';
+        } else {
+          where = 'supermarket_name = ?';
+        }
+        whereArgs.add(supermarket.trim());
+      }
+
+      final List<Map<String, dynamic>> maps = await db.query(
+        'community_prices_cache',
+        where: where,
+        whereArgs: whereArgs.isNotEmpty ? whereArgs : null,
+        orderBy: 'created_at DESC',
+        limit: 300,
+      );
+
+      return maps.map((m) => CommunityPrice.fromMap(m, userLat: userLat, userLng: userLng)).toList();
+    } catch (e) {
+      debugPrint('Erro ao carregar preços da comunidade do SQLite: $e');
+      return [];
+    }
+  }
+
+  Future<void> clearCommunityPrices() async {
+    final db = await database;
+    try {
+      await db.delete('community_prices_cache');
+    } catch (_) {}
+  }
+
   Future<void> clearAll() async {
     final db = await database;
     await db.transaction((txn) async {
@@ -727,6 +847,9 @@ class DatabaseHelper {
       await txn.delete('sync_queue');
       try {
         await txn.delete('supermarkets');
+      } catch (_) {}
+      try {
+        await txn.delete('community_prices_cache');
       } catch (_) {}
     });
   }

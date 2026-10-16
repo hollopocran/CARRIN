@@ -11,6 +11,7 @@ import 'month_selection_screen.dart';
 import 'statistics_screen.dart';
 import 'shopping_list_screen.dart';
 import 'accounts_screen.dart';
+import 'community_radar_screen.dart';
 import '../widgets/supermarket_avatar.dart';
 import 'package:reorderable_grid_view/reorderable_grid_view.dart';
 
@@ -165,6 +166,16 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
                       ],
                     ),
                     actions: [
+                      IconButton(
+                        icon: const Icon(Icons.radar_rounded),
+                        tooltip: 'Radar da Comunidade',
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const CommunityRadarScreen()),
+                          );
+                        },
+                      ),
                       const SyncIndicator(),
                       IconButton(
                         icon: Icon(themeProvider.isDarkMode ? Icons.wb_sunny : Icons.nightlight_round),
@@ -427,7 +438,72 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
             children: _cardOrder.map((id) => _buildReorderableCard(id, data, isDarkMode, provider)).toList(),
           ),
         ),
-        const SizedBox(height: 40),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(28, 0, 28, 20),
+          child: InkWell(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const CommunityRadarScreen()),
+              );
+            },
+            borderRadius: BorderRadius.circular(22),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Theme.of(context).primaryColor.withValues(alpha: 0.15),
+                    Theme.of(context).primaryColor.withValues(alpha: 0.05),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(
+                  color: Theme.of(context).primaryColor.withValues(alpha: 0.3),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).primaryColor.withValues(alpha: 0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Icons.radar_rounded, color: Theme.of(context).primaryColor, size: 24),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Row(
+                          children: [
+                            Text(
+                              'Radar de Preços',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                            ),
+                            SizedBox(width: 6),
+                            Text('COMUNIDADE', style: TextStyle(color: Colors.green, fontSize: 9, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          'Veja qual mercado está mais barato na sua região hoje',
+                          style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.grey),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 30),
       ],
     );
   }

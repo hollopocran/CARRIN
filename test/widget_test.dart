@@ -19,6 +19,8 @@ import 'package:lista_compras/models/item.dart';
 import 'package:lista_compras/services/location_service.dart';
 import 'package:lista_compras/widgets/market_and_purpose_widgets.dart';
 import 'package:lista_compras/services/google_places_service.dart';
+import 'package:lista_compras/models/community_price.dart';
+import 'package:lista_compras/services/community_price_service.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 void main() {
@@ -553,6 +555,122 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('7 pessoas'), findsOneWidget);
+    });
+  });
+
+  group('CommunityPrice and MarketComparison Unit Tests', () {
+    test('CommunityPrice toMap and fromMap serialization with distance calculation', () {
+      final now = DateTime(2026, 10, 16, 12, 0);
+      final price = CommunityPrice(
+        id: 'test_123',
+        productName: 'Arroz Camil 5kg',
+        category: 'Alimentos',
+        unit: 'un',
+        price: 24.90,
+        supermarketName: 'Carrefour',
+        latitude: -23.5614,
+        longitude: -46.6559,
+        submittedBy: 'Weverton',
+        verifiedReceipt: true,
+        createdAt: now,
+        distanceMeters: 1200,
+      );
+
+      final map = price.toMap();
+      expect(map['id'], equals('test_123'));
+      expect(map['product_name'], equals('Arroz Camil 5kg'));
+      expect(map['category'], equals('Alimentos'));
+      expect(map['unit'], equals('un'));
+      expect(map['price'], equals(24.90));
+      expect(map['supermarket_name'], equals('Carrefour'));
+      expect(map['latitude'], equals(-23.5614));
+      expect(map['longitude'], equals(-46.6559));
+      expect(map['submitted_by'], equals('Weverton'));
+      expect(map['verified_receipt'], equals(1));
+      expect(map['created_at'], equals(now.toIso8601String()));
+      expect(price.formattedDistance, equals('1.2km'));
+
+      // Deserialização com cálculo de distância do usuário
+      final restored = CommunityPrice.fromMap(
+        map,
+        userLat: -23.5505,
+        userLng: -46.6333,
+      );
+      expect(restored.id, equals('test_123'));
+      expect(restored.productName, equals('Arroz Camil 5kg'));
+      expect(restored.price, equals(24.90));
+      expect(restored.verifiedReceipt, isTrue);
+      expect(restored.distanceMeters, isNotNull);
+      expect(restored.distanceMeters!, greaterThan(2000));
+    });
+
+    test('ProductComparison calculates maxSavingsPercent accurately', () {
+      final now = DateTime.now();
+      final p1 = CommunityPrice(
+        id: '1',
+        productName: 'Café Melitta 500g',
+        price: 15.00,
+        supermarketName: 'Atacadão',
+        createdAt: now,
+      );
+      final p2 = CommunityPrice(
+        id: '2',
+        productName: 'Café Melitta 500g',
+        price: 20.00,
+        supermarketName: 'Pão de Açúcar',
+        createdAt: now,
+      );
+
+      final comp = ProductComparison(
+        productName: 'Café Melitta 500g',
+        unit: 'un',
+        averagePrice: 17.50,
+        minPrice: 15.00,
+        maxPrice: 20.00,
+        cheapestMarket: 'Atacadão',
+        cheapestMarketDistance: 800,
+        mostExpensiveMarket: 'Pão de Açúcar',
+        totalQuotes: 2,
+        prices: [p1, p2],
+      );
+
+      // (20 - 15) / 20 * 100 = 25% economia
+      expect(comp.maxSavingsPercent, equals(25.0));
+      expect(comp.cheapestMarket, equals('Atacadão'));
+      expect(comp.mostExpensiveMarket, equals('Pão de Açúcar'));
+    });
+
+    test('MarketComparison properties and formattedDistance', () {
+      final market = MarketComparison(
+        supermarketName: 'Assaí Atacadista',
+        latitude: -23.5,
+        longitude: -46.6,
+        distanceMeters: 650,
+        itemsCount: 15,
+        averageItemPrice: 12.40,
+        cheapestCount: 10,
+        isCheapest: true,
+      );
+
+      expect(market.supermarketName, equals('Assaí Atacadista'));
+      expect(market.isCheapest, isTrue);
+      expect(market.formattedDistance, equals('650m'));
+    });
+
+    test('CommunityPriceService provides valid setup SQL and handles configuration', () async {
+      SharedPreferences.setMockInitialValues({});
+      final service = CommunityPriceService.instance;
+
+      final sql = service.getSupabaseSetupSql();
+      expect(sql.toLowerCase(), contains('create table if not exists community_prices'));
+      expect(sql.toLowerCase(), contains('enable row level security'));
+      expect(sql.toLowerCase(), contains('create policy'));
+
+      expect(service.isConfigured, isFalse);
+      await service.saveConfig('https://xyzcompany.supabase.co', 'anon_sample_key_456');
+      expect(service.isConfigured, isTrue);
+      expect(service.supabaseUrl, equals('https://xyzcompany.supabase.co'));
+      expect(service.supabaseAnonKey, equals('anon_sample_key_456'));
     });
   });
 }

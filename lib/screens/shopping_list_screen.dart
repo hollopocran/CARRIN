@@ -25,6 +25,7 @@ import '../widgets/market_and_purpose_widgets.dart';
 
 import 'barcode_scanner_screen.dart';
 import 'receipt_scanner_screen.dart';
+import 'community_radar_screen.dart';
 
 /// The main shopping list view for a specific month.
 /// 
@@ -430,9 +431,21 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                               children: [
                                 Text(itemProvider.currentMonth, style: const TextStyle(fontWeight: FontWeight.bold)),
                                 if (itemProvider.detectedSupermarket != null)
-                                  Text(
-                                    '📍 ${itemProvider.detectedSupermarket!['name']}',
-                                    style: const TextStyle(fontSize: 11, color: Colors.blue, fontWeight: FontWeight.w600),
+                                  InkWell(
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(builder: (_) => const CommunityRadarScreen()),
+                                      );
+                                    },
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                      child: Text(
+                                        '📍 ${itemProvider.detectedSupermarket!['name']} (Radar)',
+                                        style: const TextStyle(fontSize: 11, color: Colors.blue, fontWeight: FontWeight.w600),
+                                      ),
+                                    ),
                                   ),
                               ],
                             ),

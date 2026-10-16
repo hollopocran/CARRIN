@@ -6,6 +6,7 @@ import '../models/item.dart';
 import '../providers/item_provider.dart';
 import '../services/receipt_parser.dart';
 import '../services/utils.dart';
+import '../services/community_price_service.dart';
 import 'barcode_scanner_screen.dart';
 
 class ReceiptScannerScreen extends StatefulWidget {
@@ -285,6 +286,24 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
       } else {
         await provider.addItem(item);
         addedCount++;
+      }
+    }
+
+    // Registra na base da comunidade com selo de Nota Fiscal Verificada
+    final marketName = _storeName ?? provider.detectedSupermarket?['name'] ?? 'Supermercado';
+    for (var item in _extractedItems) {
+      if (item.unitPrice > 0) {
+        CommunityPriceService.instance.publishPrice(
+          productName: item.name,
+          price: item.unitPrice,
+          supermarketName: marketName,
+          category: item.category,
+          unit: item.isKg ? 'kg' : 'un',
+          latitude: (provider.detectedSupermarket?['latitude'] as num?)?.toDouble(),
+          longitude: (provider.detectedSupermarket?['longitude'] as num?)?.toDouble(),
+          submittedBy: provider.activeUserDisplayName,
+          verifiedReceipt: true,
+        ).catchError((_) => false);
       }
     }
     
