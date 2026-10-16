@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/community_price.dart';
 import 'database_helper.dart';
+import 'default_supermarkets.dart';
 import 'location_service.dart';
 
 class CommunityPriceService {
@@ -21,6 +22,35 @@ class CommunityPriceService {
   static const String defaultStoreName = 'Supermercados Guanabara';
   static const double defaultStoreLat = -22.88975;
   static const double defaultStoreLng = -43.11515;
+
+  /// Descobre as coordenadas reais de um supermercado usando o banco local e o catálogo pré-carregado
+  Future<Map<String, double>?> resolveMarketCoordinates(String marketName, {double? userLat, double? userLng}) async {
+    final clean = marketName.trim();
+    if (clean.isEmpty) return null;
+
+    // 1. Tenta buscar no SQLite (supermercados salvos / padrão calibrados)
+    final saved = await DatabaseHelper.instance.findSupermarketByName(clean);
+    if (saved != null) {
+      final lat = (saved['latitude'] as num?)?.toDouble();
+      final lng = (saved['longitude'] as num?)?.toDouble();
+      if (lat != null && lng != null) {
+        return {'latitude': lat, 'longitude': lng};
+      }
+    }
+
+    // 2. Tenta no catálogo estático DefaultSupermarketsData
+    final preloaded = DefaultSupermarketsData.findMatch(clean, userLat: userLat, userLng: userLng);
+    if (preloaded != null) {
+      return {'latitude': preloaded.latitude, 'longitude': preloaded.longitude};
+    }
+
+    // 3. Fallback se contiver guanabara
+    if (clean.toLowerCase().contains('guanabara')) {
+      return {'latitude': defaultStoreLat, 'longitude': defaultStoreLng};
+    }
+
+    return null;
+  }
 
   String? _cachedUrl;
   String? _cachedAnonKey;
@@ -83,6 +113,9 @@ class CommunityPriceService {
           continue;
         }
 
+        // Resolve as coordenadas exatas do supermercado
+        final coords = await resolveMarketCoordinates(market);
+
         toPublish.add(CommunityPrice(
           id: 'user_${DateTime.now().millisecondsSinceEpoch}_${key.hashCode.abs()}',
           productName: name,
@@ -90,8 +123,8 @@ class CommunityPriceService {
           unit: row['is_kg'] == 1 ? 'kg' : 'un',
           price: price,
           supermarketName: market,
-          latitude: (market == defaultStoreName) ? defaultStoreLat : null,
-          longitude: (market == defaultStoreName) ? defaultStoreLng : null,
+          latitude: coords?['latitude'],
+          longitude: coords?['longitude'],
           submittedBy: 'Cliente CARRIN',
           verifiedReceipt: false,
           createdAt: DateTime.now(),
@@ -127,6 +160,8 @@ class CommunityPriceService {
           market = defaultStoreName;
         }
 
+        final coords = await resolveMarketCoordinates(market);
+
         toPublish.add(CommunityPrice(
           id: 'month_${DateTime.now().millisecondsSinceEpoch}_${name.hashCode.abs()}',
           productName: name,
@@ -134,8 +169,8 @@ class CommunityPriceService {
           unit: it.isKg == true ? 'kg' : 'un',
           price: price,
           supermarketName: market,
-          latitude: (market == defaultStoreName) ? defaultStoreLat : null,
-          longitude: (market == defaultStoreName) ? defaultStoreLng : null,
+          latitude: coords?['latitude'],
+          longitude: coords?['longitude'],
           submittedBy: 'Cliente CARRIN',
           verifiedReceipt: false,
           createdAt: DateTime.now(),
@@ -200,6 +235,16 @@ class CommunityPriceService {
       return false;
     }
 
+    double? finalLat = latitude;
+    double? finalLng = longitude;
+    if (finalLat == null || finalLng == null) {
+      final coords = await resolveMarketCoordinates(supermarketName);
+      if (coords != null) {
+        finalLat = coords['latitude'];
+        finalLng = coords['longitude'];
+      }
+    }
+
     final newPrice = CommunityPrice(
       id: 'cp_${DateTime.now().millisecondsSinceEpoch}_${productName.hashCode.abs()}',
       productName: productName.trim(),
@@ -207,8 +252,8 @@ class CommunityPriceService {
       unit: unit ?? 'un',
       price: price,
       supermarketName: supermarketName.trim(),
-      latitude: latitude,
-      longitude: longitude,
+      latitude: finalLat,
+      longitude: finalLng,
       submittedBy: submittedBy ?? 'Cliente CARRIN',
       verifiedReceipt: verifiedReceipt,
       createdAt: DateTime.now(),
@@ -509,20 +554,10 @@ class CommunityPriceService {
       double? lng = posRef?.longitude;
 
       if (lat == null || lng == null) {
-        for (var s in savedSupermarkets) {
-          final sName = (s['name'] as String? ?? '').trim().toLowerCase();
-          if (sName == market.toLowerCase()) {
-            lat = (s['latitude'] as num?)?.toDouble();
-            lng = (s['longitude'] as num?)?.toDouble();
-            break;
-          }
-        }
-      }
-
-      if (lat == null || lng == null) {
-        if (market.toLowerCase().contains('guanabara')) {
-          lat = defaultStoreLat;
-          lng = defaultStoreLng;
+        final resolved = await resolveMarketCoordinates(market, userLat: userLat, userLng: userLng);
+        if (resolved != null) {
+          lat = resolved['latitude'];
+          lng = resolved['longitude'];
         }
       }
 

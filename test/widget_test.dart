@@ -730,5 +730,17 @@ void main() {
         expect(market.colorHex.startsWith('#'), isTrue);
       }
     });
+
+    test('Assaí Atacadista - Tribobó is accurately located at Av. Fued Moisés, Tribobó and matchable', () {
+      final assai = DefaultSupermarketsData.findMatch('Assaí Atacadista - Tribobó');
+      expect(assai, isNotNull);
+      expect(assai!.latitude, closeTo(-22.85444, 0.001));
+      expect(assai.longitude, closeTo(-43.02005, 0.001));
+      expect(assai.city, equals('São Gonçalo'));
+
+      final partialMatch = DefaultSupermarketsData.findMatch('assai tribobo');
+      expect(partialMatch, isNotNull);
+      expect(partialMatch!.name, equals('Assaí Atacadista - Tribobó'));
+    });
   });
 }

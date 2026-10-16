@@ -178,6 +178,116 @@ class _MarketMapScreenState extends State<MarketMapScreen> with SingleTickerProv
     );
   }
 
+  void _openSearchDialog() {
+    final primary = Theme.of(context).colorScheme.primary;
+    final cardColor = Theme.of(context).cardColor;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        String filterText = '';
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final filtered = _markets.where((m) {
+              if (filterText.isEmpty) return true;
+              return m.supermarketName.toLowerCase().contains(filterText.toLowerCase());
+            }).toList();
+
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.75,
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+                top: 12,
+                left: 16,
+                right: 16,
+              ),
+              decoration: BoxDecoration(
+                color: cardColor,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+              ),
+              child: Column(
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 5,
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                  TextField(
+                    autofocus: true,
+                    decoration: InputDecoration(
+                      hintText: 'Buscar mercado, bairro (ex: Tribobó, Rio do Ouro, Inoã)...',
+                      hintStyle: const TextStyle(fontSize: 13),
+                      prefixIcon: Icon(Icons.search_rounded, color: primary),
+                      filled: true,
+                      fillColor: isDark ? Colors.grey.shade900 : Colors.grey.shade100,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                    onChanged: (val) {
+                      setModalState(() {
+                        filterText = val.trim();
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    '${filtered.length} mercados encontrados',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  ),
+                  const SizedBox(height: 6),
+                  Expanded(
+                    child: filtered.isEmpty
+                        ? const Center(
+                            child: Text('Nenhum supermercado encontrado com este termo.'),
+                          )
+                        : ListView.separated(
+                            itemCount: filtered.length,
+                            separatorBuilder: (_, __) => const Divider(height: 1),
+                            itemBuilder: (context, index) {
+                              final item = filtered[index];
+                              return ListTile(
+                                leading: CircleAvatar(
+                                  backgroundColor: primary.withValues(alpha: 0.15),
+                                  child: Icon(Icons.storefront_rounded, color: primary),
+                                ),
+                                title: Text(
+                                  item.supermarketName,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                ),
+                                subtitle: Text(
+                                  item.formattedDistance.isNotEmpty ? item.formattedDistance : 'Coordenadas salvas',
+                                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                                ),
+                                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+                                onTap: () {
+                                  Navigator.pop(ctx);
+                                  _selectMarket(item);
+                                },
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Future<void> _openNavigation(double lat, double lng, String name) async {
     final Uri geoUri = Uri.parse('geo:$lat,$lng?q=$lat,$lng(${Uri.encodeComponent(name)})');
     final Uri webUri = Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$lat,$lng');
@@ -783,6 +893,11 @@ class _MarketMapScreenState extends State<MarketMapScreen> with SingleTickerProv
                           ),
                         ),
                         IconButton(
+                          icon: const Icon(Icons.search_rounded),
+                          tooltip: 'Buscar supermercado ou bairro',
+                          onPressed: _openSearchDialog,
+                        ),
+                        IconButton(
                           icon: Icon(
                             _showRadiusCircle ? Icons.adjust_rounded : Icons.circle_outlined,
                             color: _showRadiusCircle ? primary : Colors.grey,
@@ -803,11 +918,11 @@ class _MarketMapScreenState extends State<MarketMapScreen> with SingleTickerProv
 
                   const SizedBox(height: 8),
 
-                  // Chips de Raio (5km, 10km, 15km, 30km)
+                  // Chips de Raio (5km, 10km, 15km, 25km, 50km)
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
-                      children: [5.0, 10.0, 15.0, 30.0].map((r) {
+                      children: [5.0, 10.0, 15.0, 25.0, 50.0].map((r) {
                         final isSelected = _radiusKm == r;
                         return Padding(
                           padding: const EdgeInsets.only(right: 6),

@@ -932,24 +932,56 @@ class DatabaseHelper {
           );
         } else {
           final row = existing.first;
-          if (row['latitude'] == null || row['longitude'] == null) {
-            await db.update(
-              'supermarkets',
-              {
-                'latitude': s.latitude,
-                'longitude': s.longitude,
-                'radius_meters': s.radiusMeters,
-                'color_hex': s.colorHex,
-              },
-              where: 'id = ?',
-              whereArgs: [row['id']],
-            );
-          }
+          // Atualiza SEMPRE as coordenadas e raio para calibrar as localizações físicas reais
+          await db.update(
+            'supermarkets',
+            {
+              'latitude': s.latitude,
+              'longitude': s.longitude,
+              'radius_meters': s.radiusMeters,
+              'color_hex': s.colorHex,
+              'icon': s.icon,
+            },
+            where: 'id = ?',
+            whereArgs: [row['id']],
+          );
         }
       }
-      debugPrint('📍 ${DefaultSupermarketsData.all.length} supermercados pré-cadastrados (Niterói, São Gonçalo, Itaboraí e Rio) assegurados no SQLite');
+      debugPrint('📍 ${DefaultSupermarketsData.all.length} supermercados pré-cadastrados (Niterói, São Gonçalo, Maricá, Itaboraí e Rio) assegurados e calibrados no SQLite');
     } catch (e) {
       debugPrint('Erro ao assegurar mercados padrão: $e');
+    }
+  }
+
+  /// Busca um supermercado pelo nome exato ou correspondência aproximada
+  Future<Map<String, dynamic>?> findSupermarketByName(String name) async {
+    final db = await database;
+    try {
+      final clean = name.trim().toLowerCase();
+      if (clean.isEmpty) return null;
+
+      // 1. Busca exata
+      final exact = await db.query(
+        'supermarkets',
+        where: 'LOWER(name) = ?',
+        whereArgs: [clean],
+        limit: 1,
+      );
+      if (exact.isNotEmpty) return exact.first;
+
+      // 2. Busca aproximada por LIKE
+      final likeMatch = await db.query(
+        'supermarkets',
+        where: 'LOWER(name) LIKE ?',
+        whereArgs: ['%$clean%'],
+        limit: 1,
+      );
+      if (likeMatch.isNotEmpty) return likeMatch.first;
+
+      return null;
+    } catch (e) {
+      debugPrint('Erro ao buscar supermercado por nome: $e');
+      return null;
     }
   }
 
