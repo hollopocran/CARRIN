@@ -572,7 +572,7 @@ class ItemProvider with ChangeNotifier {
       
       // Carrega meses e resumos locais (SQLite) sem bloquear esperando rede
       try {
-        final localMonths = await _dbHelper.getMonthsList();
+        final localMonths = await _dbHelper.getMonthsByWorkspace(_currentWorkspace);
         if (localMonths.isNotEmpty) {
           _months = localMonths;
           final summaries = await _dbHelper.getMonthsSummaries();
@@ -682,10 +682,44 @@ class ItemProvider with ChangeNotifier {
     if (_isSyncQueueLoaded) return;
     try {
       _syncQueue = await _dbHelper.getSyncQueue();
+      await purgeObsoleteSyncOperations();
     } catch (e) {
       debugPrint('Erro ao carregar fila de sync do SQLite: $e');
     }
     _isSyncQueueLoaded = true;
+    _safeNotify();
+  }
+
+  /// Remove operações pendentes na fila que apontam para meses que não existem mais localmente no SQLite
+  Future<void> purgeObsoleteSyncOperations() async {
+    try {
+      final allMonths = await _dbHelper.getMonthsList();
+      final initialCount = _syncQueue.length;
+      _syncQueue.removeWhere((op) {
+        if ((op.type == 'sync_items' || op.type == 'update_budget' || op.type == 'finalize_month') &&
+            !allMonths.contains(op.month)) {
+          debugPrint('🧹 Purgando operação de sync obsoleta para mês apagado: ${op.type} (${op.month})');
+          return true;
+        }
+        return false;
+      });
+      if (_syncQueue.length != initialCount) {
+        await _saveSyncQueue();
+        if (_syncQueue.isEmpty) {
+          _lastSyncError = null;
+        }
+        _safeNotify();
+      }
+    } catch (e) {
+      debugPrint('Erro ao purgar operações obsoletas de sync: $e');
+    }
+  }
+
+  /// Limpa toda a fila de sincronização offline sob demanda
+  Future<void> clearSyncQueue() async {
+    _syncQueue.clear();
+    await _saveSyncQueue();
+    _lastSyncError = null;
     _safeNotify();
   }
 
@@ -728,6 +762,17 @@ class ItemProvider with ChangeNotifier {
         final op = _syncQueue.first;
         debugPrint('Processando operação de sync offline: ${op.type} para o mês ${op.month}');
         
+        final allLocalMonths = await _dbHelper.getMonthsList();
+        // Se a operação for de itens/orçamento/finalização e o mês foi excluído localmente, descarta imediatamente
+        if ((op.type == 'sync_items' || op.type == 'update_budget' || op.type == 'finalize_month') &&
+            !allLocalMonths.contains(op.month)) {
+          debugPrint('🧹 Descartando operação de sync para mês inexistente localmente: ${op.type} (${op.month})');
+          _syncQueue.removeAt(0);
+          await _saveSyncQueue();
+          _safeNotify();
+          continue;
+        }
+        
         try {
           if (op.type == 'sync_items') {
             final List<Item> items = await _dbHelper.getItems(op.month);
@@ -754,7 +799,16 @@ class ItemProvider with ChangeNotifier {
             await _service.renameMonth(oldTitle, newTitle);
           } else if (op.type == 'delete_month') {
             final title = op.payload['title'] as String;
-            await _service.deleteMonth(title);
+            try {
+              await _service.deleteMonth(title);
+            } catch (e) {
+              final errStr = e.toString().toLowerCase();
+              if (errStr.contains('not found') || errStr.contains('não encontrada') || errStr.contains('invalid request')) {
+                debugPrint('Mês "$title" já não existia no Google Sheets. Operação de deleção finalizada.');
+              } else {
+                rethrow;
+              }
+            }
           } else if (op.type == 'finalize_month') {
             final isFinalized = op.payload['isFinalized'] as bool;
             final previousMonth = _service.currentMonthTitle;
@@ -1077,6 +1131,40 @@ class ItemProvider with ChangeNotifier {
           quantity: 0,
           unitPrice: 0,
           category: 'Mercearia',
+          isBought: false,
+        );
+        await addItem(newItem);
+      }
+    }
+  }
+
+  static const List<Map<String, dynamic>> barbecueTemplateItems = [
+    {'name': 'Carvão Vegetal', 'category': 'Limpeza / Outros', 'isKg': false},
+    {'name': 'Picanha / Fraldinha', 'category': 'Açougue', 'isKg': true},
+    {'name': 'Linguiça Toscana', 'category': 'Açougue', 'isKg': true},
+    {'name': 'Asa / Coração de Frango', 'category': 'Açougue', 'isKg': true},
+    {'name': 'Pão de Alho', 'category': 'Padaria', 'isKg': false},
+    {'name': 'Queijo Coalho', 'category': 'Laticínios', 'isKg': false},
+    {'name': 'Cerveja', 'category': 'Bebidas', 'isKg': false},
+    {'name': 'Refrigerante / Suco', 'category': 'Bebidas', 'isKg': false},
+    {'name': 'Gelo', 'category': 'Bebidas', 'isKg': false},
+    {'name': 'Sal Grosso', 'category': 'Mercearia', 'isKg': false},
+    {'name': 'Farofa Pronta', 'category': 'Mercearia', 'isKg': false},
+    {'name': 'Guardanapos / Descartáveis', 'category': 'Limpeza / Outros', 'isKg': false},
+  ];
+
+  Future<void> importTemplateItems(List<Map<String, dynamic>> templateList) async {
+    for (var raw in templateList) {
+      final name = raw['name'] as String;
+      final category = (raw['category'] as String?) ?? 'Açougue';
+      final isKg = (raw['isKg'] as bool?) ?? false;
+      if (!_items.any((it) => Utils.normalize(it.name) == Utils.normalize(name))) {
+        final newItem = Item(
+          name: name,
+          quantity: 1,
+          unitPrice: 0,
+          category: category,
+          isKg: isKg,
           isBought: false,
         );
         await addItem(newItem);
@@ -1565,19 +1653,23 @@ class ItemProvider with ChangeNotifier {
 
   Future<void> _loadMonths() async {
     try {
-      final localMonths = await _dbHelper.getMonthsList();
-      debugPrint('🔍 _loadMonths: SQLite retornou ${localMonths.length} meses: $localMonths');
-      if (localMonths.isNotEmpty) {
-        _months = localMonths;
-        final summaries = await _dbHelper.getMonthsSummaries();
-        debugPrint('🔍 _loadMonths: summaries keys=${summaries.keys.toList()}');
-        _cachedSummary.addAll(summaries);
-        _safeNotify();
-      }
+      final localMonths = await _dbHelper.getMonthsByWorkspace(_currentWorkspace);
+      debugPrint('🔍 _loadMonths: SQLite retornou ${localMonths.length} meses para workspace "$_currentWorkspace": $localMonths');
+      _months = List.from(localMonths);
+      final summaries = await _dbHelper.getMonthsSummaries();
+      debugPrint('🔍 _loadMonths: summaries keys=${summaries.keys.toList()}');
+      _cachedSummary.addAll(summaries);
+      _safeNotify();
     } catch (e) {
       debugPrint('Erro ao carregar meses do SQLite: $e');
     }
     if (!isSyncEnabled) return;
+
+    // Sincronização de planilhas via Google Sheets só se aplica ao workspace pessoal
+    if (_currentWorkspace != 'personal') {
+      debugPrint('🔍 _loadMonths: Workspace "$_currentWorkspace" mantido localmente.');
+      return;
+    }
 
     if (_isMonthsLoading) return;
     _isMonthsLoading = true;
@@ -1589,9 +1681,9 @@ class ItemProvider with ChangeNotifier {
       _months = fetchedMonths;
       await _dbHelper.saveMonthsList(_months);
 
-      // Sincroniza o banco de dados SQLite local com o Google Sheets: deleta os meses locais que não existem na nuvem
-      final localMonths = await _dbHelper.getMonthsList();
-      for (var m in localMonths) {
+      // Sincroniza o SQLite local com o Google Sheets APENAS para os meses do workspace pessoal
+      final localPersonalMonths = await _dbHelper.getMonthsByWorkspace('personal');
+      for (var m in localPersonalMonths) {
         if (!_months.contains(m)) {
           await _dbHelper.deleteMonth(m);
           _cachedSummary.remove(m);
@@ -1689,13 +1781,20 @@ class ItemProvider with ChangeNotifier {
     await _switchMonth(month);
   }
 
-  Future<void> createNewMonth(String title, bool useTemplate, {double? initialBudget}) async {
+  Future<void> createNewMonth(
+    String title, 
+    bool useTemplate, 
+    {double? initialBudget, String? purpose, String? workspace}
+  ) async {
     await initialization;
     String sourceMonth = '';
+    final activeWs = workspace ?? _currentWorkspace;
+    final activePurpose = purpose ?? 'geral';
     
     if (!_months.contains(title)) {
       _months.add(title);
       _itemsCache[title] = []; // Initialize empty memory cache
+      _currentMonthPurpose = activePurpose;
       
       final initialData = {
         'budget': initialBudget ?? 0.0,
@@ -1714,6 +1813,8 @@ class ItemProvider with ChangeNotifier {
           balance: initialBudget ?? 0.0,
           totalItems: 0.0,
           boughtItems: 0.0,
+          purpose: activePurpose,
+          workspace: activeWs,
         );
       } catch (e) {
         debugPrint('Erro ao criar mês no SQLite: $e');
@@ -1814,6 +1915,10 @@ class ItemProvider with ChangeNotifier {
 
   Future<void> deleteMonth(String title) async {
     await initialization;
+    // Purgar qualquer operação pendente na fila para este mês excluído (exceto a própria delete_month)
+    _syncQueue.removeWhere((op) => op.month == title && op.type != 'delete_month');
+    await _saveSyncQueue();
+
     if (_months.contains(title)) {
       _months.remove(title);
       
@@ -2665,7 +2770,10 @@ class ItemProvider with ChangeNotifier {
       final details = await _dbHelper.getMonthDetails(monthTitle);
       if (details != null) {
         _currentMonthPurpose = (details['purpose'] as String?) ?? 'geral';
-        _currentWorkspace = (details['workspace'] as String?) ?? 'personal';
+        final ws = details['workspace'] as String?;
+        if (ws != null && ws.isNotEmpty) {
+          _currentWorkspace = ws;
+        }
         final capsJson = details['category_caps'] as String?;
         if (capsJson != null && capsJson.isNotEmpty) {
           final Map<String, dynamic> decoded = jsonDecode(capsJson);
@@ -2739,10 +2847,9 @@ class ItemProvider with ChangeNotifier {
   // ==========================================
 
   Future<void> setWorkspace(String workspace) async {
-    if (_currentWorkspace == workspace) return;
     _currentWorkspace = workspace;
     final filtered = await _dbHelper.getMonthsByWorkspace(workspace);
-    _months = filtered;
+    _months = List.from(filtered);
     if (_months.isNotEmpty) {
       final target = findVigentMonth(_months) ?? _months.last;
       await _switchMonth(target);

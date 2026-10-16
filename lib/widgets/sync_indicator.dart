@@ -109,6 +109,7 @@ class _SyncIndicatorState extends State<SyncIndicator> with SingleTickerProvider
   }
 
   void _showSyncDetails(BuildContext context, ItemProvider provider) {
+    provider.purgeObsoleteSyncOperations();
     final count = provider.pendingSyncCount;
     final isProcessing = provider.isProcessingQueue;
     final isOfflineUser = provider.isActiveUserOffline;
@@ -161,6 +162,14 @@ class _SyncIndicatorState extends State<SyncIndicator> with SingleTickerProvider
           ],
         ),
         actions: [
+          if (!isOfflineUser && !isProcessing && (count > 0 || syncError != null))
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                await provider.clearSyncQueue();
+              },
+              child: const Text('Limpar Fila', style: TextStyle(color: Colors.redAccent)),
+            ),
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: const Text('OK', style: TextStyle(color: Colors.grey)),

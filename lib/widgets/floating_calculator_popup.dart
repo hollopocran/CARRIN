@@ -182,14 +182,20 @@ class _FloatingCalculatorPopupState extends State<FloatingCalculatorPopup> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final Color bgColor = isDark ? const Color(0xFF1E202C) : Colors.white;
-    final Color primaryColor = isDark ? const Color(0xFFAEB2FF) : AppThemes.primaryNavy;
-    final Color btnBg = isDark ? Colors.white.withValues(alpha: 0.06) : Colors.grey.withValues(alpha: 0.1);
-    final Color opBtnBg = primaryColor.withValues(alpha: 0.15);
+    final Color bgColor = isDark ? const Color(0xFF12131D) : Colors.white;
+    final Color primaryColor = isDark ? const Color(0xFF818CF8) : AppThemes.primaryNavy;
+    final Color btnBg = isDark ? const Color(0xFF222536) : Colors.grey.withValues(alpha: 0.12);
+    final Color opBtnBg = isDark ? const Color(0xFF2A3152) : primaryColor.withValues(alpha: 0.15);
+    final Color opTextColor = isDark ? const Color(0xFF93C5FD) : primaryColor;
+    final Color clearBg = isDark ? const Color(0xFF3B1A22) : Colors.redAccent.withValues(alpha: 0.15);
+    final Color clearTextColor = isDark ? const Color(0xFFFF6B6B) : Colors.redAccent;
 
     return Dialog(
       backgroundColor: bgColor,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(28),
+        side: isDark ? const BorderSide(color: Color(0xFF2E334D), width: 1.5) : BorderSide.none,
+      ),
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 360),
@@ -217,7 +223,7 @@ class _FloatingCalculatorPopupState extends State<FloatingCalculatorPopup> {
                     ],
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close_rounded, size: 22),
+                    icon: Icon(Icons.close_rounded, size: 22, color: isDark ? Colors.white70 : Colors.grey[700]),
                     onPressed: () => Navigator.pop(context),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
@@ -231,10 +237,11 @@ class _FloatingCalculatorPopupState extends State<FloatingCalculatorPopup> {
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 decoration: BoxDecoration(
-                  color: isDark ? Colors.black.withValues(alpha: 0.25) : const Color(0xFFF3F5F9),
+                  color: isDark ? const Color(0xFF000000) : const Color(0xFFF3F5F9),
                   borderRadius: BorderRadius.circular(18),
                   border: Border.all(
-                    color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.grey.withValues(alpha: 0.15),
+                    color: isDark ? const Color(0xFF3A3E54) : Colors.grey.withValues(alpha: 0.15),
+                    width: 1.5,
                   ),
                 ),
                 child: Column(
@@ -244,8 +251,8 @@ class _FloatingCalculatorPopupState extends State<FloatingCalculatorPopup> {
                       _expression.isEmpty ? ' ' : _expression,
                       style: TextStyle(
                         fontSize: 13,
-                        color: isDark ? Colors.white54 : Colors.grey[600],
-                        fontWeight: FontWeight.w500,
+                        color: isDark ? const Color(0xFF94A3B8) : Colors.grey[600],
+                        fontWeight: FontWeight.w600,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -270,7 +277,7 @@ class _FloatingCalculatorPopupState extends State<FloatingCalculatorPopup> {
               const SizedBox(height: 16),
 
               // Keypad Grid
-              _buildKeypad(btnBg, opBtnBg, primaryColor, isDark),
+              _buildKeypad(btnBg, opBtnBg, primaryColor, opTextColor, clearBg, clearTextColor, isDark),
               const SizedBox(height: 14),
 
               // Bottom Actions
@@ -281,6 +288,8 @@ class _FloatingCalculatorPopupState extends State<FloatingCalculatorPopup> {
                       icon: const Icon(Icons.copy_rounded, size: 16),
                       label: const Text('Copiar', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                       style: OutlinedButton.styleFrom(
+                        foregroundColor: isDark ? Colors.white : Colors.black87,
+                        side: BorderSide(color: isDark ? const Color(0xFF3A3E54) : Colors.grey.withValues(alpha: 0.3)),
                         padding: const EdgeInsets.symmetric(vertical: 10),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                       ),
@@ -295,7 +304,7 @@ class _FloatingCalculatorPopupState extends State<FloatingCalculatorPopup> {
                         label: const Text('Usar Valor', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: primaryColor,
-                          foregroundColor: isDark ? const Color(0xFF0D0E15) : Colors.white,
+                          foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 10),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                         ),
@@ -316,41 +325,49 @@ class _FloatingCalculatorPopupState extends State<FloatingCalculatorPopup> {
     );
   }
 
-  Widget _buildKeypad(Color btnBg, Color opBtnBg, Color primaryColor, bool isDark) {
+  Widget _buildKeypad(
+    Color btnBg, 
+    Color opBtnBg, 
+    Color primaryColor, 
+    Color opTextColor, 
+    Color clearBg, 
+    Color clearTextColor, 
+    bool isDark
+  ) {
     return Column(
       children: [
         _buildRow([
-          _calcBtn('C', color: Colors.redAccent.withValues(alpha: 0.15), textColor: Colors.redAccent, onTap: _onClearPress),
-          _calcBtn('⌫', color: btnBg, onTap: _onBackspacePress),
-          _calcBtn('%', color: btnBg, onTap: _onPercentPress),
-          _calcBtn('÷', color: opBtnBg, textColor: primaryColor, isOp: true, onTap: () => _onOperatorPress('÷')),
+          _calcBtn('C', color: clearBg, textColor: clearTextColor, onTap: _onClearPress),
+          _calcBtn('⌫', color: isDark ? const Color(0xFF2A2E40) : btnBg, textColor: isDark ? Colors.white : null, onTap: _onBackspacePress),
+          _calcBtn('%', color: isDark ? const Color(0xFF2A2E40) : btnBg, textColor: isDark ? Colors.white : null, onTap: _onPercentPress),
+          _calcBtn('÷', color: opBtnBg, textColor: opTextColor, isOp: true, onTap: () => _onOperatorPress('÷')),
         ]),
         const SizedBox(height: 8),
         _buildRow([
           _calcBtn('7', color: btnBg, onTap: () => _onDigitPress('7')),
           _calcBtn('8', color: btnBg, onTap: () => _onDigitPress('8')),
           _calcBtn('9', color: btnBg, onTap: () => _onDigitPress('9')),
-          _calcBtn('×', color: opBtnBg, textColor: primaryColor, isOp: true, onTap: () => _onOperatorPress('×')),
+          _calcBtn('×', color: opBtnBg, textColor: opTextColor, isOp: true, onTap: () => _onOperatorPress('×')),
         ]),
         const SizedBox(height: 8),
         _buildRow([
           _calcBtn('4', color: btnBg, onTap: () => _onDigitPress('4')),
           _calcBtn('5', color: btnBg, onTap: () => _onDigitPress('5')),
           _calcBtn('6', color: btnBg, onTap: () => _onDigitPress('6')),
-          _calcBtn('-', color: opBtnBg, textColor: primaryColor, isOp: true, onTap: () => _onOperatorPress('-')),
+          _calcBtn('-', color: opBtnBg, textColor: opTextColor, isOp: true, onTap: () => _onOperatorPress('-')),
         ]),
         const SizedBox(height: 8),
         _buildRow([
           _calcBtn('1', color: btnBg, onTap: () => _onDigitPress('1')),
           _calcBtn('2', color: btnBg, onTap: () => _onDigitPress('2')),
           _calcBtn('3', color: btnBg, onTap: () => _onDigitPress('3')),
-          _calcBtn('+', color: opBtnBg, textColor: primaryColor, isOp: true, onTap: () => _onOperatorPress('+')),
+          _calcBtn('+', color: opBtnBg, textColor: opTextColor, isOp: true, onTap: () => _onOperatorPress('+')),
         ]),
         const SizedBox(height: 8),
         _buildRow([
           _calcBtn('0', color: btnBg, flex: 2, onTap: () => _onDigitPress('0')),
           _calcBtn(',', color: btnBg, onTap: _onDecimalPress),
-          _calcBtn('=', color: primaryColor, textColor: isDark ? const Color(0xFF0D0E15) : Colors.white, onTap: _onEqualsPress),
+          _calcBtn('=', color: isDark ? const Color(0xFF6366F1) : primaryColor, textColor: Colors.white, onTap: _onEqualsPress),
         ]),
       ],
     );
@@ -363,6 +380,8 @@ class _FloatingCalculatorPopupState extends State<FloatingCalculatorPopup> {
   }
 
   Widget _calcBtn(String label, {required Color color, Color? textColor, bool isOp = false, int flex = 1, required VoidCallback onTap}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return _FlexButton(
       flex: flex,
       child: Material(
@@ -372,14 +391,25 @@ class _FloatingCalculatorPopupState extends State<FloatingCalculatorPopup> {
           borderRadius: BorderRadius.circular(16),
           onTap: onTap,
           child: Container(
-            height: 48,
+            height: 50,
             alignment: Alignment.center,
+            decoration: isDark ? BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: isOp 
+                  ? const Color(0xFF3B487A)
+                  : (label == 'C' 
+                      ? Colors.redAccent.withValues(alpha: 0.4) 
+                      : (label == '=' ? Colors.transparent : Colors.white.withValues(alpha: 0.12))),
+                width: 1.2,
+              ),
+            ) : null,
             child: Text(
               label,
               style: TextStyle(
-                fontSize: isOp ? 22 : 18,
+                fontSize: isOp ? 22 : 19,
                 fontWeight: FontWeight.bold,
-                color: textColor ?? (Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87),
+                color: textColor ?? (isDark ? Colors.white : Colors.black87),
               ),
             ),
           ),

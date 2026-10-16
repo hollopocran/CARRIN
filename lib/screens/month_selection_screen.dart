@@ -432,14 +432,190 @@ class _MonthSelectionScreenState extends State<MonthSelectionScreen> with Automa
     final budgetController = TextEditingController(
       text: provider.defaultBudget > 0 ? Utils.formatNumber(provider.defaultBudget) : '',
     );
-    _showAnimatedDialog(context, AlertDialog(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)), title: const Text('Novo Carrinho', style: TextStyle(fontWeight: FontWeight.bold)), content: Column(mainAxisSize: MainAxisSize.min, children: [const Text('Nome do carrinho:'), TextField(controller: titleController, autofocus: true, decoration: const InputDecoration(hintText: 'Ex: Ranho Mensal', border: UnderlineInputBorder())), const SizedBox(height: 20), const Text('Orçamento (Opcional):'), TextField(controller: budgetController, keyboardType: TextInputType.number, decoration: const InputDecoration(hintText: '0,00', prefixText: 'R\$ ', prefixStyle: TextStyle(fontSize: 16), floatingLabelBehavior: FloatingLabelBehavior.always, border: UnderlineInputBorder()))]), actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar', style: TextStyle(color: Colors.grey))), ElevatedButton(onPressed: () async { final title = titleController.text.trim(); if (title.isEmpty) return; double? initialBudget = double.tryParse(budgetController.text.replaceAll(',', '.')); Navigator.pop(context); _askTemplateOption(context, title, provider, initialBudget); }, child: const Text('Próximo', style: TextStyle(fontWeight: FontWeight.bold)))]));
+    String selectedPurpose = 'geral';
+
+    final List<Map<String, dynamic>> purposeList = [
+      {
+        'id': 'geral',
+        'title': 'Geral / Padrão',
+        'subtitle': 'Compras do dia a dia',
+        'icon': Icons.shopping_cart_outlined,
+        'color': Colors.indigo,
+      },
+      {
+        'id': 'churrasco',
+        'title': 'Churrasco & Eventos',
+        'subtitle': 'Carnes, bebidas e divisão',
+        'icon': Icons.outdoor_grill_rounded,
+        'color': Colors.deepOrange,
+      },
+      {
+        'id': 'abastecimento',
+        'title': 'Abastecimento',
+        'subtitle': 'Compra grande de atacarejo',
+        'icon': Icons.inventory_2_outlined,
+        'color': Colors.teal,
+      },
+      {
+        'id': 'conveniencia',
+        'title': 'Reposição Rápida',
+        'subtitle': 'Feira, padaria e caixa express',
+        'icon': Icons.bolt_rounded,
+        'color': Colors.amber[800] ?? Colors.amber,
+      },
+    ];
+
+    _showAnimatedDialog(
+      context,
+      StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          final isDark = Theme.of(ctx).brightness == Brightness.dark;
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+            title: const Text('Novo Carrinho', style: TextStyle(fontWeight: FontWeight.bold)),
+            content: SizedBox(
+              width: 440,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Nome do carrinho:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: titleController,
+                      autofocus: true,
+                      decoration: InputDecoration(
+                        hintText: selectedPurpose == 'churrasco' ? 'Ex: Churrasco de Domingo' : 'Ex: Rancho Mensal',
+                        filled: true,
+                        fillColor: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.withValues(alpha: 0.1),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    const Text('FINALIDADE DA COMPRA', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey)),
+                    const SizedBox(height: 8),
+                    ...purposeList.map((p) {
+                      final isSelected = selectedPurpose == p['id'];
+                      final color = p['color'] as Color;
+
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: InkWell(
+                          onTap: () {
+                            setDialogState(() {
+                              selectedPurpose = p['id'] as String;
+                              if (titleController.text.trim().isEmpty) {
+                                if (selectedPurpose == 'churrasco') {
+                                  titleController.text = 'Churrasco';
+                                } else if (selectedPurpose == 'abastecimento') {
+                                  titleController.text = 'Compra do Mês';
+                                } else if (selectedPurpose == 'conveniencia') {
+                                  titleController.text = 'Reposição Feira';
+                                }
+                              }
+                            });
+                          },
+                          borderRadius: BorderRadius.circular(14),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: isSelected ? color.withValues(alpha: 0.12) : Colors.transparent,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: isSelected ? color : Colors.grey.withValues(alpha: 0.2),
+                                width: isSelected ? 2 : 1,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: 16,
+                                  backgroundColor: color.withValues(alpha: 0.2),
+                                  child: Icon(p['icon'] as IconData, size: 18, color: color),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        p['title'] as String,
+                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isSelected ? color : null),
+                                      ),
+                                      Text(
+                                        p['subtitle'] as String,
+                                        style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                if (isSelected) Icon(Icons.check_circle_rounded, size: 18, color: color),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                    const SizedBox(height: 16),
+                    const Text('Orçamento (Opcional):', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: budgetController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: InputDecoration(
+                        hintText: '0,00',
+                        prefixText: 'R\$ ',
+                        filled: true,
+                        fillColor: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.withValues(alpha: 0.1),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancelar', style: TextStyle(color: Colors.grey)),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppThemes.primaryNavy,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () async {
+                  final title = titleController.text.trim();
+                  if (title.isEmpty) return;
+                  double? initialBudget = double.tryParse(budgetController.text.replaceAll(',', '.'));
+                  Navigator.pop(ctx);
+                  _askTemplateOption(context, title, provider, initialBudget, selectedPurpose);
+                },
+                child: const Text('Próximo', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ],
+          );
+        },
+      ),
+    );
   }
 
-
-  void _askTemplateOption(BuildContext context, String title, ItemProvider provider, double? initialBudget) {
+  void _askTemplateOption(
+    BuildContext context, 
+    String title, 
+    ItemProvider provider, 
+    double? initialBudget, 
+    String purpose
+  ) {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final Color primaryColor = Theme.of(context).primaryColor;
     final Color textColor = isDark ? Colors.white : primaryColor;
+    final bool isChurrasco = purpose == 'churrasco';
 
     _showAnimatedDialog(
       context, 
@@ -449,8 +625,8 @@ class _MonthSelectionScreenState extends State<MonthSelectionScreen> with Automa
         content: Column(
           mainAxisSize: MainAxisSize.min, 
           children: [
-            const Text('Como deseja iniciar este novo carrinho?'), 
-            const SizedBox(height: 24), 
+            Text('Como deseja iniciar "$title"?'), 
+            const SizedBox(height: 20), 
             Row(
               children: [
                 Expanded(
@@ -458,8 +634,12 @@ class _MonthSelectionScreenState extends State<MonthSelectionScreen> with Automa
                     onPressed: () async { 
                       Navigator.of(context).pop(); 
                       try { 
-                        await provider.createNewMonth(title, false, initialBudget: initialBudget); 
-                        await provider.importEssentials(); 
+                        await provider.createNewMonth(title, false, initialBudget: initialBudget, purpose: purpose); 
+                        if (isChurrasco) {
+                          await provider.importTemplateItems(ItemProvider.barbecueTemplateItems);
+                        } else {
+                          await provider.importEssentials(); 
+                        }
                         if (context.mounted) { 
                           Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ShoppingListScreen())); 
                         } 
@@ -474,12 +654,22 @@ class _MonthSelectionScreenState extends State<MonthSelectionScreen> with Automa
                         }
                       } 
                     }, 
-                    icon: Icon(Icons.auto_awesome_outlined, size: 18, color: textColor), 
-                    label: Text('Importar Essenciais', style: TextStyle(color: textColor, fontWeight: FontWeight.bold)), 
+                    icon: Icon(
+                      isChurrasco ? Icons.outdoor_grill_rounded : Icons.auto_awesome_outlined, 
+                      size: 18, 
+                      color: isChurrasco ? Colors.deepOrange : textColor
+                    ), 
+                    label: Text(
+                      isChurrasco ? 'Carregar Itens de Churrasco' : 'Importar Essenciais', 
+                      style: TextStyle(
+                        color: isChurrasco ? Colors.deepOrange : textColor, 
+                        fontWeight: FontWeight.bold
+                      )
+                    ), 
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 12), 
-                      side: BorderSide(color: primaryColor, width: 1.5),
-                      backgroundColor: isDark ? primaryColor.withValues(alpha: 0.1) : Colors.transparent,
+                      side: BorderSide(color: isChurrasco ? Colors.deepOrange : primaryColor, width: 1.5),
+                      backgroundColor: isDark ? (isChurrasco ? Colors.deepOrange.withValues(alpha: 0.1) : primaryColor.withValues(alpha: 0.1)) : Colors.transparent,
                     )
                   )
                 )
@@ -492,7 +682,7 @@ class _MonthSelectionScreenState extends State<MonthSelectionScreen> with Automa
             onPressed: () async { 
               Navigator.of(context).pop(); 
               try { 
-                await provider.createNewMonth(title, false, initialBudget: initialBudget); 
+                await provider.createNewMonth(title, false, initialBudget: initialBudget, purpose: purpose); 
                 if (context.mounted) { 
                   Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ShoppingListScreen())); 
                 } 
@@ -513,7 +703,7 @@ class _MonthSelectionScreenState extends State<MonthSelectionScreen> with Automa
             onPressed: () async { 
               Navigator.of(context).pop(); 
               try { 
-                await provider.createNewMonth(title, true, initialBudget: initialBudget); 
+                await provider.createNewMonth(title, true, initialBudget: initialBudget, purpose: purpose); 
                 if (context.mounted) { 
                   Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ShoppingListScreen())); 
                 } 
@@ -528,7 +718,7 @@ class _MonthSelectionScreenState extends State<MonthSelectionScreen> with Automa
                 }
               } 
             }, 
-            child: const Text('Usar Itens Atual', style: TextStyle(fontWeight: FontWeight.bold))
+            child: const Text('Copiar do Anterior', style: TextStyle(fontWeight: FontWeight.bold))
           )
         ]
       )
