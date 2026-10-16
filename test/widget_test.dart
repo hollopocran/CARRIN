@@ -673,5 +673,11 @@ void main() {
       expect(service.supabaseUrl, equals('https://xyzcompany.supabase.co'));
       expect(service.supabaseAnonKey, equals('anon_sample_key_456'));
     });
+
+    test('CommunityPriceService default store constants reflect Supermercados Guanabara Niterói', () {
+      expect(CommunityPriceService.defaultStoreName, equals('Supermercados Guanabara'));
+      expect(CommunityPriceService.defaultStoreLat, closeTo(-22.88975, 0.0001));
+      expect(CommunityPriceService.defaultStoreLng, closeTo(-43.11515, 0.0001));
+    });
   });
 }

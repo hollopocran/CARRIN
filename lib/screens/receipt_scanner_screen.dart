@@ -290,7 +290,12 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
     }
 
     // Registra na base da comunidade com selo de Nota Fiscal Verificada
-    final marketName = _storeName ?? provider.detectedSupermarket?['name'] ?? 'Supermercado';
+    final marketName = _storeName ?? provider.detectedSupermarket?['name'] ?? CommunityPriceService.defaultStoreName;
+    final lat = (provider.detectedSupermarket?['latitude'] as num?)?.toDouble() ?? 
+        (marketName == CommunityPriceService.defaultStoreName ? CommunityPriceService.defaultStoreLat : null);
+    final lng = (provider.detectedSupermarket?['longitude'] as num?)?.toDouble() ?? 
+        (marketName == CommunityPriceService.defaultStoreName ? CommunityPriceService.defaultStoreLng : null);
+
     for (var item in _extractedItems) {
       if (item.unitPrice > 0) {
         CommunityPriceService.instance.publishPrice(
@@ -299,8 +304,8 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
           supermarketName: marketName,
           category: item.category,
           unit: item.isKg ? 'kg' : 'un',
-          latitude: (provider.detectedSupermarket?['latitude'] as num?)?.toDouble(),
-          longitude: (provider.detectedSupermarket?['longitude'] as num?)?.toDouble(),
+          latitude: lat,
+          longitude: lng,
           submittedBy: provider.activeUserDisplayName,
           verifiedReceipt: true,
         ).catchError((_) => false);

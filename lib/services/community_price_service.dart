@@ -17,6 +17,11 @@ class CommunityPriceService {
   static const String defaultSupabaseUrl = 'https://togbshissjtctvlsvapc.supabase.co';
   static const String defaultSupabaseAnonKey = 'sb_publishable_DikvfAMTza89HWcTX5zNBQ_Z987Ak_y';
 
+  /// Supermercado padrão de referência (Guanabara Niterói)
+  static const String defaultStoreName = 'Supermercados Guanabara';
+  static const double defaultStoreLat = -22.88975;
+  static const double defaultStoreLng = -43.11515;
+
   String? _cachedUrl;
   String? _cachedAnonKey;
   bool _isInitialized = false;
@@ -29,10 +34,117 @@ class CommunityPriceService {
       _cachedAnonKey = prefs.getString(_prefAnonKey) ?? defaultSupabaseAnonKey;
 
       await DatabaseHelper.instance.purgeSeedCommunityPrices();
+      await DatabaseHelper.instance.ensureDefaultSupermarkets();
+      await DatabaseHelper.instance.assignDefaultSupermarket(defaultStoreName);
+
+      // Auto-sincronização obrigatória e transparente das compras do usuário para a comunidade
+      _autoSyncUserPurchasesInBackground();
     } catch (e) {
       debugPrint('📍 CommunityPriceService init error: $e');
     }
     _isInitialized = true;
+  }
+
+  /// Sincronização automática e mandatória em segundo plano de todas as compras reais do usuário
+  Future<void> _autoSyncUserPurchasesInBackground() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userItems = await DatabaseHelper.instance.getAllUserPurchasedProducts();
+      if (userItems.isEmpty) return;
+
+      final syncedJson = prefs.getString('community_synced_items_v2');
+      Map<String, dynamic> syncedMap = {};
+      if (syncedJson != null && syncedJson.isNotEmpty) {
+        try {
+          syncedMap = jsonDecode(syncedJson) as Map<String, dynamic>;
+        } catch (_) {}
+      }
+
+      final List<CommunityPrice> toPublish = [];
+      final Map<String, dynamic> updatedMap = Map.from(syncedMap);
+
+      for (var row in userItems) {
+        final name = (row['name'] as String? ?? '').trim();
+        final price = (row['unit_price'] as num?)?.toDouble() ?? 0.0;
+        if (name.isEmpty || price <= 0) continue;
+
+        String market = (row['supermarket'] as String? ?? '').trim();
+        if (market.isEmpty || market.toLowerCase() == 'supermercado local' || market.toLowerCase() == 'supermercado') {
+          market = defaultStoreName;
+        }
+
+        final key = '${name.toLowerCase()}|${market.toLowerCase()}';
+        final lastSyncedPrice = (updatedMap[key] as num?)?.toDouble();
+
+        // Se já sincronizado com este mesmo preço, não duplica
+        if (lastSyncedPrice != null && (lastSyncedPrice - price).abs() < 0.001) {
+          continue;
+        }
+
+        toPublish.add(CommunityPrice(
+          id: 'user_${DateTime.now().millisecondsSinceEpoch}_${key.hashCode.abs()}',
+          productName: name,
+          category: row['category'] as String?,
+          unit: row['is_kg'] == 1 ? 'kg' : 'un',
+          price: price,
+          supermarketName: market,
+          latitude: (market == defaultStoreName) ? defaultStoreLat : null,
+          longitude: (market == defaultStoreName) ? defaultStoreLng : null,
+          submittedBy: 'Cliente CARRIN',
+          verifiedReceipt: false,
+          createdAt: DateTime.now(),
+        ));
+
+        updatedMap[key] = price;
+      }
+
+      if (toPublish.isNotEmpty) {
+        debugPrint('🚀 Auto-sincronizando ${toPublish.length} compras reais do usuário para a Comunidade...');
+        final count = await publishPricesBatch(toPublish);
+        if (count > 0) {
+          await prefs.setString('community_synced_items_v2', jsonEncode(updatedMap));
+          debugPrint('✅ $count compras do usuário sincronizadas com a Comunidade Supabase!');
+        }
+      }
+    } catch (e) {
+      debugPrint('⚠️ Erro na auto-sincronização de compras: $e');
+    }
+  }
+
+  /// Sincroniza em lote os itens comprados de um carrinho/mês finalizado
+  Future<void> syncMonthPurchases(String month, List<dynamic> items) async {
+    try {
+      final List<CommunityPrice> toPublish = [];
+      for (var it in items) {
+        final name = (it.name as String? ?? '').trim();
+        final price = (it.unitPrice as num?)?.toDouble() ?? 0.0;
+        if (name.isEmpty || price <= 0) continue;
+
+        String market = (it.supermarket as String? ?? '').trim();
+        if (market.isEmpty || market.toLowerCase() == 'supermercado local' || market.toLowerCase() == 'supermercado') {
+          market = defaultStoreName;
+        }
+
+        toPublish.add(CommunityPrice(
+          id: 'month_${DateTime.now().millisecondsSinceEpoch}_${name.hashCode.abs()}',
+          productName: name,
+          category: it.category as String?,
+          unit: it.isKg == true ? 'kg' : 'un',
+          price: price,
+          supermarketName: market,
+          latitude: (market == defaultStoreName) ? defaultStoreLat : null,
+          longitude: (market == defaultStoreName) ? defaultStoreLng : null,
+          submittedBy: 'Cliente CARRIN',
+          verifiedReceipt: false,
+          createdAt: DateTime.now(),
+        ));
+      }
+      if (toPublish.isNotEmpty) {
+        await publishPricesBatch(toPublish);
+      }
+    } catch (e) {
+      debugPrint('Erro ao sincronizar compras do mês: $e');
+    }
   }
 
   bool get isConfigured => 
@@ -201,8 +313,8 @@ class CommunityPriceService {
       if (name.isEmpty || price <= 0) continue;
 
       String market = (row['supermarket'] as String? ?? '').trim();
-      if (market.isEmpty) {
-        market = fallbackSupermarket ?? 'Supermercado Local';
+      if (market.isEmpty || market.toLowerCase() == 'supermercado local' || market.toLowerCase() == 'supermercado') {
+        market = fallbackSupermarket ?? defaultStoreName;
       }
 
       final normName = name.toLowerCase();
@@ -218,8 +330,8 @@ class CommunityPriceService {
           unit: row['is_kg'] == 1 ? 'kg' : 'un',
           price: price,
           supermarketName: market,
-          latitude: fallbackLat,
-          longitude: fallbackLng,
+          latitude: (market == defaultStoreName) ? defaultStoreLat : fallbackLat,
+          longitude: (market == defaultStoreName) ? defaultStoreLng : fallbackLng,
           submittedBy: 'Minhas Compras',
           verifiedReceipt: false,
           createdAt: DateTime.now(),
@@ -236,8 +348,8 @@ class CommunityPriceService {
           if (name.isEmpty || price <= 0) continue;
 
           String market = (entry['supermarket'] as String? ?? '').trim();
-          if (market.isEmpty) {
-            market = fallbackSupermarket ?? 'Supermercado Local';
+          if (market.isEmpty || market.toLowerCase() == 'supermercado local' || market.toLowerCase() == 'supermercado') {
+            market = fallbackSupermarket ?? defaultStoreName;
           }
 
           final normName = name.toLowerCase();
@@ -253,8 +365,8 @@ class CommunityPriceService {
               unit: 'un',
               price: price,
               supermarketName: market,
-              latitude: fallbackLat,
-              longitude: fallbackLng,
+              latitude: (market == defaultStoreName) ? defaultStoreLat : fallbackLat,
+              longitude: (market == defaultStoreName) ? defaultStoreLng : fallbackLng,
               submittedBy: 'Minhas Compras',
               verifiedReceipt: false,
               createdAt: DateTime.now(),
@@ -291,7 +403,10 @@ class CommunityPriceService {
 
         if (response.statusCode == 200) {
           final List<dynamic> list = jsonDecode(response.body);
-          final cloudPrices = list.map((item) => CommunityPrice.fromMap(item as Map<String, dynamic>, userLat: userLat, userLng: userLng)).toList();
+          final cloudPrices = list
+              .map((item) => CommunityPrice.fromMap(item as Map<String, dynamic>, userLat: userLat, userLng: userLng))
+              .where((p) => !p.submittedBy.contains('Teste Batch') && !p.id.startsWith('seed_'))
+              .toList();
           if (cloudPrices.isNotEmpty) {
             await DatabaseHelper.instance.saveCommunityPrices(cloudPrices);
           }

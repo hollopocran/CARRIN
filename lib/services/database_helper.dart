@@ -832,6 +832,53 @@ class DatabaseHelper {
     }
   }
 
+  /// Atribui supermercado padrão a itens que não possuem mercado definido
+  Future<int> assignDefaultSupermarket(String defaultMarket) async {
+    final db = await database;
+    try {
+      final count = await db.rawUpdate('''
+        UPDATE items
+        SET supermarket = ?
+        WHERE supermarket IS NULL 
+           OR TRIM(supermarket) = '' 
+           OR LOWER(supermarket) = 'supermercado local'
+           OR LOWER(supermarket) = 'supermercado'
+      ''', [defaultMarket.trim()]);
+      if (count > 0) {
+        debugPrint('🛒 $count itens migrados para o supermercado "$defaultMarket"');
+      }
+      return count;
+    } catch (e) {
+      debugPrint('Erro ao atribuir supermercado padrão aos itens: $e');
+      return 0;
+    }
+  }
+
+  /// Garante que o supermercado padrão (Supermercados Guanabara Niterói) esteja registrado
+  Future<void> ensureDefaultSupermarkets() async {
+    final db = await database;
+    try {
+      final existing = await db.query(
+        'supermarkets',
+        where: 'LOWER(name) = ? OR LOWER(name) LIKE ?',
+        whereArgs: ['supermercados guanabara', '%guanabara%'],
+      );
+      if (existing.isEmpty) {
+        await saveSupermarket(
+          name: 'Supermercados Guanabara',
+          latitude: -22.88975,
+          longitude: -43.11515,
+          radiusMeters: 250.0,
+          icon: 'store',
+          colorHex: '#E53935',
+        );
+        debugPrint('🏪 Supermercados Guanabara cadastrado automaticamente no SQLite');
+      }
+    } catch (e) {
+      debugPrint('Erro ao assegurar mercado padrão: $e');
+    }
+  }
+
   /// Retorna todos os produtos registrados nas listas do usuário com preço > 0
   Future<List<Map<String, dynamic>>> getAllUserPurchasedProducts() async {
     final db = await database;

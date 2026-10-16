@@ -25,7 +25,6 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen> with Single
   List<MarketComparison> _marketRankings = [];
   List<CommunityPrice> _recentFeed = [];
   ProductComparison? _searchedProduct;
-  List<CommunityPrice> _myProducts = [];
 
   @override
   void initState() {
@@ -60,11 +59,8 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen> with Single
   }
 
   Future<void> _fetchData() async {
-    final provider = Provider.of<ItemProvider>(context, listen: false);
-    final fallbackMarket = provider.selectedSupermarketFilter ?? provider.detectedSupermarket?['name'];
-
-    final lat = _userLat ?? -23.5505; // Fallback SP se sem GPS
-    final lng = _userLng ?? -46.6333;
+    final lat = _userLat ?? CommunityPriceService.defaultStoreLat;
+    final lng = _userLng ?? CommunityPriceService.defaultStoreLng;
 
     final markets = await CommunityPriceService.instance.getCheapestMarketsNearby(
       userLat: lat,
@@ -73,8 +69,8 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen> with Single
     );
 
     final feed = await CommunityPriceService.instance.getRecentFeed(
-      userLat: _userLat,
-      userLng: _userLng,
+      userLat: lat,
+      userLng: lng,
       radiusKm: _radiusKm,
       query: _searchController.text.trim().isNotEmpty ? _searchController.text.trim() : null,
     );
@@ -83,25 +79,17 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen> with Single
     if (_searchController.text.trim().isNotEmpty) {
       prodComp = await CommunityPriceService.instance.getProductComparison(
         _searchController.text.trim(),
-        userLat: _userLat,
-        userLng: _userLng,
+        userLat: lat,
+        userLng: lng,
         radiusKm: _radiusKm,
       );
     }
-
-    final myProds = await CommunityPriceService.instance.getUserRegisteredPrices(
-      fallbackSupermarket: fallbackMarket,
-      fallbackLat: _userLat,
-      fallbackLng: _userLng,
-      priceHistoryCache: provider.priceHistoryCache,
-    );
 
     if (mounted) {
       setState(() {
         _marketRankings = markets;
         _recentFeed = feed;
         _searchedProduct = prodComp;
-        _myProducts = myProds;
       });
     }
   }
@@ -165,15 +153,6 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen> with Single
             ],
           ),
           IconButton(
-            icon: Badge(
-              isLabelVisible: _myProducts.isNotEmpty,
-              label: Text('${_myProducts.length}'),
-              child: const Icon(Icons.playlist_add_check_rounded),
-            ),
-            tooltip: 'Meus Produtos para a Comunidade',
-            onPressed: () => _showMyProductsModal(context, itemProvider),
-          ),
-          IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadLocationAndData,
           ),
@@ -213,13 +192,10 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen> with Single
   // --- ABA 1: RANKING DE MERCADOS ---
   // ==========================================
   Widget _buildMarketsTab(bool isDark, Color cardColor, Color primary) {
-    final itemProvider = Provider.of<ItemProvider>(context, listen: false);
-
     if (_marketRankings.isEmpty) {
       return ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          _buildMyProductsBanner(primary, cardColor, itemProvider),
           const SizedBox(height: 24),
           Center(
             child: Column(
@@ -249,7 +225,6 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen> with Single
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        _buildMyProductsBanner(primary, cardColor, itemProvider),
         // Card do Mercado Campeão em Economia
         Container(
           padding: const EdgeInsets.all(20),
@@ -611,7 +586,6 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen> with Single
       return ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          _buildMyProductsBanner(primary, cardColor, provider),
           const SizedBox(height: 24),
           Center(
             child: Padding(
@@ -639,24 +613,15 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen> with Single
       );
     }
 
-    final hasBanner = _myProducts.isNotEmpty;
-    final bannerOffset = hasBanner ? 1 : 0;
-
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: _recentFeed.length + bannerOffset + 1,
+      itemCount: _recentFeed.length + 1,
       itemBuilder: (ctx, i) {
-        if (hasBanner && i == 0) {
-          return _buildMyProductsBanner(primary, cardColor, provider);
-        }
-
-        final feedIndex = hasBanner ? i - 1 : i;
-
-        if (feedIndex == _recentFeed.length) {
+        if (i == _recentFeed.length) {
           return const SizedBox(height: 80);
         }
 
-        final item = _recentFeed[feedIndex];
+        final item = _recentFeed[i];
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(16),
@@ -808,268 +773,6 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen> with Single
           ),
         ],
       ),
-    );
-  }
-
-  // ==========================================
-  // --- BANNER & MODAL: MEUS PRODUTOS ---
-  // ==========================================
-  Widget _buildMyProductsBanner(Color primary, Color cardColor, ItemProvider provider) {
-    if (_myProducts.isEmpty) return const SizedBox.shrink();
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: primary.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: primary.withValues(alpha: 0.25)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: primary.withValues(alpha: 0.15),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(Icons.playlist_add_check_rounded, color: primary, size: 24),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Usar Minhas Compras como Base',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: primary),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '${_myProducts.length} produtos com preço nas suas listas.',
-                  style: const TextStyle(fontSize: 11, color: Colors.grey),
-                ),
-              ],
-            ),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: primary,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            onPressed: () => _showMyProductsModal(context, provider),
-            child: const Text('Ver Lista'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showMyProductsModal(BuildContext context, ItemProvider provider) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final primary = Theme.of(context).primaryColor;
-    final cardColor = isDark ? Colors.grey[850]! : Colors.white;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        bool isPublishing = false;
-
-        return StatefulBuilder(
-          builder: (modalCtx, setModalState) {
-            return Container(
-              height: MediaQuery.of(context).size.height * 0.85,
-              decoration: BoxDecoration(
-                color: isDark ? Colors.grey[900] : Colors.grey[50],
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-              ),
-              child: Column(
-                children: [
-                  Center(
-                    child: Container(
-                      margin: const EdgeInsets.only(top: 12, bottom: 8),
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[400],
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Meus Produtos para a Comunidade',
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '${_myProducts.length} itens encontrados nas suas compras e listas',
-                                style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                              ),
-                            ],
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.close),
-                          onPressed: () => Navigator.pop(modalCtx),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Divider(height: 1),
-                  Container(
-                    margin: const EdgeInsets.all(16),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: primary.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: primary.withValues(alpha: 0.2)),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.info_outline, color: primary, size: 20),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            'Estes produtos foram encontrados nas suas compras salvas no celular. Ao publicar, eles servirão de base para o ranking de preços da comunidade na nuvem.',
-                            style: TextStyle(fontSize: 11, color: isDark ? Colors.grey[300] : Colors.grey[800]),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: _myProducts.isEmpty
-                        ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.shopping_bag_outlined, size: 56, color: Colors.grey[400]),
-                                const SizedBox(height: 12),
-                                const Text(
-                                  'Nenhum produto com preço registrado nas suas listas.',
-                                  style: TextStyle(color: Colors.grey),
-                                ),
-                              ],
-                            ),
-                          )
-                        : ListView.builder(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            itemCount: _myProducts.length,
-                            itemBuilder: (itemCtx, index) {
-                              final item = _myProducts[index];
-                              return Card(
-                                color: cardColor,
-                                elevation: 0.5,
-                                margin: const EdgeInsets.only(bottom: 8),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                                child: ListTile(
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                                  leading: CircleAvatar(
-                                    backgroundColor: primary.withValues(alpha: 0.15),
-                                    child: Icon(Icons.shopping_cart_outlined, color: primary, size: 20),
-                                  ),
-                                  title: Text(
-                                    item.productName,
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                                  ),
-                                  subtitle: Row(
-                                    children: [
-                                      Icon(Icons.store_outlined, size: 13, color: Colors.grey[600]),
-                                      const SizedBox(width: 4),
-                                      Expanded(
-                                        child: Text(
-                                          item.supermarketName,
-                                          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  trailing: Text(
-                                    Utils.formatCurrency(item.price),
-                                    style: const TextStyle(
-                                      color: Colors.green,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 15,
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                  ),
-                  if (_myProducts.isNotEmpty)
-                    SafeArea(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: SizedBox(
-                          width: double.infinity,
-                          height: 52,
-                          child: ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: primary,
-                              foregroundColor: Colors.white,
-                              elevation: 2,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                            ),
-                            onPressed: isPublishing
-                                ? null
-                                : () async {
-                                    final nav = Navigator.of(modalCtx);
-                                    final messenger = ScaffoldMessenger.of(context);
-
-                                    setModalState(() => isPublishing = true);
-                                    final count = await CommunityPriceService.instance.publishPricesBatch(_myProducts);
-
-                                    nav.pop();
-                                    messenger.showSnackBar(
-                                      SnackBar(
-                                        content: Text('🎉 $count produtos publicados na comunidade com sucesso!'),
-                                        backgroundColor: Colors.green,
-                                      ),
-                                    );
-
-                                    if (mounted) {
-                                      _fetchData();
-                                    }
-                                  },
-                            icon: isPublishing
-                                ? const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                                  )
-                                : const Icon(Icons.cloud_upload_outlined),
-                            label: Text(
-                              isPublishing
-                                  ? 'Publicando na Nuvem...'
-                                  : 'Publicar Todos na Nuvem (${_myProducts.length})',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            );
-          },
-        );
-      },
     );
   }
 }
