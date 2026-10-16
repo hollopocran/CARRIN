@@ -401,8 +401,11 @@ create index if not exists idx_community_created on community_prices(created_at 
 
 -- Políticas de segurança: Leitura e escrita públicas e anônimas
 alter table community_prices enable row level security;
-create policy "Permitir leitura pública" on community_prices for select using (true);
-create policy "Permitir inserção pública" on community_prices for insert with check (true);
+grant all on table community_prices to anon, authenticated;
+drop policy if exists "Permitir leitura pública" on community_prices;
+drop policy if exists "Permitir inserção pública" on community_prices;
+create policy "Permitir leitura pública" on community_prices for select to anon, authenticated using (true);
+create policy "Permitir inserção pública" on community_prices for insert to anon, authenticated with check (true);
 ''';
   }
 }
