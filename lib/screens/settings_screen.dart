@@ -9,7 +9,6 @@ import 'tutorial_screen.dart';
 import 'terms_screen.dart';
 import '../widgets/supermarket_avatar.dart';
 import '../widgets/theme_color_picker_sheet.dart';
-import 'community_radar_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -82,18 +81,6 @@ class SettingsScreen extends StatelessWidget {
             subtitle: 'Força a atualização total da nuvem',
             icon: Icons.delete_sweep_outlined,
             onTap: () => _showClearCacheDialog(context, itemProvider),
-          ),
-          _buildSettingItem(
-            context,
-            title: 'Radar de Preços da Comunidade',
-            subtitle: 'Ranking dos mercados mais baratos e comparador',
-            icon: Icons.radar_rounded,
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const CommunityRadarScreen()),
-              );
-            },
           ),
           const SizedBox(height: 24),
           const Text('PLANEJAMENTO', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.1)),
@@ -194,7 +181,7 @@ class SettingsScreen extends StatelessWidget {
           const ListTile(
             leading: Icon(Icons.info_outline),
             title: Text('Versão', style: TextStyle(fontWeight: FontWeight.w500)),
-            trailing: Text('1.3.529', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+            trailing: Text('1.3.530', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
           ),
         ],
       ),

@@ -11,7 +11,6 @@ import 'month_selection_screen.dart';
 import 'statistics_screen.dart';
 import 'shopping_list_screen.dart';
 import 'accounts_screen.dart';
-import 'community_radar_screen.dart';
 import '../widgets/supermarket_avatar.dart';
 import 'package:reorderable_grid_view/reorderable_grid_view.dart';
 
@@ -166,16 +165,6 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
                       ],
                     ),
                     actions: [
-                      IconButton(
-                        icon: const Icon(Icons.radar_rounded),
-                        tooltip: 'Radar da Comunidade',
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const CommunityRadarScreen()),
-                          );
-                        },
-                      ),
                       const SyncIndicator(),
                       IconButton(
                         icon: Icon(themeProvider.isDarkMode ? Icons.wb_sunny : Icons.nightlight_round),

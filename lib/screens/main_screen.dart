@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'dashboard_screen.dart';
 import 'month_selection_screen.dart';
 import 'statistics_screen.dart';
+import 'community_radar_screen.dart';
 import 'settings_screen.dart';
 import '../services/notification_service.dart';
 import '../providers/item_provider.dart';
@@ -94,6 +95,7 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             DashboardScreen(),
             MonthSelectionScreen(),
             StatisticsScreen(),
+            CommunityRadarScreen(),
             SettingsScreen(),
           ],
         ),
@@ -133,6 +135,11 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 icon: Icon(Icons.bar_chart_outlined),
                 activeIcon: Icon(Icons.bar_chart),
                 label: 'Análises',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.radar_outlined),
+                activeIcon: Icon(Icons.radar_rounded),
+                label: 'Comunidade',
               ),
               BottomNavigationBarItem(
                 icon: Icon(Icons.settings_outlined),
