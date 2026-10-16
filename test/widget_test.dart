@@ -711,12 +711,16 @@ void main() {
       expect(find.byType(MarketMapScreen), findsOneWidget);
     });
 
-    test('DefaultSupermarketsData contains valid geolocated markets for all 4 target cities', () {
+    test('DefaultSupermarketsData contains valid geolocated markets for all 5 target cities including Tribobó and Rio do Ouro', () {
       const markets = DefaultSupermarketsData.all;
-      expect(markets.length, greaterThanOrEqualTo(50));
+      expect(markets.length, greaterThanOrEqualTo(100));
 
       final cities = markets.map((m) => m.city).toSet();
-      expect(cities, containsAll(['Niterói', 'São Gonçalo', 'Itaboraí', 'Rio de Janeiro']));
+      expect(cities, containsAll(['Niterói', 'São Gonçalo', 'Maricá', 'Itaboraí', 'Rio de Janeiro']));
+
+      final names = markets.map((m) => m.name.toLowerCase()).toList();
+      expect(names.any((n) => n.contains('tribobó') || n.contains('tribobo')), isTrue);
+      expect(names.any((n) => n.contains('rio do ouro')), isTrue);
 
       for (var market in markets) {
         expect(market.name.trim().isNotEmpty, isTrue);
