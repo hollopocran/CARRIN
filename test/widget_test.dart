@@ -742,5 +742,23 @@ void main() {
       expect(partialMatch, isNotNull);
       expect(partialMatch!.name, equals('Assaí Atacadista - Tribobó'));
     });
+
+    test('Rede Economia and Mercado Varsilva in Rio do Ouro are accurately located and matchable', () {
+      final varsilva = DefaultSupermarketsData.findMatch('Mercado Varsilva - Rio do Ouro');
+      expect(varsilva, isNotNull);
+      expect(varsilva!.latitude, closeTo(-22.88476, 0.001));
+      expect(varsilva.longitude, closeTo(-42.98544, 0.001));
+      expect(varsilva.address, contains('Engenho do Roçado'));
+
+      final varsilvaPartial = DefaultSupermarketsData.findMatch('varsilva');
+      expect(varsilvaPartial, isNotNull);
+      expect(varsilvaPartial!.name, contains('Varsilva'));
+
+      final redeEconomiaRioDoOuro = DefaultSupermarketsData.findMatch('Rede Economia - Rio do Ouro');
+      expect(redeEconomiaRioDoOuro, isNotNull);
+      expect(redeEconomiaRioDoOuro!.latitude, closeTo(-22.88727, 0.001));
+      expect(redeEconomiaRioDoOuro.longitude, closeTo(-42.98817, 0.001));
+      expect(redeEconomiaRioDoOuro.address, contains('Eugênio Borges'));
+    });
   });
 }
