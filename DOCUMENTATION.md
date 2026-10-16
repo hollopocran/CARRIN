@@ -1,157 +1,234 @@
-# Documentação do Projeto: CARRIN (Gestor de Compras)
+# Documentação Técnica e Arquitetural: CARRIN
 
-Esta documentação detalha a arquitetura, as tecnologias utilizadas, as funcionalidades implementadas e o histórico de manutenções e refatorações realizadas no aplicativo "CARRIN" (anteriormente conhecido como Gestor de Compras).
+> **Versão Atual:** `1.3.534` (Build `534`) — Outubro de 2026  
+> **Status:** Produção Estável  
+> **Slogan:** *"Sua lista, sem complicação."*
+
+---
 
 ## 1. Visão Geral do Projeto
-O **CARRIN** é um aplicativo mobile desenvolvido em Flutter focado na gestão financeira e organização de compras de supermercado. Seu grande diferencial é a sincronização bidirecional (via API) com o **Google Sheets**. Cada mês ou lista de compras é mapeada como uma aba (worksheet) dentro de uma planilha do Google Sheets, permitindo que o usuário gerencie seus gastos tanto pelo celular quanto pelo computador.
 
-### 1.1 Tecnologias Principais
-- **Framework:** Flutter / Dart
-- **Gerenciamento de Estado:** `provider` (Provider Pattern)
-- **Banco de Dados / Nuvem:** Google Sheets via package `gsheets`
-- **Armazenamento Local (Cache):** `shared_preferences`
-- **Formatação de Dados:** `intl` (Moeda e datas no padrão pt_BR)
-- **Exportação e Compartilhamento:** `pdf` e `printing` (para geração de listas estilizadas)
-- **Notificações:** `flutter_local_notifications`
+O **CARRIN** é um ecossistema mobile inteligente em Flutter para gestão financeira doméstica, compras de supermercado e economia colaborativa comunitária. O aplicativo une privacidade total com poder analítico:
+1. **Privacidade Absoluta & Nuvem Pessoal:** Cada usuário sincroniza suas listas diretamente com sua própria planilha do **Google Sheets** via OAuth 2.0 (`UserSheetsService`), sem servidores intermediários ou acesso de terceiros aos seus dados pessoais.
+2. **Arquitetura Offline-First (SQLite):** Todas as operações (adicionar, riscar, editar, excluir, calcular) funcionam instantaneamente sem internet com persistência em banco local e sincronização resiliente em fila (`sync_queue`).
+3. **Radar de Preços & Comunidade (Supabase):** Rede colaborativa de preços em tempo real onde os produtos comprados alimentam a base comunitária, permitindo comparação de preços, identificação do mercado mais barato da região e cálculo de economia potencial via GPS.
+4. **Geolocalização & Geofencing:** Identificação automática do supermercado em que o usuário está comprando (com referência calibrada para o **Supermercados Guanabara Niterói**).
+5. **Scanner Duplo:** Leitor de código de barras para preenchimento de itens e leitor de cupom fiscal / NFC-e SEFAZ via QR Code com extração automatizada de produtos, quantidades e valores.
 
 ---
 
-## 2. Arquitetura e Integração com Google Sheets
+## 2. Mapa Completo do Aplicativo (App Sitemap)
 
-A persistência de dados é baseada na nuvem, sendo armazenada **diretamente no Google Drive pessoal de cada usuário**. O aplicativo possui mecanismos robustos de banco de dados local (SQLite) e cache em memória para permitir o carregamento imediato das telas enquanto a sincronização bidirecional ocorre em segundo plano.
+### 2.1 Diagrama de Navegação e Fluxo de Telas (Mermaid)
 
-### 2.1 Autenticação e Segurança (Google Sign-In)
-A partir de Maio de 2026, a arquitetura de Conta de Serviço (Service Account genérica com `credentials.json` fixo) foi removida do aplicativo em favor da **Autenticação de Usuário**. 
-- O aplicativo utiliza os pacotes `google_sign_in` e `googleapis`.
-- Cada usuário faz login com sua própria conta Google (OAuth 2.0).
-- O aplicativo solicita as permissões (escopos) `drive.file` e `spreadsheets`. 
-- **Privacidade Total:** Os dados são salvos em uma planilha oculta chamada "CARRIN_Lista_Compras" criada automaticamente no Drive do usuário. O aplicativo só tem acesso à planilha que ele mesmo criou, e o desenvolvedor não tem acesso aos dados dos usuários.
+```mermaid
+flowchart TD
+  Splash["SplashScreen<br/>(Abertura & Checagem de Sessão)"] --> Main["MainScreen<br/>(Navegação por 5 Abas no Rodapé)"]
+  
+  subgraph Rodape["Navegação Principal (Rodapé)"]
+    Tab0["1. Início<br/>(DashboardScreen)"]
+    Tab1["2. Carrinhos<br/>(MonthSelectionScreen)"]
+    Tab2["3. Análises<br/>(StatisticsScreen)"]
+    Tab3["4. Comunidade<br/>(CommunityRadarScreen)"]
+    Tab4["5. Ajustes<br/>(SettingsScreen)"]
+  end
 
-### 2.2 Mapeamento Rígido de Células (UserSheetsService)
-A comunicação agora utiliza a API REST v4 oficial do Google (substituindo o package `gsheets`). A leitura dos totais mensais foi fixada em coordenadas exatas para evitar erros de leitura:
-- **Gasto Total:** Célula `C2`
-- **Qtd Itens (Ativos):** Célula `E2`
-- **Itens Comprados:** Célula `F2`
-- **Saldo Restante:** Célula `G2`
-- **Orçamento:** Célula `H2`
+  Main --> Tab0
+  Main --> Tab1
+  Main --> Tab2
+  Main --> Tab3
+  Main --> Tab4
 
-### 2.3 Estrutura da Planilha
-A partir da linha 7 (`fromRow: 7`), o aplicativo lê e escreve os produtos na seguinte ordem de colunas (iniciando na coluna B):
-1. Quantidade (Coluna B)
-2. Produto (Nome) (Coluna C)
-3. Preço Unitário (Coluna D)
-4. Total (Calculado pela planilha ou pelo app) (Coluna E)
-5. Categoria (Coluna F)
-6. Status (Comprado: TRUE/FALSE) (Coluna G)
-7. Código de Barras (Coluna H)
+  %% --- FLUXO DA ABA 1: INÍCIO ---
+  Tab0 --> Accounts["AccountsScreen<br/>(Contas Online & Perfis Offline)"]
+  Tab0 --> ScanQuick["BarcodeScannerScreen<br/>(Busca / Leitura Rápida)"]
+  Tab0 --> QuickSum["QuickSummary<br/>(Métricas de Saldo & Orçamento)"]
+  Tab0 --> MonthQuickNav["Navegação Direta<br/>(Abre Carrinho do Mês Ativo)"]
 
-### 2.4 Sistema de Fila Offline e Banco Local (SQLite)
-Para permitir que o app funcione offline ou sem conexão estável, o `ItemProvider` gerencia os dados através de um banco de dados **SQLite** e de uma **Fila de Sincronização**:
-- Todas as operações (adicionar item, criar carrinho, renomear, excluir) são salvas imediatamente no SQLite e colocadas numa fila invisível (`_syncQueue`).
-- Essa fila é disparada em segundo plano e repassa as alterações para o Google Sheets (se o usuário possuir conexão e o token OAuth estiver válido).
-- **Hard Reset Automático de Privacidade:** Quando um novo usuário faz login, o aplicativo detecta a alteração de e-mail e executa um `clearAll()` no banco de dados SQLite local, impedindo que dados do usuário anterior vazem para a nuvem do novo usuário.
+  %% --- FLUXO DA ABA 2: CARRINHOS ---
+  Tab1 --> NewCart["Modal Novo Carrinho<br/>(Em Branco ou Usar Anterior)"]
+  Tab1 --> ShoppingList["ShoppingListScreen<br/>(Lista de Compras Ativa)"]
+  ShoppingList --> AddItem["Modal Adicionar/Editar Item"]
+  ShoppingList --> BarcodeScan["BarcodeScannerScreen<br/>(Autofill por Histórico)"]
+  ShoppingList --> ReceiptScan["ReceiptScannerScreen<br/>(NFC-e / Cupom SEFAZ QR Code)"]
+  ShoppingList --> WeightCalc["WeightCalculatorDialog<br/>(Calculadora Preço/Kg)"]
+  ShoppingList --> FloatCalc["FloatingCalculatorPopup<br/>(Calculadora Assistiva Flutuante)"]
+  ShoppingList --> RateioDialog["RateioDialog<br/>(Divisão de Conta por Pessoa)"]
+  ShoppingList --> FilterSheet["ShoppingFilterBottomSheet<br/>(Filtros, Categorias & Ordenação)"]
+  ShoppingList --> MarketLock["MarketLockOverlay<br/>(Finalizar / Trancar Carrinho)"]
+  ShoppingList --> MarketPurpose["MarketAndPurposeWidgets<br/>(Definir Mercado & Propósito)"]
+  ShoppingList --> PdfExport["PdfExportDialog<br/>(Compartilhamento WhatsApp / PDF)"]
 
-### 2.5 Fonte da Verdade: Ordem de Criação (Timeline)
-O aplicativo foi estruturado para seguir rigorosamente a **Ordem de Criação** das planilhas. A aba mais antiga lida do Google Sheets é considerada o passado, e a aba mais recente criada é o presente. O `ItemProvider._months` reflete isso (Antigo -> Novo), e todas as telas de análise, históricos e listas de meses respeitam esta "linha do tempo" orgânica.
+  %% --- FLUXO DA ABA 3: ANÁLISES ---
+  Tab2 --> BuyerProfile["BuyerProfileScreen<br/>(Perfil de Comprador & Hábitos)"]
+  Tab2 --> TimeFilter["Filtros Temporais<br/>(3 meses / 6 meses / 1 ano / Tudo)"]
+  Tab2 --> CatBreakdown["Detalhamento por Categorias<br/>(Gráfico de Pizza & Barras FL Chart)"]
+
+  %% --- FLUXO DA ABA 4: COMUNIDADE ---
+  Tab3 --> ComList["Sub-Aba 1: Lista<br/>(Feed de Preços Recentes)"]
+  Tab3 --> ComComp["Sub-Aba 2: Comparador<br/>(Menor Preço & Economia %)"]
+  Tab3 --> ComRank["Sub-Aba 3: Mercados<br/>(Ranking de Menor Preço Médio)"]
+  Tab3 --> GpsRadius["Seletor de Raio GPS<br/>(5 km, 10 km, 15 km, 30 km)"]
+  Tab3 --> CollabPrice["Modal Colaborar Preço<br/>(Envio Manual)"]
+
+  %% --- FLUXO DA ABA 5: AJUSTES ---
+  Tab4 --> ThemeSheet["ThemeColorPickerSheet<br/>(Paleta de Cores do Tema)"]
+  Tab4 --> IconSheet["Seletor de Ícones do App<br/>(Ícone Clássico vs Moderno)"]
+  Tab4 --> AccessOpts["Acessibilidade<br/>(Modos Daltônicos & Escala de Fonte)"]
+  Tab4 --> BackupOpt["Backup & Restauração<br/>(Exportar / Importar SQLite JSON)"]
+  Tab4 --> TutorialNav["TutorialScreen<br/>(Tutorial Interativo Completo)"]
+  Tab4 --> TermsNav["TermsScreen<br/>(Termos de Uso & Política LGPD)"]
+```
+
+### 2.2 Estrutura Detalhada de Rotas e Telas
+
+| Tela / Rota | Arquivo Fonte | Responsabilidade Principal |
+| :--- | :--- | :--- |
+| **SplashScreen** | [`lib/screens/splash_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/splash_screen.dart) | Animação de entrada, inicialização assíncrona de banco SQLite, preferências e GPS. |
+| **MainScreen** | [`lib/screens/main_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/main_screen.dart) | Host principal com `PageView` e `BottomNavigationBar` de 5 posições com navegação resiliente (`PopScope`). |
+| **DashboardScreen** | [`lib/screens/dashboard_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/dashboard_screen.dart) | Visão geral do mês ativo, medidor circular (gauge), grid reordenável de métricas e atalhos rápidos. |
+| **MonthSelectionScreen** | [`lib/screens/month_selection_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/month_selection_screen.dart) | Lista histórica de todos os carrinhos na ordem orgânica de criação, progresso de itens e status trancado. |
+| **ShoppingListScreen** | [`lib/screens/shopping_list_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/shopping_list_screen.dart) | Lista de compras com slivers responsivos, seleção em lote, cálculo de peso, scanner, rateio e exportação. |
+| **StatisticsScreen** | [`lib/screens/statistics_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/statistics_screen.dart) | Relatórios visuais com `fl_chart`, evolução mensal, divisão por categorias e atalho para o perfil. |
+| **BuyerProfileScreen** | [`lib/screens/buyer_profile_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/buyer_profile_screen.dart) | Diagnóstico inteligente do perfil de consumo (Econômico, Gourmet, Planejador, etc.) e métricas de hábito. |
+| **CommunityRadarScreen** | [`lib/screens/community_radar_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/community_radar_screen.dart) | Radar comunitário com abas de Feed, Comparador de Produtos (% de economia) e Ranking de Mercados por GPS. |
+| **SettingsScreen** | [`lib/screens/settings_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/settings_screen.dart) | Customização de cores, ícone do app, modo daltônico, backup/restore, animações e sobre. |
+| **AccountsScreen** | [`lib/screens/accounts_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/accounts_screen.dart) | Gestão de login Google OAuth 2.0 e perfis locais offline isolados. |
+| **ReceiptScannerScreen** | [`lib/screens/receipt_scanner_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/receipt_scanner_screen.dart) | Scanner de NFC-e (SEFAZ QR Code) com parser de cupons de 1 e 2 linhas. |
+| **BarcodeScannerScreen** | [`lib/screens/barcode_scanner_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/barcode_scanner_screen.dart) | Scanner de códigos de barras EAN-13 para inserção e busca instantânea. |
+| **TutorialScreen** | [`lib/screens/tutorial_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/tutorial_screen.dart) | Tutorial guiado passo a passo com demonstrações interativas de cada função. |
+| **TermsScreen** | [`lib/screens/terms_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/terms_screen.dart) | Termos de serviço, garantias de privacidade e política de transparência de dados. |
 
 ---
 
-## 3. Telas e Funcionalidades
+## 3. Tecnologias e Dependências Principais
 
-### 3.1 DashboardScreen (Tela Inicial)
-Atua como o resumo financeiro do mês corrente e menu de navegação principal.
-- **Card de Resumo / Gauge Circular Animado:** Mostra o progresso do orçamento com cores dinâmicas (Azul, Laranja, Vermelho).
-- **Grid Reordenável:** Atalhos rápidos para Saldo, Orçamento, Estatísticas e Carrinhos.
-- **Sincronização:** Pull-to-refresh manual ou cache inteligente.
-
-### 3.2 ShoppingListScreen (Lista de Compras)
-A tela mais complexa do aplicativo, projetada para usabilidade com uma mão e otimização de espaço.
-- **Layout Focado / Slivers:** Cabeçalho persistente com o "Gasto Atual", enquanto barras secundárias (Orçamento) podem ocultar no scroll.
-- **Categorização Automática com Emojis:** Produtos novos recebem automaticamente emojis dependendo de palavras-chave.
-- **Exportação Profissional em PDF:** Gera um relatório de compras no estilo premium do aplicativo, contendo o resumo financeiro, itens agrupados em "cards" com seus respectivos emojis usando a fonte leve `notoEmojiRegular`.
-
-### 3.3 StatisticsScreen (Gráficos e Estatísticas)
-Compara a evolução financeira ao longo da **Ordem de Criação**.
-- **Filtros Temporais:** 3 meses, 6 meses, 1 ano, ou histórico total.
-- **Detalhamento Híbrido:** Popups elegantes (estilo BottomSheet arredondados) exibem círculos de progresso (NEON) combinados com dados de saldo e métricas.
-- **Temas Adaptáveis:** Todas as fontes e contrastes respeitam automaticamente as diretrizes do "Modo Escuro", garantindo legibilidade perfeita.
+- **Linguagem & Framework:** Dart `3.x` / Flutter SDK `>=3.0.0 <4.0.0`
+- **Gerenciamento de Estado:** `provider: ^6.1.1` (arquitetura centralizada com `ItemProvider` e `ThemeProvider`)
+- **Banco de Dados Local (Offline-First):** `sqflite: ^2.3.0` + `path: ^1.9.0`
+- **Armazenamento de Preferências:** `shared_preferences: ^2.2.2`
+- **Nuvem Pessoal:** `googleapis: ^13.2.0` + `google_sign_in: ^6.2.2` (Google Drive & Sheets API v4)
+- **Nuvem Comunitária (Preços):** REST API Supabase (Tabela pública `community_prices` com RLS)
+- **Geolocalização & Proximidade:** `geolocator: ^13.0.2` + OpenStreetMap (Nominatim Reverse Geocoding)
+- **Gráficos Financeiros:** `fl_chart: ^1.2.0`
+- **Animações Fluidas:** `flutter_staggered_animations: ^1.1.1`
+- **Relatórios & PDF:** `pdf: ^3.11.1` + `printing: ^5.13.2` + `share_plus: ^10.1.4`
+- **Câmera & Scanners:** `mobile_scanner: ^6.0.4`
+- **Notificações em Tempo Real:** `flutter_local_notifications: ^18.0.1`
+- **Internacionalização:** `intl: ^0.20.2` (padrão monetário `R$ 0,00` e datas `pt_BR`)
 
 ---
 
-## 4. Histórico de Desafios e Refatorações Técnicas
+## 4. Arquitetura de Dados e Persistência
 
-Durante o desenvolvimento, vários ajustes precisos foram feitos para garantir a estabilidade e a estética do app:
+### 4.1 Banco de Dados Local SQLite (`DatabaseHelper`)
 
-1. **Bug da Barra de Progresso Sumindo:**
-   - *Problema:* A animação foi quebrada por conta de um fechamento incorreto da árvore de widgets (`TweenAnimationBuilder`).
-   - *Solução:* Correção estrutural na `DashboardScreen`. A barra agora cresce suavemente de 0 até `(total / budget)`.
+O banco local `shopping_list.db` conta com 5 tabelas integradas:
 
-2. **Simetria e Geometria de Slivers:**
-   - *Problema:* O layout do cabeçalho da lista de compras apresentava o erro `RenderFlex overflow` e `SliverGeometry is not valid`.
-   - *Solução:* Separação dos componentes entre `SliverToBoxAdapter` e `SliverPersistentHeader` com distâncias ajustadas manualmente.
+```sql
+-- 1. Itens de Compra
+CREATE TABLE items (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  quantity REAL NOT NULL,
+  unit_price REAL NOT NULL,
+  is_bought INTEGER NOT NULL,
+  category TEXT,
+  barcode TEXT,
+  month_title TEXT NOT NULL,
+  supermarket TEXT,
+  is_kg INTEGER DEFAULT 0
+);
 
-3. **Sincronização de Valores (Discrepância):**
-   - *Problema:* O Dashboard exibia o valor apenas dos itens "Comprados", não batendo com o Gasto Total real da planilha.
-   - *Solução:* Leitura forçada das coordenadas rígidas `C2`, `G2` e `H2` no `SheetsService.getSummaryOnly` e unificação das chaves de cache.
+-- 2. Carrinhos / Meses
+CREATE TABLE months (
+  title TEXT PRIMARY KEY,
+  budget REAL DEFAULT 0,
+  is_finalized INTEGER DEFAULT 0,
+  supermarket TEXT,
+  purpose TEXT,
+  created_at TEXT
+);
+
+-- 3. Fila de Sincronização Resiliente (Sheets)
+CREATE TABLE sync_queue (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  action TEXT NOT NULL,
+  payload TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+-- 4. Supermercados Cadastrados & Geofencing
+CREATE TABLE supermarkets (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL UNIQUE,
+  latitude REAL,
+  longitude REAL,
+  radius_meters REAL DEFAULT 150.0,
+  icon TEXT DEFAULT 'store',
+  color_hex TEXT DEFAULT '#1E88E5'
+);
+
+-- 5. Cache Local do Radar Comunitário de Preços
+CREATE TABLE community_prices_cache (
+  id TEXT PRIMARY KEY,
+  product_name TEXT NOT NULL,
+  category TEXT,
+  unit TEXT DEFAULT 'un',
+  price REAL NOT NULL,
+  supermarket_name TEXT NOT NULL,
+  latitude REAL,
+  longitude REAL,
+  submitted_by TEXT,
+  verified_receipt INTEGER DEFAULT 0,
+  created_at TEXT NOT NULL
+);
+```
+
+### 4.2 Supermercado Padrão e Geofencing
+
+O aplicativo adota por padrão a calibração de coordenadas de alta precisão para a unidade central de referência:
+* **Supermercado de Referência:** `Supermercados Guanabara`
+* **Endereço:** *R. Marechal Deodoro, 360 - Centro, Niterói - RJ, 24030-060*
+* **Coordenadas:** Latitude `-22.88975`, Longitude `-43.11515`
+* **Raio de Detecção:** 250 metros
+* **Comportamento:** Ao entrar no raio de alcance, o aplicativo reconhece o mercado e associa os produtos registrados diretamente ao Supermercados Guanabara.
+
+### 4.3 Rede de Preços Comunitária (`CommunityPriceService`)
+
+* **Auto-Sincronização Invisível:** Quando o usuário preenche suas listas ou finaliza compras, o app publica em lote os produtos com preço (`publishPricesBatch`) no Supabase, garantindo que a base comunitária esteja sempre atualizada.
+* **Garantia de Exclusividade e Purga de Testes:** O serviço implementa filtros automáticos para garantir que nenhum registro de teste residual (como Carrefour, Atacadão ou Assaí de mocks iniciais) seja exibido na UI ou salvo no cache do usuário.
+* **Comparador de Economia:** Agrupa os produtos registrados em um raio configurável (5km a 30km) e calcula a economia máxima percentual (`maxSavingsPercent`) em relação aos preços praticados nos demais mercados.
 
 ---
 
-## 5. Histórico de Atualizações Recentes (Maio 2026)
+## 5. Histórico Cronológico de Atualizações e Versões
 
-### 5.1 Redesign da Dashboard (Inspirado em Leaone)
-- **Gauge Circular:** Substituição do card retangular por um medidor circular central de progresso, com cores dinâmicas e animação de carregamento.
-- **Grid de Métricas:** Implementação de um layout em grade (2 colunas) e funcionalidade de "Drag & Drop" (Long Press para arrastar).
+### v1.3.534 (16 de Outubro de 2026) — *Versão Atual*
+- **Varredura e Higienização de Código:** Remoção de scripts scratch rastreados (`test_gsheets.dart`), limpeza de arquivos temporários e atualização de referências legadas de supermercados de teste para `Supermercados Guanabara`.
+- **Ajuste Fino de Detecção OSM:** Inclusão de `guanabara` com prioridade na expressão regular do `LocationService`.
+- **Validação:** 0 erros no `flutter analyze`, 29/29 testes automatizados aprovados.
 
-### 5.2 Melhorias de UX e Persistência
-- **Persistência de Tema e Layout:** Salva escolha do usuário (Claro/Escuro) e ordem dos cards.
-- **In-App Restart:** Opção de "Reiniciar Agora" após a limpeza de cache.
+### v1.3.533 (16 de Outubro de 2026)
+- **Eliminação Definitiva de Mercados de Teste:** Purga completa no SQLite e filtro rigoroso no feed Supabase descartando registros de teste iniciais.
+- **Associação Unificada Guanabara Niterói:** Garantia de que todos os produtos comprados pelo usuário pertençam exclusivamente ao Guanabara de Niterói.
 
-### 5.3 Grande Atualização de UX e Responsividade (12 de Maio de 2026)
-- **Responsividade:** Navegação híbrida alternando entre `BottomNavigationBar` e `NavigationRail`. Limite de largura máxima (1000px) para ultra-wide.
-- **Animações Premium:** Adição de efeitos staggered com curvas elásticas (`easeOutBack`).
-- **Arquitetura Cache-First:** Dados locais renderizam instantaneamente enquanto a nuvem carrega em background.
-- **Calculadora de Peso (Kg):** Calcula o peso (quantidade) automaticamente com base no preço por quilo e valor total pago.
+### v1.3.530 a v1.3.532 (15 e 16 de Outubro de 2026)
+- **Comunidade na Navegação do Rodapé:** Inclusão do Radar de Preços como a 4ª aba nativa do `MainScreen`.
+- **Remoção de Credenciais Expostas:** Supabase URL e Anon Key embutidos de forma segura no serviço sem exibição em tela de ajustes.
+- **Comparador Pré-Preenchido:** A aba de comparação carrega automaticamente com os produtos reais das compras do usuário ao ser aberta.
 
-### 5.4 Revisão de Estabilidade, Contagem e Animações (14 de Maio de 2026)
-- **Contagem de Itens Corrigida:** Baseada na soma das quantidades (`quantity`) como double, tratando decimais de forma inteligente. Fórmulas `SUM` e `SUMIF` atualizadas no GSheets.
-- **Central de Animações:** Menu dedicado em **Ajustes > Animações** para controle granular de efeitos visuais.
-- **Estabilização de Keys:** Migração para `ValueKey` evitando corrupções de render tree no Hot Reload.
+### v1.3.515 a v1.3.525 (15 de Outubro de 2026)
+- **Integração Supabase REST:** Criação do serviço `CommunityPriceService`, arquitetura RLS pública e auto-sync de compras em background.
+- **Cálculo de Distância Haversine:** Filtro dinâmico por raio GPS e cálculo de proximidade de cada supermercado.
+- **Diagnóstico de Perfil de Comprador (`BuyerProfileScreen`):** Algoritmo de análise comportamental e categorização de hábitos de compra.
 
-### 5.5 Notificações de Bloqueio, Splash Screen e Fluidez (15 de Maio de 2026)
-- **Splash Screen Animada:** Tela de abertura customizada.
-- **Notificações em Tempo Real:** Exibe progresso da compra (gasto e total) dinamicamente na tela de bloqueio com `flutter_local_notifications`.
-- **Navegação por Swipe:** Implementação do `PageView` e `AutomaticKeepAliveClientMixin` para fluidez em telas 120Hz.
+### v1.3.500 a v1.3.514 (13 a 15 de Outubro de 2026)
+- **Leitor de Cupom Fiscal SEFAZ (`ReceiptScannerScreen`):** Parsing inteligente de QR Code de NFC-e e notas de 1 e 2 linhas.
+- **Acessibilidade Completa:** Inclusão de filtros para daltônicos (Protanopia, Deuteranopia, Tritanopia) e ajuste dinâmico da escala de fontes no `ThemeProvider`.
+- **Calculadora Flutuante Assistiva:** Widget flutuante arrastável na tela de compras para auxílio em contas rápidas durante a feira.
 
-### 5.6 Rebranding CARRIN e Design System (16 de Maio de 2026)
-- **Identidade Visual:** O aplicativo passa a se chamar **CARRIN** ("Sua lista, sem complicação.").
-- **Paleta de Cores:** O Azul Marinho (`#1A1C2C`) é adotado como cor primária (`AppThemes.primaryNavy`).
-- **Exportação de Relatórios Premium:** Compartilhamento em PDF via `printing` remodelado em formato de "Cards" com Emoji-font (`notoEmojiRegular`) ao invés do check genérico.
-
-### 5.7 Arquitetura de Ordenação Orgânica (16 de Maio de 2026)
-- **Timeline Lock:** Remoção de parseamento temporal. O aplicativo assume a **Ordem de Criação** na planilha (array bruto `_months` antigo -> novo) como sua timeline principal. A aba "Meus Carrinhos", gráficos, histórico de itens e popups seguem rigidamente essa progressão natural, eliminando bugs de dessincronia.
-
-### 5.8 Limpeza Estrutural e Otimização (16 de Maio de 2026)
-- **Codebase Cleanup:** Arquivos mortos deletados (ex: versão residual do `main_screen.dart`), imagens não utilizadas removidas e importações enxutas (`share_plus` substituído). A navegação base (Rodapé) foi reconstruída adequadamente após a limpeza.
-- **Tamanho Reduzido:** Build otimizada com `tree-shaking` e `--split-per-abi`, resultando em um APK final (`carrin.apk`) de aproximadamente **~20.8MB** (ARM64).
-
-### 5.9 Scanner Inteligente, Alertas e Edição em Lote (v8 - 18 de Maio de 2026)
-- **APK v8:** Versão final consolidada como `CARRIN_v8.apk`.
-- **Leitor de Código de Barras Híbrido:** Integração de scanner na tela principal e em campos dedicados. O sistema agora realiza o preenchimento automático (nome, preço e categoria) baseado no histórico de compras do usuário. Se o produto for novo, o campo de nome permanece limpo para personalização.
-- **Busca via Scanner:** Escanear um item que já existe na lista atual redireciona o usuário instantaneamente para a edição desse item.
-- **Alertas Inteligentes de Orçamento:** Implementação da notificação proativa "Pé no freio!" ao atingir 90% do orçamento definido.
-- **Edição em Lote (Batch Edit):** Modo de seleção múltipla (long press) permitindo marcar como comprado ou excluir vários itens simultaneamente.
-- **Modo Escuro de Alto Contraste:** Revisão completa do tema escuro, utilizando tons vibrantes/neon para garantir visibilidade total de gráficos, menus de navegação e botões de ação em qualquer nível de brilho.
-- **Cache de Histórico Instantâneo:** Otimização do `ItemProvider` para garantir que novos códigos de barras salvos sejam descobertos imediatamente em todas as listas.
-- **Manutenção de Dependências:** Atualização do plugin de vibração para suporte ao Android v2 embedding e migração para a API v5 do `mobile_scanner`.
-
-### 5.10 Gerenciamento de Contas, Avatar, Interceptação de Voltar e Ajustes de Layout (22 de Maio de 2026)
-- **Menu Dedicado de Contas (`AccountsScreen`):** Criação de uma tela exclusiva (`accounts_screen.dart`) para isolar todas as opções de contas online e locais (perfis offline). Centralizou a criação, edição, remoção e alternância de perfis.
-- **Botão "Sair de Todas":** Implementação de remoção em massa de contas logadas em lote, limpando completamente todos os dados do SharedPreferences de uma só vez.
-- **Integração Premium de Avatar:** 
-  - Exibição do avatar real do usuário ativo no AppBar do Dashboard (`DashboardScreen`) com atalho direto de toque para a tela de contas.
-  - Exibição de avatar na linha de menu das Configurações (`settings_screen.dart`), mostrando a imagem de perfil ou iniciais juntamente com nome e e-mail ativos de forma dinâmica.
-- **Interceptação do Gesto Voltar (`PopScope`):** Implementação de `PopScope` no Scaffold do `MainScreen`. Caso o usuário realize a ação de voltar fora da aba "Início", o aplicativo intercepta o pop e o redireciona para a aba inicial ("Início") em vez de encerrar o aplicativo. O encerramento do app pelo botão voltar só é acionado na aba inicial.
-- **Centralização do Cabeçalho da Home:** O título "Monitor de Gastos" na página inicial foi centralizado usando um widget `Center`, garantindo simetria no design.
-* **bug offline deslog:** Corrigido loop de carregamento infinito no `DashboardScreen` após a remoção de um perfil offline. O problema ocorria devido a uma condição de corrida onde o painel esperava por dados que não seriam carregados para uma conta sem meses.
-* **Melhoria de Template e Ordenação:** Refatorada a lógica de `useTemplate` para buscar o mês mais recente com itens (em vez de apenas o atual) e adicionada ordenação cronológica via `rowid` no SQLite para garantir a integridade da linha do tempo.
-* **Correção de Layout (Viewport):** Adicionado `shrinkWrap: true` ao histórico de preços no diálogo de edição de itens para evitar exceções de dimensões intrínsecas em viewports.
+### v1.3.5 e anteriores (Maio de 2026)
+- **OAuth 2.0 User Sheets:** Migração definitiva de Service Account para conta Google do próprio usuário (`UserSheetsService`).
+- **Navegação Orgânica Timeline Lock:** Respeito absoluto à ordem de criação de planilhas e carrinhos.
+- **Exportação PDF com Emojis:** Geração de relatórios elegantes com fontes leves e emojis visuais.
