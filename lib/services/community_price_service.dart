@@ -12,7 +12,6 @@ class CommunityPriceService {
 
   static const String _prefUrlKey = 'supabase_community_url';
   static const String _prefAnonKey = 'supabase_community_anon_key';
-  static const String _prefSeedDoneKey = 'community_seed_prices_v1_done';
 
   /// Credenciais padrão do Supabase embutidas (zero configuração para o usuário)
   static const String defaultSupabaseUrl = 'https://togbshissjtctvlsvapc.supabase.co';
@@ -29,11 +28,7 @@ class CommunityPriceService {
       _cachedUrl = prefs.getString(_prefUrlKey) ?? defaultSupabaseUrl;
       _cachedAnonKey = prefs.getString(_prefAnonKey) ?? defaultSupabaseAnonKey;
 
-      final seedDone = prefs.getBool(_prefSeedDoneKey) ?? false;
-      if (!seedDone) {
-        await _seedInitialCommunityPrices();
-        await prefs.setBool(_prefSeedDoneKey, true);
-      }
+      await DatabaseHelper.instance.purgeSeedCommunityPrices();
     } catch (e) {
       debugPrint('📍 CommunityPriceService init error: $e');
     }
@@ -332,48 +327,6 @@ class CommunityPriceService {
       totalQuotes: matching.length,
       prices: matching,
     );
-  }
-
-  /// Popula a base inicial com produtos comuns para teste imediato
-  Future<void> _seedInitialCommunityPrices() async {
-    final now = DateTime.now();
-    final seedData = [
-      {'name': 'Arroz Branco 5kg', 'price': 24.90, 'market': 'Assaí Atacadista', 'unit': 'pct', 'cat': 'Alimentos', 'receipt': 1},
-      {'name': 'Arroz Branco 5kg', 'price': 27.50, 'market': 'Carrefour', 'unit': 'pct', 'cat': 'Alimentos', 'receipt': 0},
-      {'name': 'Arroz Branco 5kg', 'price': 25.80, 'market': 'Atacadão', 'unit': 'pct', 'cat': 'Alimentos', 'receipt': 1},
-      {'name': 'Feijão Carioca 1kg', 'price': 6.89, 'market': 'Assaí Atacadista', 'unit': 'pct', 'cat': 'Alimentos', 'receipt': 1},
-      {'name': 'Feijão Carioca 1kg', 'price': 7.49, 'market': 'Carrefour', 'unit': 'pct', 'cat': 'Alimentos', 'receipt': 0},
-      {'name': 'Feijão Carioca 1kg', 'price': 6.99, 'market': 'Pão de Açúcar', 'unit': 'pct', 'cat': 'Alimentos', 'receipt': 1},
-      {'name': 'Leite Integral 1L', 'price': 4.19, 'market': 'Atacadão', 'unit': 'un', 'cat': 'Laticínios', 'receipt': 1},
-      {'name': 'Leite Integral 1L', 'price': 4.79, 'market': 'Carrefour', 'unit': 'un', 'cat': 'Laticínios', 'receipt': 0},
-      {'name': 'Leite Integral 1L', 'price': 4.39, 'market': 'Assaí Atacadista', 'unit': 'un', 'cat': 'Laticínios', 'receipt': 1},
-      {'name': 'Óleo de Soja 900ml', 'price': 5.89, 'market': 'Assaí Atacadista', 'unit': 'un', 'cat': 'Alimentos', 'receipt': 1},
-      {'name': 'Óleo de Soja 900ml', 'price': 6.49, 'market': 'Pão de Açúcar', 'unit': 'un', 'cat': 'Alimentos', 'receipt': 0},
-      {'name': 'Café Torrado e Moído 500g', 'price': 16.90, 'market': 'Atacadão', 'unit': 'pct', 'cat': 'Matinais', 'receipt': 1},
-      {'name': 'Café Torrado e Moído 500g', 'price': 19.80, 'market': 'Carrefour', 'unit': 'pct', 'cat': 'Matinais', 'receipt': 0},
-      {'name': 'Açúcar Refinado 1kg', 'price': 3.99, 'market': 'Assaí Atacadista', 'unit': 'pct', 'cat': 'Alimentos', 'receipt': 1},
-      {'name': 'Açúcar Refinado 1kg', 'price': 4.59, 'market': 'Carrefour', 'unit': 'pct', 'cat': 'Alimentos', 'receipt': 0},
-      {'name': 'Detergente Líquido 500ml', 'price': 1.99, 'market': 'Atacadão', 'unit': 'un', 'cat': 'Limpeza', 'receipt': 1},
-      {'name': 'Detergente Líquido 500ml', 'price': 2.49, 'market': 'Pão de Açúcar', 'unit': 'un', 'cat': 'Limpeza', 'receipt': 0},
-      {'name': 'Sabão em Pó 1.6kg', 'price': 14.90, 'market': 'Assaí Atacadista', 'unit': 'cx', 'cat': 'Limpeza', 'receipt': 1},
-      {'name': 'Sabão em Pó 1.6kg', 'price': 18.50, 'market': 'Carrefour', 'unit': 'cx', 'cat': 'Limpeza', 'receipt': 0},
-    ];
-
-    final prices = seedData.map((d) {
-      return CommunityPrice(
-        id: 'seed_${d['name']}_${d['market']}',
-        productName: d['name'] as String,
-        price: (d['price'] as num).toDouble(),
-        supermarketName: d['market'] as String,
-        unit: d['unit'] as String?,
-        category: d['cat'] as String?,
-        verifiedReceipt: d['receipt'] == 1,
-        submittedBy: 'Colaborador CARRIN',
-        createdAt: now.subtract(Duration(hours: (d['name'] as String).hashCode.abs() % 48)),
-      );
-    }).toList();
-
-    await DatabaseHelper.instance.saveCommunityPrices(prices);
   }
 
   /// Retorna o SQL para criar a tabela no Supabase com 1 clique

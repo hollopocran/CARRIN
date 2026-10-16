@@ -583,7 +583,28 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen> with Single
   // ==========================================
   Widget _buildFeedTab(bool isDark, Color cardColor, Color primary, ItemProvider provider) {
     if (_recentFeed.isEmpty) {
-      return const Center(child: Text('Nenhum preço recente encontrado na região.'));
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.dynamic_feed_outlined, size: 64, color: Colors.grey[400]),
+              const SizedBox(height: 16),
+              const Text(
+                'Nenhum preço registrado ainda',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Os preços aparecem aqui automaticamente conforme as compras forem realizadas nas listas ou notas fiscais forem escaneadas.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey[600], fontSize: 13),
+              ),
+            ],
+          ),
+        ),
+      );
     }
 
     return ListView.builder(

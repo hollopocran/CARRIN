@@ -839,6 +839,13 @@ class DatabaseHelper {
     } catch (_) {}
   }
 
+  Future<void> purgeSeedCommunityPrices() async {
+    final db = await database;
+    try {
+      await db.delete('community_prices_cache', where: "id LIKE 'seed_%'");
+    } catch (_) {}
+  }
+
   Future<void> clearAll() async {
     final db = await database;
     await db.transaction((txn) async {
