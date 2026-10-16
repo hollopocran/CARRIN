@@ -34,6 +34,7 @@ class CommunityPriceService {
       _cachedAnonKey = prefs.getString(_prefAnonKey) ?? defaultSupabaseAnonKey;
 
       await DatabaseHelper.instance.purgeSeedCommunityPrices();
+      await DatabaseHelper.instance.cleanTestSupermarkets();
       await DatabaseHelper.instance.ensureDefaultSupermarkets();
       await DatabaseHelper.instance.assignDefaultSupermarket(defaultStoreName);
       await DatabaseHelper.instance.seedCommunityPricesFromUserPurchases();
@@ -406,7 +407,16 @@ class CommunityPriceService {
           final List<dynamic> list = jsonDecode(response.body);
           final cloudPrices = list
               .map((item) => CommunityPrice.fromMap(item as Map<String, dynamic>, userLat: userLat, userLng: userLng))
-              .where((p) => !p.submittedBy.contains('Teste Batch') && !p.id.startsWith('seed_'))
+              .where((p) {
+                final market = p.supermarketName.toLowerCase().trim();
+                final isMock = market == 'carrefour' ||
+                               market.contains('atacad') ||
+                               market.contains('assa') ||
+                               p.submittedBy.contains('Teste') ||
+                               p.submittedBy == 'Comunidade CARRIN' ||
+                               p.id.startsWith('seed_');
+                return !isMock;
+              })
               .toList();
           if (cloudPrices.isNotEmpty) {
             await DatabaseHelper.instance.saveCommunityPrices(cloudPrices);

@@ -656,7 +656,11 @@ class DatabaseHelper {
   Future<List<Map<String, dynamic>>> getSupermarkets() async {
     final db = await database;
     try {
-      return await db.query('supermarkets', orderBy: 'name ASC');
+      return await db.query(
+        'supermarkets',
+        where: "LOWER(name) NOT IN ('carrefour', 'atacadão', 'atacadao', 'assaí atacadista', 'assai atacadista', 'supermercado local', 'supermercado')",
+        orderBy: 'name ASC',
+      );
     } catch (e) {
       debugPrint('Aviso ao consultar supermercados: $e');
       return [];
@@ -800,22 +804,25 @@ class DatabaseHelper {
   }) async {
     final db = await database;
     try {
-      String? where;
-      List<dynamic> whereArgs = [];
+      final List<String> conditions = [];
+      final List<dynamic> whereArgs = [];
 
       if (query != null && query.trim().isNotEmpty) {
-        where = 'product_name LIKE ?';
+        conditions.add('product_name LIKE ?');
         whereArgs.add('%${query.trim()}%');
       }
 
       if (supermarket != null && supermarket.trim().isNotEmpty) {
-        if (where != null) {
-          where += ' AND supermarket_name = ?';
-        } else {
-          where = 'supermarket_name = ?';
-        }
+        conditions.add('supermarket_name = ?');
         whereArgs.add(supermarket.trim());
       }
+
+      conditions.add("LOWER(supermarket_name) NOT IN ('carrefour', 'atacadão', 'atacadao', 'assaí atacadista', 'assai atacadista')");
+      conditions.add("submitted_by NOT LIKE 'Teste%'");
+      conditions.add("submitted_by != 'Comunidade CARRIN'");
+      conditions.add("id NOT LIKE 'seed_%'");
+
+      final where = conditions.join(' AND ');
 
       final List<Map<String, dynamic>> maps = await db.query(
         'community_prices_cache',
@@ -881,7 +888,7 @@ class DatabaseHelper {
     }
   }
 
-  /// Atribui supermercado padrão a itens que não possuem mercado definido
+  /// Atribui supermercado padrão a itens que não possuem mercado definido ou possuem supermercado de teste
   Future<int> assignDefaultSupermarket(String defaultMarket) async {
     final db = await database;
     try {
@@ -892,6 +899,7 @@ class DatabaseHelper {
            OR TRIM(supermarket) = '' 
            OR LOWER(supermarket) = 'supermercado local'
            OR LOWER(supermarket) = 'supermercado'
+           OR LOWER(supermarket) IN ('carrefour', 'atacadão', 'atacadao', 'assaí atacadista', 'assai atacadista')
       ''', [defaultMarket.trim()]);
       if (count > 0) {
         debugPrint('🛒 $count itens migrados para o supermercado "$defaultMarket"');
@@ -963,7 +971,20 @@ class DatabaseHelper {
   Future<void> purgeSeedCommunityPrices() async {
     final db = await database;
     try {
-      await db.delete('community_prices_cache', where: "id LIKE 'seed_%'");
+      await db.delete(
+        'community_prices_cache',
+        where: "id LIKE 'seed_%' OR submitted_by = 'Comunidade CARRIN' OR submitted_by LIKE 'Teste%' OR LOWER(supermarket_name) IN ('carrefour', 'atacadão', 'atacadao', 'assaí atacadista', 'assai atacadista')",
+      );
+    } catch (_) {}
+  }
+
+  Future<void> cleanTestSupermarkets() async {
+    final db = await database;
+    try {
+      await db.delete(
+        'supermarkets',
+        where: "LOWER(name) IN ('carrefour', 'atacadão', 'atacadao', 'assaí atacadista', 'assai atacadista', 'supermercado local', 'supermercado')",
+      );
     } catch (_) {}
   }
 
