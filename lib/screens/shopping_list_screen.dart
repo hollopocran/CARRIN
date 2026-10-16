@@ -896,115 +896,16 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                       // Item já existe na lista! Abre diretamente para editar/marcar comprado
                       _showEditDialog(context, matchedItem);
                     } else {
-                      // Produto não está na lista atual
-                      if (productInfo != null) {
-                        final resolvedProduct = productInfo;
-                        final String pName = resolvedProduct.name;
-                        final double pPrice = resolvedProduct.lastPrice ?? 0.0;
-                        final bool isOnline = resolvedProduct.isFromOnline;
-                        final bool? addNow = await showDialog<bool>(
-                          context: context,
-                          builder: (ctx) => AlertDialog(
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-                            title: Row(
-                              children: [
-                                Icon(
-                                  isOnline ? Icons.travel_explore_rounded : Icons.inventory_2_outlined,
-                                  color: isOnline ? Colors.teal : AppThemes.primaryNavy,
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    isOnline ? 'Produto Identificado' : 'Produto Encontrado',
-                                    style: const TextStyle(fontWeight: FontWeight.bold),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            content: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                if (resolvedProduct.imageUrl != null) ...[
-                                  Center(
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(12),
-                                      child: Image.network(
-                                        resolvedProduct.imageUrl!,
-                                        height: 90,
-                                        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 10),
-                                ],
-                                Text(pName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                const SizedBox(height: 6),
-                                Wrap(
-                                  spacing: 6,
-                                  runSpacing: 4,
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                      decoration: BoxDecoration(
-                                        color: (isOnline ? Colors.teal : AppThemes.primaryNavy).withValues(alpha: 0.12),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Text(
-                                        isOnline ? '🌐 Base Aberta (Online)' : '🛒 Seu Histórico',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                          color: isOnline ? Colors.teal : AppThemes.primaryNavy,
-                                        ),
-                                      ),
-                                    ),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                      decoration: BoxDecoration(
-                                        color: Colors.grey.withValues(alpha: 0.12),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Text(
-                                        '${ItemProvider.categoryEmojis[resolvedProduct.category] ?? '📦'} ${resolvedProduct.category}',
-                                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                if (pPrice > 0) ...[
-                                  const SizedBox(height: 8),
-                                  Text('Último preço: ${Utils.formatCurrency(pPrice)}', style: const TextStyle(color: Colors.grey)),
-                                ],
-                                const SizedBox(height: 12),
-                                const Text('Este produto não está na sua lista de compras atual. Deseja adicioná-lo agora?'),
-                              ],
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(ctx, false),
-                                child: const Text('Cancelar', style: TextStyle(color: Colors.grey)),
-                              ),
-                              ElevatedButton(
-                                onPressed: () => Navigator.pop(ctx, true),
-                                child: const Text('Adicionar à Lista', style: TextStyle(fontWeight: FontWeight.bold)),
-                              ),
-                            ],
-                          ),
-                        );
-                        if (addNow == true && context.mounted) {
-                          _showEditDialog(
-                            context, 
-                            null, 
-                            scannedBarcode: cleanBarcode,
-                            prefilledName: pName,
-                            prefilledCategory: resolvedProduct.category,
-                            prefilledPrice: pPrice > 0 ? pPrice : null,
-                          );
-                        }
-                      } else {
-                        _showEditDialog(context, null, scannedBarcode: cleanBarcode);
-                      }
+                      // Produto não está na lista: vai direto para a tela de edição com dados já preenchidos!
+                      final lastPrice = productInfo?.lastPrice;
+                      _showEditDialog(
+                        context, 
+                        null, 
+                        scannedBarcode: cleanBarcode,
+                        prefilledName: productInfo?.name,
+                        prefilledCategory: productInfo?.category,
+                        prefilledPrice: (lastPrice != null && lastPrice > 0) ? lastPrice : null,
+                      );
                     }
                   }
                 },
@@ -1722,6 +1623,27 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (prefilledName != null && prefilledName.isNotEmpty) ...[
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: Colors.teal.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.qr_code_scanner_rounded, size: 15, color: Colors.teal),
+                        SizedBox(width: 6),
+                        Text(
+                          'Preenchido via código de barras',
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.teal),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 TextField(
                   controller: nameController, 
                   focusNode: nameFocusNode,

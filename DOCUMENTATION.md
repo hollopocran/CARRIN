@@ -1,6 +1,6 @@
 # Documentação Técnica e Arquitetural: CARRIN
 
-> **Versão Atual:** `1.3.543` (Build `543`) — Outubro de 2026  
+> **Versão Atual:** `1.3.544` (Build `544`) — Outubro de 2026  
 > **Status:** Produção Estável  
 > **Slogan:** *"Sua lista, sem complicação."*
 
@@ -223,6 +223,11 @@ O aplicativo adota por padrão a calibração de coordenadas de alta precisão p
 ---
 
 ## 5. Histórico Cronológico de Atualizações e Versões
+
+### v1.3.544 (16 de Outubro de 2026)
+- **Fluxo Direto de Escaneamento de Código de Barras (Zero Fricção):** Ao escanear o código de barras de um produto inexistente na lista, o app elimina completamente o popup intermediário de confirmação (*"Deseja adicioná-lo agora?"*) e abre diretamente a aba/diálogo de edição com todos os dados preenchidos (*nome oficial, categoria sugerida, último preço e código de barras*).
+- **Badge de Origem no Formulário de Edição:** Inclusão de indicador sutil no formulário informando que as informações foram importadas via leitura de código de barras.
+- **Validação Automatizada:** 0 advertências no `flutter analyze`, 37/37 testes aprovados.
 
 ### v1.3.543 (16 de Outubro de 2026)
 - **Identificação Inteligente de Produtos via Código de Barras (Online + Offline):** Criação do serviço `BarcodeLookupService` que identifica produtos instantaneamente ao escanear códigos de barras EAN-13/EAN-8 pela câmera do celular.
