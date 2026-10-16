@@ -1,6 +1,6 @@
 # Documentação Técnica e Arquitetural: CARRIN
 
-> **Versão Atual:** `1.3.544` (Build `544`) — Outubro de 2026  
+> **Versão Atual:** `1.3.545` (Build `545`) — Outubro de 2026  
 > **Status:** Produção Estável  
 > **Slogan:** *"Sua lista, sem complicação."*
 
@@ -223,6 +223,22 @@ O aplicativo adota por padrão a calibração de coordenadas de alta precisão p
 ---
 
 ## 5. Histórico Cronológico de Atualizações e Versões
+
+### v1.3.545 (16 de Outubro de 2026)
+- **Eliminação de Marcador Duplicado do Guanabara Niterói:** Unificação dos nomes `'Supermercados Guanabara'` e `'Supermercados Guanabara - Niterói'` sob o mesmo registro canônico. Anteriormente, as compras do usuário cadastradas sob o nome genérico geravam um marcador de cotações, enquanto o catálogo estático gerava um segundo marcador no mesmo local. A agregação do `CommunityPriceService` e a limpeza do SQLite agora consolidam todos os dados sob um único pino oficial.
+- **Inclusão de 15 Supermercados Extraídos do Maps.me:** Incorporação de 15 estabelecimentos comerciais pesquisados na região de Niterói com coordenadas de alta precisão ao catálogo oficial (`DefaultSupermarketsData.all`), elevando o total para 154 lojas mapeadas:
+  - *Multi Market (Santa Rosa)*
+  - *Pomar Supermercados (Santa Rosa e Icaraí)*
+  - *Super Prix (Icaraí - Otávio Carneiro e Praia)*
+  - *Mercado Extra (Centro)*
+  - *Princesa Supermercados (Icaraí e Fonseca)*
+  - *Mercado Municipal de Niterói (Feliciano Sodré)*
+  - *Mercado Fruto da Terra (Icaraí)*
+  - *Rede Economia (Ingá e Centro de Niterói)*
+  - *Supermercado Garritano (Centro)*
+  - *Hortifruti (Icaraí)*
+  - *Mercado Orgânico Korin (Icaraí)*
+- **Validação Automatizada:** 0 advertências no `flutter analyze`, 39/39 testes aprovados.
 
 ### v1.3.544 (16 de Outubro de 2026)
 - **Fluxo Direto de Escaneamento de Código de Barras (Zero Fricção):** Ao escanear o código de barras de um produto inexistente na lista, o app elimina completamente o popup intermediário de confirmação (*"Deseja adicioná-lo agora?"*) e abre diretamente a aba/diálogo de edição com todos os dados preenchidos (*nome oficial, categoria sugerida, último preço e código de barras*).

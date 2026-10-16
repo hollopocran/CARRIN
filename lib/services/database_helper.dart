@@ -962,6 +962,18 @@ class DatabaseHelper {
           whereArgs: [s.name.toLowerCase().trim()],
         );
       }
+
+      // Unifica qualquer supermercado legado 'Supermercados Guanabara' para 'Supermercados Guanabara - Niterói'
+      await db.rawUpdate('''
+        UPDATE community_prices_cache
+        SET supermarket_name = 'Supermercados Guanabara - Niterói'
+        WHERE LOWER(supermarket_name) = 'supermercados guanabara'
+      ''');
+      await db.rawDelete('''
+        DELETE FROM supermarkets
+        WHERE LOWER(name) = 'supermercados guanabara'
+      ''');
+
       debugPrint('📍 ${DefaultSupermarketsData.all.length} supermercados pré-cadastrados (Niterói, São Gonçalo, Maricá, Itaboraí e Rio) assegurados e calibrados no SQLite');
     } catch (e) {
       debugPrint('Erro ao assegurar mercados padrão: $e');

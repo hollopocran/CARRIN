@@ -19,9 +19,9 @@ class CommunityPriceService {
   static const String defaultSupabaseAnonKey = 'sb_publishable_DikvfAMTza89HWcTX5zNBQ_Z987Ak_y';
 
   /// Supermercado padrão de referência (Guanabara Niterói)
-  static const String defaultStoreName = 'Supermercados Guanabara';
-  static const double defaultStoreLat = -22.88975;
-  static const double defaultStoreLng = -43.11515;
+  static const String defaultStoreName = 'Supermercados Guanabara - Niterói';
+  static const double defaultStoreLat = -22.89012;
+  static const double defaultStoreLng = -43.11535;
 
   /// Descobre as coordenadas reais de um supermercado usando o banco local e o catálogo pré-carregado
   Future<Map<String, double>?> resolveMarketCoordinates(String marketName, {double? userLat, double? userLng}) async {
@@ -512,8 +512,12 @@ class CommunityPriceService {
     final Map<String, CommunityPrice> marketPosMap = {};
 
     for (var p in allPrices) {
-      final market = p.supermarketName.trim();
-      if (market.isEmpty) continue;
+      final rawMarket = p.supermarketName.trim();
+      if (rawMarket.isEmpty) continue;
+      // Normaliza para o nome oficial do catálogo se coincidir (ex: "Supermercados Guanabara" -> "Supermercados Guanabara - Niterói")
+      final match = DefaultSupermarketsData.findMatch(rawMarket, userLat: userLat, userLng: userLng);
+      final market = match?.name ?? rawMarket;
+
       marketMap.putIfAbsent(market, () => []).add(p);
       if (p.latitude != null && p.longitude != null && !marketPosMap.containsKey(market)) {
         marketPosMap[market] = p;
@@ -575,17 +579,25 @@ class CommunityPriceService {
     for (var s in savedSupermarkets) {
       final sName = (s['name'] as String? ?? '').trim();
       if (sName.isEmpty) continue;
-      final exists = comparisons.any((c) => c.supermarketName.toLowerCase() == sName.toLowerCase());
+      final match = DefaultSupermarketsData.findMatch(sName, userLat: userLat, userLng: userLng);
+      final canonicalName = match?.name ?? sName;
+
+      final exists = comparisons.any((c) {
+        if (c.supermarketName.toLowerCase() == canonicalName.toLowerCase()) return true;
+        final cMatch = DefaultSupermarketsData.findMatch(c.supermarketName, userLat: userLat, userLng: userLng);
+        return cMatch?.name.toLowerCase() == canonicalName.toLowerCase();
+      });
+
       if (!exists) {
-        final lat = (s['latitude'] as num?)?.toDouble();
-        final lng = (s['longitude'] as num?)?.toDouble();
+        final lat = match?.latitude ?? (s['latitude'] as num?)?.toDouble();
+        final lng = match?.longitude ?? (s['longitude'] as num?)?.toDouble();
         double? dist;
         if (lat != null && lng != null) {
           dist = LocationService.instance.calculateDistance(userLat, userLng, lat, lng);
           if (dist > radiusKm * 1000) continue;
         }
         comparisons.add(MarketComparison(
-          supermarketName: sName,
+          supermarketName: canonicalName,
           latitude: lat,
           longitude: lng,
           distanceMeters: dist,
@@ -595,6 +607,22 @@ class CommunityPriceService {
         ));
       }
     }
+
+    // Garante desduplicação rigorosa: mescla variações de nome do mesmo mercado
+    final Map<String, MarketComparison> deduped = {};
+    for (var comp in comparisons) {
+      final match = DefaultSupermarketsData.findMatch(comp.supermarketName, userLat: userLat, userLng: userLng);
+      final key = (match?.name ?? comp.supermarketName).toLowerCase();
+      if (!deduped.containsKey(key)) {
+        deduped[key] = comp;
+      } else {
+        final current = deduped[key]!;
+        if (comp.itemsCount > current.itemsCount) {
+          deduped[key] = comp;
+        }
+      }
+    }
+    comparisons = deduped.values.toList();
 
     // Ordena pelo maior número de itens mais baratos e menor média
     comparisons.sort((a, b) {

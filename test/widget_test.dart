@@ -678,9 +678,9 @@ void main() {
     });
 
     test('CommunityPriceService default store constants reflect Supermercados Guanabara Niterói', () {
-      expect(CommunityPriceService.defaultStoreName, equals('Supermercados Guanabara'));
-      expect(CommunityPriceService.defaultStoreLat, closeTo(-22.88975, 0.0001));
-      expect(CommunityPriceService.defaultStoreLng, closeTo(-43.11515, 0.0001));
+      expect(CommunityPriceService.defaultStoreName, equals('Supermercados Guanabara - Niterói'));
+      expect(CommunityPriceService.defaultStoreLat, closeTo(-22.89012, 0.0001));
+      expect(CommunityPriceService.defaultStoreLng, closeTo(-43.11535, 0.0001));
     });
 
     test('MarketComparison handles null distance and coordinates gracefully', () {
@@ -760,6 +760,28 @@ void main() {
       expect(redeEconomiaRioDoOuro!.latitude, closeTo(-22.88727, 0.001));
       expect(redeEconomiaRioDoOuro.longitude, closeTo(-42.98817, 0.001));
       expect(redeEconomiaRioDoOuro.address, contains('Eugênio Borges'));
+    });
+
+    test('DefaultSupermarketsData findMatch matches Supermercados Guanabara without suffix to canonical Niterói store', () {
+      final match = DefaultSupermarketsData.findMatch('Supermercados Guanabara');
+      expect(match, isNotNull);
+      expect(match!.name, equals('Supermercados Guanabara - Niterói'));
+      expect(match.latitude, closeTo(-22.89012, 0.001));
+      expect(match.longitude, closeTo(-43.11535, 0.001));
+    });
+
+    test('New Niterói markets from Maps.me (Multi Market, Pomar, Super Prix) are matchable', () {
+      final multiMarket = DefaultSupermarketsData.findMatch('Multi Market - Santa Rosa');
+      expect(multiMarket, isNotNull);
+      expect(multiMarket!.latitude, closeTo(-22.89813, 0.001));
+
+      final pomarIcarai = DefaultSupermarketsData.findMatch('Pomar Supermercados - Icaraí');
+      expect(pomarIcarai, isNotNull);
+      expect(pomarIcarai!.latitude, closeTo(-22.90423, 0.001));
+
+      final superPrix = DefaultSupermarketsData.findMatch('Super Prix - Icaraí');
+      expect(superPrix, isNotNull);
+      expect(superPrix!.latitude, closeTo(-22.90296, 0.001));
     });
   });
 
