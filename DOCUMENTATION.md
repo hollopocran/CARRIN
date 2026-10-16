@@ -1,6 +1,6 @@
 # Documentação Técnica e Arquitetural: CARRIN
 
-> **Versão Atual:** `1.3.534` (Build `534`) — Outubro de 2026  
+> **Versão Atual:** `1.3.535` (Build `535`) — Outubro de 2026  
 > **Status:** Produção Estável  
 > **Slogan:** *"Sua lista, sem complicação."*
 
@@ -66,10 +66,15 @@ flowchart TD
 
   %% --- FLUXO DA ABA 4: COMUNIDADE ---
   Tab3 --> ComList["Sub-Aba 1: Lista<br/>(Feed de Preços Recentes)"]
-  Tab3 --> ComComp["Sub-Aba 2: Comparador<br/>(Menor Preço & Economia %)"]
+  Tab3 --> ComComp["Sub-Aba 2: Comparador<br/>(Filtro de Supermercados & Comparativo por Produto)"]
   Tab3 --> ComRank["Sub-Aba 3: Mercados<br/>(Ranking de Menor Preço Médio)"]
   Tab3 --> GpsRadius["Seletor de Raio GPS<br/>(5 km, 10 km, 15 km, 30 km)"]
   Tab3 --> CollabPrice["Modal Colaborar Preço<br/>(Envio Manual)"]
+
+  %% Detalhamento do Comparador
+  ComComp --> MarketChips["Filtro por Supermercados<br/>(Todos os Mercados / Supermercados Guanabara)"]
+  ComComp --> ProductTap["Seleção sob Demanda<br/>(Toque no Produto para Expandir Comparativo)"]
+  ComComp --> GroupedQuotes["Agrupamento por Supermercado<br/>(1 Card por Mercado • Menor Preço e Variação)"]
 
   %% --- FLUXO DA ABA 5: AJUSTES ---
   Tab4 --> ThemeSheet["ThemeColorPickerSheet<br/>(Paleta de Cores do Tema)"]
@@ -91,7 +96,7 @@ flowchart TD
 | **ShoppingListScreen** | [`lib/screens/shopping_list_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/shopping_list_screen.dart) | Lista de compras com slivers responsivos, seleção em lote, cálculo de peso, scanner, rateio e exportação. |
 | **StatisticsScreen** | [`lib/screens/statistics_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/statistics_screen.dart) | Relatórios visuais com `fl_chart`, evolução mensal, divisão por categorias e atalho para o perfil. |
 | **BuyerProfileScreen** | [`lib/screens/buyer_profile_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/buyer_profile_screen.dart) | Diagnóstico inteligente do perfil de consumo (Econômico, Gourmet, Planejador, etc.) e métricas de hábito. |
-| **CommunityRadarScreen** | [`lib/screens/community_radar_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/community_radar_screen.dart) | Radar comunitário com abas de Feed, Comparador de Produtos (% de economia) e Ranking de Mercados por GPS. |
+| **CommunityRadarScreen** | [`lib/screens/community_radar_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/community_radar_screen.dart) | Radar comunitário com abas de Feed, Comparador de Produtos (% de economia e filtro de mercados) e Ranking de Mercados por GPS. |
 | **SettingsScreen** | [`lib/screens/settings_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/settings_screen.dart) | Customização de cores, ícone do app, modo daltônico, backup/restore, animações e sobre. |
 | **AccountsScreen** | [`lib/screens/accounts_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/accounts_screen.dart) | Gestão de login Google OAuth 2.0 e perfis locais offline isolados. |
 | **ReceiptScannerScreen** | [`lib/screens/receipt_scanner_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/receipt_scanner_screen.dart) | Scanner de NFC-e (SEFAZ QR Code) com parser de cupons de 1 e 2 linhas. |
@@ -198,13 +203,22 @@ O aplicativo adota por padrão a calibração de coordenadas de alta precisão p
 
 * **Auto-Sincronização Invisível:** Quando o usuário preenche suas listas ou finaliza compras, o app publica em lote os produtos com preço (`publishPricesBatch`) no Supabase, garantindo que a base comunitária esteja sempre atualizada.
 * **Garantia de Exclusividade e Purga de Testes:** O serviço implementa filtros automáticos para garantir que nenhum registro de teste residual (como Carrefour, Atacadão ou Assaí de mocks iniciais) seja exibido na UI ou salvo no cache do usuário.
-* **Comparador de Economia:** Agrupa os produtos registrados em um raio configurável (5km a 30km) e calcula a economia máxima percentual (`maxSavingsPercent`) em relação aos preços praticados nos demais mercados.
+* **Comparador de Economia e Filtro de Supermercados:** 
+  - Filtro horizontal dinâmico por estabelecimentos (`Todos os Mercados`, `Supermercados Guanabara`).
+  - Agrupamento inteligente de preços por supermercado único (`_buildGroupedMarketCards`): cada estabelecimento aparece exatamente uma vez por produto, exibindo o menor preço, o volume de compras registradas e a variação de preço observada, eliminando poluição visual e datas repetidas.
+  - Seleção sob demanda: os detalhes comparativos abrem apenas quando o usuário toca ativamente em um produto, com opção de fechar a visualização a qualquer momento.
 
 ---
 
 ## 5. Histórico Cronológico de Atualizações e Versões
 
-### v1.3.534 (16 de Outubro de 2026) — *Versão Atual*
+### v1.3.535 (16 de Outubro de 2026) — *Versão Atual*
+- **Filtro de Supermercados no Comparador:** Substituição de atalhos de alimentos por chips de estabelecimentos reais (`Todos os Mercados`, `Supermercados Guanabara`).
+- **Remoção de Pré-seleção Forçada:** Fim da auto-seleção arbitrária do primeiro produto alfabético ("Abobrinha"); a tela abre limpa com aviso instrutivo e botão de fechar detalhes.
+- **Agrupamento e Desduplicação de Cotações:** Eliminação de cartões repetidos e datas idênticas (`16/10/2026`) para o mesmo mercado. Cada supermercado agora é exibido exatamente uma vez, destacando o menor preço, quantidade de compras registradas e faixa de variação.
+- **Limpeza no Git:** Adição de máscaras de captura de screenshots de teste (`WhatsApp*.jpeg`) ao `.gitignore`.
+
+### v1.3.534 (16 de Outubro de 2026)
 - **Varredura e Higienização de Código:** Remoção de scripts scratch rastreados (`test_gsheets.dart`), limpeza de arquivos temporários e atualização de referências legadas de supermercados de teste para `Supermercados Guanabara`.
 - **Ajuste Fino de Detecção OSM:** Inclusão de `guanabara` com prioridade na expressão regular do `LocationService`.
 - **Validação:** 0 erros no `flutter analyze`, 29/29 testes automatizados aprovados.
