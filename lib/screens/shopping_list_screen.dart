@@ -26,6 +26,7 @@ import '../widgets/market_and_purpose_widgets.dart';
 import 'barcode_scanner_screen.dart';
 import 'receipt_scanner_screen.dart';
 import 'community_radar_screen.dart';
+import '../services/barcode_lookup_service.dart';
 
 /// The main shopping list view for a specific month.
 /// 
@@ -858,11 +859,23 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                       }
                     }
 
-                    // 2. Se não achou na lista por barcode direto, busca informações do produto no catálogo
-                    final productInfo = itemProvider.findProductByBarcode(cleanBarcode);
+                    // 2. Busca informações do produto (local ou online via Open Food Facts)
+                    ScannedProductInfo? productInfo;
+                    final localInfo = itemProvider.findProductByBarcode(cleanBarcode);
+                    if (localInfo != null) {
+                      productInfo = ScannedProductInfo(
+                        barcode: cleanBarcode,
+                        name: localInfo['name'] as String,
+                        category: (localInfo['category'] as String?) ?? 'Mercearia',
+                        lastPrice: (localInfo['price'] as num?)?.toDouble(),
+                        source: 'local',
+                      );
+                    } else {
+                      productInfo = await BarcodeLookupService.instance.lookup(cleanBarcode, itemProvider: itemProvider);
+                    }
 
                     if (matchedItem == null && productInfo != null) {
-                      final prodNormalized = Utils.normalize(productInfo['name'] as String);
+                      final prodNormalized = Utils.normalize(productInfo.name);
                       for (var it in itemProvider.items) {
                         if (Utils.normalize(it.name) == prodNormalized) {
                           matchedItem = it;
@@ -885,26 +898,82 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                     } else {
                       // Produto não está na lista atual
                       if (productInfo != null) {
-                        final String pName = productInfo['name'] as String;
-                        final double pPrice = (productInfo['price'] as num?)?.toDouble() ?? 0.0;
+                        final resolvedProduct = productInfo;
+                        final String pName = resolvedProduct.name;
+                        final double pPrice = resolvedProduct.lastPrice ?? 0.0;
+                        final bool isOnline = resolvedProduct.isFromOnline;
                         final bool? addNow = await showDialog<bool>(
                           context: context,
                           builder: (ctx) => AlertDialog(
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-                            title: const Row(
+                            title: Row(
                               children: [
-                                Icon(Icons.inventory_2_outlined, color: AppThemes.primaryNavy),
-                                SizedBox(width: 8),
-                                Expanded(child: Text('Produto Encontrado', style: TextStyle(fontWeight: FontWeight.bold))),
+                                Icon(
+                                  isOnline ? Icons.travel_explore_rounded : Icons.inventory_2_outlined,
+                                  color: isOnline ? Colors.teal : AppThemes.primaryNavy,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    isOnline ? 'Produto Identificado' : 'Produto Encontrado',
+                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                ),
                               ],
                             ),
                             content: Column(
                               mainAxisSize: MainAxisSize.min,
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                if (resolvedProduct.imageUrl != null) ...[
+                                  Center(
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: Image.network(
+                                        resolvedProduct.imageUrl!,
+                                        height: 90,
+                                        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                ],
                                 Text(pName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                const SizedBox(height: 6),
+                                Wrap(
+                                  spacing: 6,
+                                  runSpacing: 4,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: (isOnline ? Colors.teal : AppThemes.primaryNavy).withValues(alpha: 0.12),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(
+                                        isOnline ? '🌐 Base Aberta (Online)' : '🛒 Seu Histórico',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: isOnline ? Colors.teal : AppThemes.primaryNavy,
+                                        ),
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey.withValues(alpha: 0.12),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(
+                                        '${ItemProvider.categoryEmojis[resolvedProduct.category] ?? '📦'} ${resolvedProduct.category}',
+                                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                                 if (pPrice > 0) ...[
-                                  const SizedBox(height: 4),
+                                  const SizedBox(height: 8),
                                   Text('Último preço: ${Utils.formatCurrency(pPrice)}', style: const TextStyle(color: Colors.grey)),
                                 ],
                                 const SizedBox(height: 12),
@@ -924,7 +993,14 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                           ),
                         );
                         if (addNow == true && context.mounted) {
-                          _showEditDialog(context, null, scannedBarcode: cleanBarcode);
+                          _showEditDialog(
+                            context, 
+                            null, 
+                            scannedBarcode: cleanBarcode,
+                            prefilledName: pName,
+                            prefilledCategory: resolvedProduct.category,
+                            prefilledPrice: pPrice > 0 ? pPrice : null,
+                          );
                         }
                       } else {
                         _showEditDialog(context, null, scannedBarcode: cleanBarcode);
@@ -1587,22 +1663,31 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
     );
   }
 
-  void _showEditDialog(BuildContext context, Item? item, {String? scannedBarcode}) {
+  void _showEditDialog(
+    BuildContext context, 
+    Item? item, {
+    String? scannedBarcode, 
+    String? prefilledName, 
+    String? prefilledCategory,
+    double? prefilledPrice,
+  }) {
     final provider = Provider.of<ItemProvider>(context, listen: false);
     provider.loadFullPriceHistory();
 
     final cleanScannedBarcode = Item.parseBarcode(scannedBarcode);
     final productFromBc = cleanScannedBarcode != null ? provider.findProductByBarcode(cleanScannedBarcode) : null;
     
-    final initialName = item?.name ?? (productFromBc != null ? productFromBc['name'] as String : '');
+    final initialName = item?.name ?? prefilledName ?? (productFromBc != null ? productFromBc['name'] as String : '');
     final initialPrice = (item != null && item.unitPrice != 0) 
         ? Utils.formatNumber(item.unitPrice) 
-        : (productFromBc != null && (productFromBc['price'] as num) > 0 ? Utils.formatNumber((productFromBc['price'] as num).toDouble()) : '');
+        : (prefilledPrice != null && prefilledPrice > 0)
+            ? Utils.formatNumber(prefilledPrice)
+            : (productFromBc != null && (productFromBc['price'] as num) > 0 ? Utils.formatNumber((productFromBc['price'] as num).toDouble()) : '');
     final nameController = TextEditingController(text: initialName);
     final priceController = TextEditingController(text: initialPrice);
     final qtyController = TextEditingController(text: item != null ? ((item.quantity != 0) ? Utils.formatNumber(item.quantity) : '') : '1');
     bool isKg = item?.isKg ?? (productFromBc?['isKg'] ?? false);
-    String category = item?.category ?? (productFromBc?['category'] ?? (initialName.isNotEmpty ? ItemProvider.suggestCategoryForName(initialName) : 'Mercearia'));
+    String category = item?.category ?? prefilledCategory ?? (productFromBc?['category'] ?? (initialName.isNotEmpty ? ItemProvider.suggestCategoryForName(initialName) : 'Mercearia'));
     
     String? currentBarcode = (item != null && item.barcode != null && item.barcode!.trim().isNotEmpty)
         ? Item.parseBarcode(item.barcode)
@@ -1708,20 +1793,31 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                         if (!context.mounted) return;
                         final result = await Navigator.push<String>(context, MaterialPageRoute(builder: (_) => const BarcodeScannerScreen()));
                         if (result != null) {
-                           final product = prov.findProductByBarcode(result);
+                           final cleanBc = Item.parseBarcode(result) ?? result.trim();
+                           final product = prov.findProductByBarcode(cleanBc);
+                           ScannedProductInfo? onlineInfo;
+                           if (product == null) {
+                             onlineInfo = await BarcodeLookupService.instance.lookup(cleanBc, itemProvider: prov);
+                           }
                            setState(() {
-                             currentBarcode = result;
-                             barcodeController.text = result;
-                             barcodeController.selection = TextSelection.collapsed(offset: result.length);
+                             currentBarcode = cleanBc;
+                             barcodeController.text = cleanBc;
+                             barcodeController.selection = TextSelection.collapsed(offset: cleanBc.length);
                              if (product != null) {
                                final foundName = product['name'] as String;
-                               if (nameController.text.isEmpty && foundName != result && !RegExp(r'^\d+$').hasMatch(foundName)) {
+                               if (nameController.text.isEmpty && foundName != cleanBc && !RegExp(r'^\d+$').hasMatch(foundName)) {
                                  nameController.text = foundName;
                                  nameController.selection = TextSelection.collapsed(offset: foundName.length);
                                }
                                priceController.text = Utils.formatNumber(product['price']);
                                priceController.selection = TextSelection.collapsed(offset: priceController.text.length);
                                category = product['category'] ?? category;
+                             } else if (onlineInfo != null) {
+                               if (nameController.text.isEmpty) {
+                                 nameController.text = onlineInfo.name;
+                                 nameController.selection = TextSelection.collapsed(offset: onlineInfo.name.length);
+                               }
+                               category = onlineInfo.category;
                              }
                            });
                         }

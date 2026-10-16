@@ -23,6 +23,7 @@ import 'package:lista_compras/models/community_price.dart';
 import 'package:lista_compras/services/community_price_service.dart';
 import 'package:lista_compras/screens/market_map_screen.dart';
 import 'package:lista_compras/services/default_supermarkets.dart';
+import 'package:lista_compras/services/barcode_lookup_service.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 void main() {
@@ -761,4 +762,60 @@ void main() {
       expect(redeEconomiaRioDoOuro.address, contains('Eugênio Borges'));
     });
   });
+
+  group('BarcodeLookupService Unit Tests', () {
+    test('handles empty or blank barcode gracefully without network call', () async {
+      final res1 = await BarcodeLookupService.instance.lookup('');
+      expect(res1, isNull);
+
+      final res2 = await BarcodeLookupService.instance.lookup('   ');
+      expect(res2, isNull);
+    });
+
+    test('creates ScannedProductInfo correctly and reports source/isFromOnline', () {
+      const infoOnline = ScannedProductInfo(
+        barcode: '7891000100103',
+        name: 'Leite Moça Leite Condensado 395g',
+        brand: 'Nestlé',
+        category: 'Mercearia',
+        quantity: '395g',
+        imageUrl: 'https://images.openfoodfacts.org/images/products/7891000100103.jpg',
+        lastPrice: 7.99,
+        source: 'online',
+      );
+
+      expect(infoOnline.barcode, equals('7891000100103'));
+      expect(infoOnline.name, equals('Leite Moça Leite Condensado 395g'));
+      expect(infoOnline.brand, equals('Nestlé'));
+      expect(infoOnline.category, equals('Mercearia'));
+      expect(infoOnline.quantity, equals('395g'));
+      expect(infoOnline.imageUrl, isNotNull);
+      expect(infoOnline.lastPrice, equals(7.99));
+      expect(infoOnline.source, equals('online'));
+      expect(infoOnline.isFromOnline, isTrue);
+
+      const infoLocal = ScannedProductInfo(
+        barcode: '7891000100103',
+        name: 'Leite Moça',
+        category: 'Mercearia',
+        lastPrice: 6.50,
+        source: 'local',
+      );
+      expect(infoLocal.source, equals('local'));
+      expect(infoLocal.isFromOnline, isFalse);
+    });
+
+    test('ItemProvider.suggestCategoryForName classifies common scanned items accurately', () {
+      expect(ItemProvider.suggestCategoryForName('Coca Cola 2L'), equals('Bebidas'));
+      expect(ItemProvider.suggestCategoryForName('Cerveja Heineken 350ml'), equals('Bebidas'));
+      expect(ItemProvider.suggestCategoryForName('Sabão em Pó Omo 1kg'), equals('Limpeza'));
+      expect(ItemProvider.suggestCategoryForName('Detergente Ypê Neutro'), equals('Limpeza'));
+      expect(ItemProvider.suggestCategoryForName('Shampoo Pantene 400ml'), equals('Higiene Pessoal'));
+      expect(ItemProvider.suggestCategoryForName('Papel Higiênico Neve'), equals('Higiene Pessoal'));
+      expect(ItemProvider.suggestCategoryForName('Maçã Fuji Nacional'), equals('Hortifruti'));
+      expect(ItemProvider.suggestCategoryForName('Alcatra Bovina kg'), equals('Açougue e Frios'));
+      expect(ItemProvider.suggestCategoryForName('Pão de Forma Tradicional'), equals('Padaria'));
+    });
+  });
 }
+
