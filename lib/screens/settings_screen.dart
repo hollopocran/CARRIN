@@ -10,7 +10,6 @@ import 'terms_screen.dart';
 import '../widgets/supermarket_avatar.dart';
 import '../widgets/theme_color_picker_sheet.dart';
 import 'community_radar_screen.dart';
-import '../services/community_price_service.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -86,10 +85,8 @@ class SettingsScreen extends StatelessWidget {
           ),
           _buildSettingItem(
             context,
-            title: 'Radar de Preços (Comunidade)',
-            subtitle: CommunityPriceService.instance.isConfigured
-                ? 'Nuvem Supabase conectada'
-                : 'Cache local ativo • Toque para ver ou configurar',
+            title: 'Radar de Preços da Comunidade',
+            subtitle: 'Ranking dos mercados mais baratos e comparador',
             icon: Icons.radar_rounded,
             onTap: () {
               Navigator.push(
@@ -197,7 +194,7 @@ class SettingsScreen extends StatelessWidget {
           const ListTile(
             leading: Icon(Icons.info_outline),
             title: Text('Versão', style: TextStyle(fontWeight: FontWeight.w500)),
-            trailing: Text('1.3.528', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+            trailing: Text('1.3.529', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
           ),
         ],
       ),

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../models/community_price.dart';
 import '../providers/item_provider.dart';
@@ -173,11 +172,6 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen> with Single
             ),
             tooltip: 'Meus Produtos para a Comunidade',
             onPressed: () => _showMyProductsModal(context, itemProvider),
-          ),
-          IconButton(
-            icon: const Icon(Icons.cloud_sync_outlined),
-            tooltip: 'Conectar Supabase',
-            onPressed: () => _showCloudConfigDialog(context),
           ),
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -811,78 +805,6 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen> with Single
               }
             },
             child: const Text('Publicar'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ==========================================
-  // --- MODAL DE CONFIGURAÇÃO SUPABASE ---
-  // ==========================================
-  void _showCloudConfigDialog(BuildContext context) {
-    final urlCtrl = TextEditingController(text: CommunityPriceService.instance.supabaseUrl ?? '');
-    final keyCtrl = TextEditingController(text: CommunityPriceService.instance.supabaseAnonKey ?? '');
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: const Row(
-          children: [
-            Icon(Icons.cloud_sync_rounded, color: Colors.blueAccent),
-            SizedBox(width: 10),
-            Text('Nuvem da Comunidade', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-          ],
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'O app já funciona com cache offline e dados locais. Para conectar com outros usuários via Supabase (grátis):',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: urlCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'URL do Projeto Supabase',
-                  hintText: 'https://xyzcompany.supabase.co',
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: keyCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Chave Pública Anon Key',
-                  hintText: 'eyJhbGciOi...',
-                ),
-              ),
-              const SizedBox(height: 16),
-              OutlinedButton.icon(
-                icon: const Icon(Icons.copy, size: 16),
-                label: const Text('Copiar Script SQL do Banco', style: TextStyle(fontSize: 12)),
-                onPressed: () {
-                  Clipboard.setData(ClipboardData(text: CommunityPriceService.instance.getSupabaseSetupSql()));
-                  ScaffoldMessenger.of(ctx).showSnackBar(
-                    const SnackBar(content: Text('Script SQL copiado! Cole no SQL Editor do Supabase.')),
-                  );
-                },
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Fechar')),
-          ElevatedButton(
-            onPressed: () async {
-              await CommunityPriceService.instance.saveConfig(urlCtrl.text.trim(), keyCtrl.text.trim());
-              if (ctx.mounted) Navigator.pop(ctx);
-              _loadLocationAndData();
-            },
-            child: const Text('Salvar'),
           ),
         ],
       ),
