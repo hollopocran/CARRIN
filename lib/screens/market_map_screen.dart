@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -47,6 +49,7 @@ class _MarketMapScreenState extends State<MarketMapScreen> {
   late PageController _cardsPageController;
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
+  StreamSubscription<Position>? _gpsStreamSubscription;
 
   double _radiusKm = 15.0;
   bool _isLoading = true;
@@ -129,6 +132,7 @@ class _MarketMapScreenState extends State<MarketMapScreen> {
 
   @override
   void dispose() {
+    _gpsStreamSubscription?.cancel();
     _cardsPageController.dispose();
     _mapController.dispose();
     _searchController.dispose();
@@ -147,6 +151,34 @@ class _MarketMapScreenState extends State<MarketMapScreen> {
     return fallback;
   }
 
+  void _startGpsLiveTracking() {
+    _gpsStreamSubscription?.cancel();
+    _gpsStreamSubscription = LocationService.instance.getPositionStream(distanceFilter: 2).listen(
+      (pos) {
+        if (!mounted) return;
+        final newPos = LatLng(pos.latitude, pos.longitude);
+        final distanceMoved = LocationService.instance.calculateDistance(
+          _userPosition.latitude,
+          _userPosition.longitude,
+          newPos.latitude,
+          newPos.longitude,
+        );
+        if (distanceMoved > 2.0 || !_hasRealGps) {
+          _userPosition = newPos;
+          _hasRealGps = true;
+          if (distanceMoved > 50.0) {
+            _loadMarkets(syncWithCloud: false);
+          } else {
+            setState(() {});
+          }
+        }
+      },
+      onError: (err) {
+        debugPrint('📍 Erro no stream do GPS em tempo real: $err');
+      },
+    );
+  }
+
   Future<void> _initMapAndLoadData({bool forceRefresh = false}) async {
     // 1. Carrega imediatamente os mercados locais sem bloquear no GPS ou rede
     await _loadMarkets(syncWithCloud: forceRefresh);
@@ -163,7 +195,7 @@ class _MarketMapScreenState extends State<MarketMapScreen> {
       }
     }
 
-    // 2. Atualiza o GPS em background sem travar a interface
+    // 2. Atualiza o GPS imediatamente e inicia monitoramento contínuo em tempo real
     if (!_hasRealGps || forceRefresh) {
       try {
         final pos = await LocationService.instance.getCurrentPosition();
@@ -186,6 +218,9 @@ class _MarketMapScreenState extends State<MarketMapScreen> {
         }
       } catch (_) {}
     }
+
+    // Inicia stream contínuo de alta precisão
+    _startGpsLiveTracking();
   }
 
   Future<void> _loadMarkets({bool syncWithCloud = false}) async {
@@ -1625,60 +1660,76 @@ class _MarketMapScreenState extends State<MarketMapScreen> {
       );
     }
 
-    // Quando clicado/selecionado: exibe o nome do supermercado acima do pin!
+    // Quando clicado/selecionado: exibe o balão informativo acima do pin sem alterar o ponto âncora do mapa!
     return Marker(
       point: LatLng(market.latitude!, market.longitude!),
-      width: 210,
-      height: 82,
-      alignment: Alignment.topCenter,
-      child: GestureDetector(
-        onTap: () => _showMarketBottomSheet(market),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              decoration: BoxDecoration(
-                color: isCheapest ? const Color(0xFFFF8F00) : primary,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Colors.white, width: 1.8),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.28),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (isCheapest) const Text('👑 ', style: TextStyle(fontSize: 11)),
-                  Flexible(
-                    child: Text(
-                      market.supermarketName,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 11.5,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+      width: 38,
+      height: 38,
+      alignment: Alignment.center,
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.center,
+        children: [
+          // Balão informativo posicionado acima do pin (ancoragem física inalterada)
+          Positioned(
+            bottom: 42,
+            child: GestureDetector(
+              onTap: () => _showMarketBottomSheet(market),
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 220),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: isCheapest ? const Color(0xFFFF8F00) : primary,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Colors.white, width: 1.8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.28),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
                     ),
-                  ),
-                  const SizedBox(width: 4),
-                  const Icon(Icons.info_outline_rounded, size: 13, color: Colors.white70),
-                ],
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (isCheapest) const Text('👑 ', style: TextStyle(fontSize: 11)),
+                    Flexible(
+                      child: Text(
+                        market.supermarketName,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11.5,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.info_outline_rounded, size: 13, color: Colors.white70),
+                  ],
+                ),
               ),
             ),
-            const SizedBox(height: 3),
-            Container(
+          ),
+          // Pin centralizado com exatidão matemática nas coordenadas geográficas
+          GestureDetector(
+            onTap: () => _showMarketBottomSheet(market),
+            child: Container(
               width: 36,
               height: 36,
               decoration: BoxDecoration(
                 color: pinColor,
                 shape: BoxShape.circle,
                 border: Border.all(color: Colors.white, width: 2.8),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.25),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
               child: Icon(
                 isCheapest ? Icons.workspace_premium_rounded : Icons.storefront_rounded,
@@ -1686,8 +1737,8 @@ class _MarketMapScreenState extends State<MarketMapScreen> {
                 color: Colors.white,
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

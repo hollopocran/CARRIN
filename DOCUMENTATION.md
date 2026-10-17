@@ -107,7 +107,7 @@ flowchart TD
   Tab4 --> IconSheet["Seletor de Ícones do App<br/>(Ícone Clássico vs Moderno)"]
   Tab4 --> AccessOpts["Acessibilidade<br/>(Modos Daltônicos & Escala de Fonte)"]
   Tab4 --> BackupOpt["Backup & Restauração<br/>(Exportar / Importar SQLite JSON)"]
-  Tab4 --> TutorialNav["TutorialScreen<br/>(Tutorial Interativo Completo)"]
+  Tab4 --> ResetTutorials["Resetar Tutoriais das Abas<br/>(Reativar Cards Contextuais)"]
   Tab4 --> TermsNav["TermsScreen<br/>(Termos de Uso & Política LGPD)"]
 ```
 
@@ -131,7 +131,6 @@ flowchart TD
 | **BarcodeLookupService** | [`lib/services/barcode_lookup_service.dart`](file:///C:/Dev/CARRIN/lib/services/barcode_lookup_service.dart) | Motor de resolução em camadas (SQLite local + Open Food Facts Brasil REST + IA de categorias) com fluxo zero-fricção direto para edição. |
 | **DefaultSupermarketsData** | [`lib/services/default_supermarkets.dart`](file:///C:/Dev/CARRIN/lib/services/default_supermarkets.dart) | Catálogo oficial de 154 supermercados geolocalizados com endereço físico completo em Niterói, São Gonçalo, Maricá, Itaboraí e Rio de Janeiro. |
 | **CommunityPriceService** | [`lib/services/community_price_service.dart`](file:///C:/Dev/CARRIN/lib/services/community_price_service.dart) | Conexão com Supabase REST, sincronização em background, purga de dados legados e cálculo de proximidade Haversine. |
-| **TutorialScreen** | [`lib/screens/tutorial_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/tutorial_screen.dart) | Tutorial guiado passo a passo com demonstrações interativas de cada função. |
 | **TermsScreen** | [`lib/screens/terms_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/terms_screen.dart) | Termos de serviço, garantias de privacidade e política de transparência de dados. |
 
 ---
@@ -316,6 +315,24 @@ O [`BarcodeLookupService`](file:///C:/Dev/CARRIN/lib/services/barcode_lookup_ser
 ---
 
 ## 5. Histórico Cronológico de Atualizações e Versões
+
+### v1.3.552 (17 de Outubro de 2026)
+- **Ancoragem Geométrica Estável dos Pinos no Mapa (`MarketMapScreen`):**
+  - Correção definitiva do salto de coordenadas XY que ocorria ao tocar em qualquer marcador de supermercado: tanto o estado não-selecionado quanto o estado selecionado agora compartilham rigorosamente as dimensões `width: 38, height: 38` e o ponto âncora `Alignment.center`.
+  - O balão informativo do mercado selecionado foi reposicionado verticalmente via `Stack(clipBehavior: Clip.none)` flutuando sobre o pino sem deslocar o centro geográfico do pino em nem sequer 0.1 pixel.
+- **GPS de Alta Precisão & Monitoramento Contínuo em Tempo Real (`LocationService` & `MarketMapScreen`):**
+  - Fim da reutilização de posições antigas de até 10 minutos: `getCurrentPosition` agora invalida posições com mais de 15 segundos de idade e exige `LocationAccuracy.high` direto via satélite/hardware.
+  - Implementação de `getPositionStream(distanceFilter: 2)` e conexão direta com o `MarketMapScreen`, atualizando a posição do usuário em tempo real à medida que ele se move pelo mapa.
+- **Desobstrução e Limpeza da Interface na Comunidade e Radar (`CommunityRadarScreen`):**
+  - Remoção do banner redundante de abertura do mapa na aba *Mercados* (o mapa já possui acesso direto e permanente no ícone da AppBar).
+  - Remoção do card estático de loja ("Supermercados Guanabara Niterói • Ao Vivo") que ocupava o topo da aba *Lista*.
+  - Remoção dos cards instrutivos com explicações óbvias ("Compare os Preços dos Mercados • Toque em qualquer produto...") na aba *Comparador*.
+- **Navegação Fluida por Deslize Lateral (Resolução do Swipe Trapping):**
+  - `TabBarView` da tela de comunidade atualizado para `BouncingScrollPhysics()` e integrado com `NotificationListener<ScrollNotification>`. Ao atingir as bordas externas (deslizar para a direita na primeira aba ou para a esquerda na última aba), o gesto transita suavemente para as telas adjacentes do `MainScreen` (`Estatísticas` e `Ajustes`), sem travar o usuário.
+- **Eliminação do Tutorial Geral Redundante & Padronização Visual com o Ícone do App:**
+  - Remoção completa da tela obsoleta `TutorialScreen` e centralização exclusiva nos tutoriais interativos contextuais (`InteractiveTabTutorial`).
+  - Padronização das cores dos tutoriais interativos para refletirem fielmente o tema ativo do aplicativo e as tonalidades oficiais do ícone principal (`#1A1C2C` Marinho, `#0077B6` / `#0179F3` Azul Oceânico e `#10B981` Esmeralda), eliminando discrepâncias cromáticas.
+- **Auditoria de Qualidade:** 0 erros no `flutter analyze`, 44/44 testes aprovados.
 
 ### v1.3.551 (17 de Outubro de 2026)
 - **Blindagem Anti-Perda de Listas & Motor de Auto-Recuperação (`DatabaseHelper.recoverAndConsolidateUserData`):**

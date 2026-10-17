@@ -79,26 +79,7 @@ extension TutorialSectionMeta on TutorialSection {
     }
   }
 
-  Color get accentColor {
-    switch (this) {
-      case TutorialSection.dashboard:
-        return Colors.blueAccent;
-      case TutorialSection.carts:
-        return Colors.teal;
-      case TutorialSection.shoppingList:
-        return Colors.indigoAccent;
-      case TutorialSection.statistics:
-        return Colors.purpleAccent;
-      case TutorialSection.buyerProfile:
-        return Colors.deepPurpleAccent;
-      case TutorialSection.community:
-        return Colors.orange;
-      case TutorialSection.marketMap:
-        return Colors.green;
-      case TutorialSection.settings:
-        return Colors.blueGrey;
-    }
-  }
+  Color get accentColor => AppColors.navy;
 }
 
 /// Gerenciador e modal de tutoriais interativos contextuais por aba/tela.
@@ -351,7 +332,7 @@ class _InteractiveSectionTutorialCardState extends State<InteractiveSectionTutor
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final accent = widget.section.accentColor;
+    final accent = Theme.of(context).colorScheme.primary;
     final bgColor = isDark ? const Color(0xFF1A1D2D) : Colors.white;
     final labels = _stepLabels;
 

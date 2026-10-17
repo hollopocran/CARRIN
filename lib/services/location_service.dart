@@ -39,39 +39,58 @@ class LocationService {
     }
   }
 
-  /// Gets current user position quickly (prioritizes last known position, then quick GPS fix).
-  Future<Position?> getCurrentPosition() async {
+  /// Obtém a posição precisa do usuário via GPS de alta precisão.
+  /// Prioriza coordenadas recentes (< 15 segundos) e realiza leitura via satélite/alta acurácia.
+  Future<Position?> getCurrentPosition({Duration maxAge = const Duration(seconds: 15), bool highAccuracy = true}) async {
     try {
       final hasPermission = await requestPermission();
       if (!hasPermission) return null;
 
-      // 1. Tenta obter a última posição conhecida primeiro (instantâneo e zero consumo de bateria)
+      // 1. Tenta obter a última posição conhecida SE for muito recente (< 15s)
       Position? position = await Geolocator.getLastKnownPosition();
       if (position != null) {
         final age = DateTime.now().difference(position.timestamp);
-        // Se a posição conhecida tiver menos de 10 minutos, aproveita diretamente
-        if (age.inMinutes < 10) {
+        if (age <= maxAge) {
           return position;
         }
       }
 
-      // 2. Se não houver posição recente, busca uma nova com timeout de 3 segundos
+      // 2. Busca nova coordenada via GPS de alta acurácia com timeout adequado
       position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.medium,
-          timeLimit: Duration(seconds: 4),
+        locationSettings: LocationSettings(
+          accuracy: highAccuracy ? LocationAccuracy.high : LocationAccuracy.medium,
+          timeLimit: const Duration(seconds: 8),
         ),
       );
       return position;
     } catch (e) {
-      debugPrint('📍 LocationService: Erro ao obter posição GPS: $e');
-      // Fallback para última posição mesmo antiga
+      debugPrint('📍 LocationService: Erro ao obter posição GPS alta precisão: $e');
+      // Fallback secundário
       try {
-        return await Geolocator.getLastKnownPosition();
+        return await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.medium,
+            timeLimit: Duration(seconds: 4),
+          ),
+        );
       } catch (_) {
-        return null;
+        try {
+          return await Geolocator.getLastKnownPosition();
+        } catch (_) {
+          return null;
+        }
       }
     }
+  }
+
+  /// Retorna um stream contínuo de atualizações do GPS em tempo real (alta precisão).
+  Stream<Position> getPositionStream({int distanceFilter = 2}) {
+    return Geolocator.getPositionStream(
+      locationSettings: LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: distanceFilter,
+      ),
+    );
   }
 
   /// Calculates geodesic distance between two coordinates in meters.

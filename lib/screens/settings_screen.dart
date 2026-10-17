@@ -5,7 +5,6 @@ import '../providers/item_provider.dart';
 import '../services/backup_service.dart';
 import 'accounts_screen.dart';
 import 'buyer_profile_screen.dart';
-import 'tutorial_screen.dart';
 import 'terms_screen.dart';
 import '../widgets/supermarket_avatar.dart';
 import '../widgets/theme_color_picker_sheet.dart';
@@ -164,18 +163,6 @@ class SettingsScreen extends StatelessWidget {
           const SizedBox(height: 12),
           _buildSettingItem(
             context,
-            title: 'Tutorial Interativo Completo',
-            subtitle: 'Tour interativo por todas as abas e ferramentas',
-            icon: Icons.school_outlined,
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const TutorialScreen(showStartButton: false)),
-              );
-            },
-          ),
-          _buildSettingItem(
-            context,
             title: 'Resetar Tutoriais das Abas',
             subtitle: 'Exibir novamente os cards interativos ao entrar em cada aba',
             icon: Icons.replay_circle_filled_outlined,
@@ -210,7 +197,7 @@ class SettingsScreen extends StatelessWidget {
           const ListTile(
             leading: Icon(Icons.info_outline),
             title: Text('Versão', style: TextStyle(fontWeight: FontWeight.w500)),
-            trailing: Text('1.3.550', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+            trailing: Text('1.3.552', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
           ),
         ],
       ),

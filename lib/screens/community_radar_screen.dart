@@ -8,6 +8,7 @@ import '../services/location_service.dart';
 import '../services/utils.dart';
 import '../widgets/interactive_tab_tutorial.dart';
 import 'market_map_screen.dart';
+import 'main_screen.dart';
 
 class CommunityRadarScreen extends StatefulWidget {
   const CommunityRadarScreen({super.key});
@@ -319,13 +320,33 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen>
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : TabBarView(
-              controller: _tabController,
-              children: [
-                _buildListTab(isDark, cardColor, primaryColor, itemProvider),
-                _buildComparatorTab(isDark, cardColor, primaryColor, itemProvider),
-                _buildMarketsTab(isDark, cardColor, primaryColor),
-              ],
+          : NotificationListener<ScrollNotification>(
+              onNotification: (notification) {
+                if (notification is OverscrollNotification) {
+                  // Se o usuário estiver na primeira aba (Lista) e puxar para a direita: vai para Estatísticas
+                  if (_tabController.index == 0 && notification.overscroll < -18) {
+                    final mainState = context.findAncestorStateOfType<MainScreenState>();
+                    mainState?.switchTab(2);
+                    return true;
+                  }
+                  // Se o usuário estiver na última aba (Mercados) e puxar para a esquerda: vai para Ajustes
+                  if (_tabController.index == 2 && notification.overscroll > 18) {
+                    final mainState = context.findAncestorStateOfType<MainScreenState>();
+                    mainState?.switchTab(4);
+                    return true;
+                  }
+                }
+                return false;
+              },
+              child: TabBarView(
+                controller: _tabController,
+                physics: const BouncingScrollPhysics(),
+                children: [
+                  _buildListTab(isDark, cardColor, primaryColor, itemProvider),
+                  _buildComparatorTab(isDark, cardColor, primaryColor, itemProvider),
+                  _buildMarketsTab(isDark, cardColor, primaryColor),
+                ],
+              ),
             ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddPriceDialog(context, itemProvider),
@@ -437,64 +458,7 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen>
                 ),
                 const SizedBox(height: 14),
 
-                // 3. Banner para Abrir o Mapa Interativo dos Mercados
-                InkWell(
-                  onTap: () => _openMapScreen(),
-                  borderRadius: BorderRadius.circular(20),
-                  child: Container(
-                    margin: const EdgeInsets.only(bottom: 16),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          primary.withValues(alpha: 0.12),
-                          primary.withValues(alpha: 0.04),
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: primary.withValues(alpha: 0.3)),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: primary,
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: const Icon(Icons.map_rounded, color: Colors.white, size: 24),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Mapa Interativo dos Mercados',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                  color: isDark ? Colors.white : Colors.black87,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'Veja os pins no mapa, filtre por redes e trace rotas GPS',
-                                style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Icon(Icons.arrow_forward_ios_rounded, size: 14, color: primary),
-                      ],
-                    ),
-                  ),
-                ),
-
-                // 4. Card do Mercado Campeão em Economia (quando não está filtrando busca específica)
+                // Card do Mercado Campeão em Economia (quando não está filtrando busca específica)
                 if (cheapest != null && cheapest.itemsCount > 0 && !hasSearchOrChain) ...[
                   InkWell(
                     onTap: () => _openMapScreen(focusMarket: cheapest.supermarketName),
@@ -826,59 +790,6 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen>
                     }).toList(),
                   ),
                 ),
-                const SizedBox(height: 14),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: primary.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: primary.withValues(alpha: 0.2)),
-                  ),
-                  child: Row(
-                    children: [
-                      const CircleAvatar(
-                        backgroundColor: Color(0xFFE53935),
-                        radius: 18,
-                        child: Icon(Icons.storefront_rounded, color: Colors.white, size: 20),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Supermercados Guanabara • Niterói',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '${filteredFeed.length} produtos monitorados • Centro, Niterói - RJ',
-                              style: TextStyle(color: Colors.grey[600], fontSize: 11),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.green.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.cloud_done_rounded, color: Colors.green, size: 14),
-                            SizedBox(width: 4),
-                            Text(
-                              'Ao Vivo',
-                              style: TextStyle(color: Colors.green, fontSize: 10, fontWeight: FontWeight.bold),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
                 const SizedBox(height: 8),
               ],
             ),
@@ -1111,40 +1022,7 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen>
                     }).toList(),
                   ),
                 ),
-                const SizedBox(height: 18),
-                if (_searchedProduct == null) ...[
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: primary.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: primary.withValues(alpha: 0.2)),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.touch_app_rounded, color: primary, size: 28),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Compare os Preços dos Mercados',
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: primary),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'Toque em qualquer produto abaixo para abrir a comparação detalhada de preços entre os supermercados.',
-                                style: TextStyle(fontSize: 12, color: isDark ? Colors.white70 : Colors.black87),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                ],
+                const SizedBox(height: 12),
                 if (_searchedProduct != null) ...[
                   Container(
                     padding: const EdgeInsets.all(18),

@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'main_screen.dart';
-import 'tutorial_screen.dart';
 import 'terms_screen.dart';
 import '../theme/app_themes.dart';
 import '../services/auth_service.dart';
@@ -64,32 +63,9 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     }
   }
 
-  Future<void> _checkTutorialAndNavigate(String email) async {
+  void _checkTutorialAndNavigate(String email) {
     if (!mounted) return;
-    final prefs = await SharedPreferences.getInstance();
-    final cleanEmail = email.replaceAll(RegExp(r'[^a-z0-9]'), '_');
-    final hasSeenTutorial = prefs.getBool('has_seen_tutorial_$cleanEmail') ?? false;
-
-    if (!mounted) return;
-
-    if (hasSeenTutorial) {
-      _navigateToMain();
-    } else {
-      _navigateToTutorial();
-    }
-  }
-
-  void _navigateToTutorial() {
-    if (!mounted) return;
-    Navigator.of(context).pushReplacement(
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => const TutorialScreen(showStartButton: true),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return FadeTransition(opacity: animation, child: child);
-        },
-        transitionDuration: const Duration(milliseconds: 800),
-      ),
-    );
+    _navigateToMain();
   }
 
   void _navigateToMain() {
