@@ -225,20 +225,40 @@ class ItemProvider with ChangeNotifier {
     await _updateActiveUserMetadata();
 
     await _checkAndMigrateToSqlite();
+    await _dbHelper.recoverAndConsolidateUserData();
     await loadSyncQueue(force: true);
     await purgeObsoleteSyncOperations();
     
-    // Carrega configurações com base no usuário
+    // Carrega configurações e listas locais IMEDIATAMENTE antes de serviços pesados
     await loadAnimationSettings();
     await loadEssentialItems();
     await _loadFullPriceHistory();
+
+    try {
+      final initialLocalMonths = await _dbHelper.getMonthsByWorkspace(_currentWorkspace);
+      if (initialLocalMonths.isNotEmpty) {
+        _months = List.from(initialLocalMonths);
+        final summaries = await _dbHelper.getMonthsSummaries();
+        _cachedSummary.addAll(summaries);
+        final target = findVigentMonth(_months) ?? _months.last;
+        final initialItems = await _dbHelper.getItems(target);
+        _items = initialItems;
+        _itemsCache[target] = initialItems;
+        _service.setCurrentTitle(target);
+        _isLoading = false;
+        _safeNotify();
+      }
+    } catch (e) {
+      debugPrint('Aviso na carga rápida inicial do SQLite: $e');
+    }
+
     await loadSupermarkets();
     await CommunityPriceService.instance.init();
     detectNearbySupermarket(notify: false);
 
     // Se a sincronização estiver ativada, processa a fila de sync
     if (isSyncEnabled && _syncQueue.isNotEmpty) {
-      processSyncQueue();
+      await processSyncQueue();
     }
     
     // Escuta mudanças na autenticação
@@ -514,24 +534,7 @@ class ItemProvider with ChangeNotifier {
 
     _itemsCache.clear();
     _cachedSummary.clear();
-    _priceHistoryCache.clear();
-    _barcodeToHistoryCache.clear();
-    _nameToBarcodeCache.clear();
     _badgeInfoCache.clear();
-    _items = [];
-    _months = [];
-    _dashboardData = {
-      'budget': 0.0,
-      'total': 0.0,
-      'balance': 0.0,
-      'totalItems': 0.0,
-      'boughtItems': 0.0,
-    };
-    try {
-      await _dbHelper.clearAll();
-    } catch (e) {
-      debugPrint('Erro ao limpar SQLite ao trocar de planilha: $e');
-    }
     _safeNotify();
 
     if (isSyncEnabled) {
@@ -579,6 +582,9 @@ class ItemProvider with ChangeNotifier {
         'boughtItems': 0.0,
       };
 
+      // Auto-recupera e consolida listas antes de ler do SQLite
+      await _dbHelper.recoverAndConsolidateUserData();
+
       // Carrega as configurações locais da conta atual instantaneamente
       await loadAnimationSettings();
       await loadEssentialItems();
@@ -622,9 +628,14 @@ class ItemProvider with ChangeNotifier {
       await loadSyncQueue(force: true);
       await purgeObsoleteSyncOperations();
       if (_syncQueue.isNotEmpty) {
-        processSyncQueue();
+        await processSyncQueue();
       }
+      final hadNoMonths = _months.isEmpty;
       await _loadMonths();
+      if (_months.isNotEmpty && (hadNoMonths || _items.isEmpty)) {
+        final target = findVigentMonth(_months) ?? _months.last;
+        await _switchMonth(target);
+      }
       await _loadDashboardData(force: true);
     } catch (e) {
       debugPrint('Erro na sincronização em background pós-login: $e');
@@ -1685,17 +1696,37 @@ class ItemProvider with ChangeNotifier {
         await _service.overwriteAllItems(target, localCachedItems);
         _lastItemsSync[target] = DateTime.now();
         _updateLocalMetrics();
+        _dbHelper.saveLocalBackupSnapshot();
       } else {
+        List<Item> mergedItems = freshItems;
+        bool pushedLocalExtras = false;
+        if (localCachedItems.length > freshItems.length) {
+          final cloudNames = freshItems.map((e) => Utils.normalize(e.name)).toSet();
+          final missingFromCloud = localCachedItems.where((loc) => !cloudNames.contains(Utils.normalize(loc.name))).toList();
+          if (missingFromCloud.isNotEmpty) {
+            mergedItems = [...freshItems, ...missingFromCloud];
+            for (int i = 0; i < mergedItems.length; i++) {
+              mergedItems[i] = mergedItems[i].copyWith(index: i + 7);
+            }
+            pushedLocalExtras = true;
+          }
+        }
         if (target == _service.currentMonthTitle) {
-          _items = freshItems;
-          _itemsCache[target] = freshItems;
+          _items = mergedItems;
+          _itemsCache[target] = mergedItems;
           _lastItemsSync[target] = DateTime.now();
         }
-        await _dbHelper.saveItems(target, freshItems);
-        _itemsCache[target] = freshItems;
+        await _dbHelper.saveItems(target, mergedItems);
+        _itemsCache[target] = mergedItems;
         final prefs = await SharedPreferences.getInstance();
-        _updatePriceHistoryWithItemList(freshItems, target, prefs);
+        _updatePriceHistoryWithItemList(mergedItems, target, prefs);
         _updateLocalMetrics();
+        _dbHelper.saveLocalBackupSnapshot();
+        if (pushedLocalExtras) {
+          _service.overwriteAllItems(target, mergedItems).catchError((e) {
+            debugPrint('Aviso ao sincronizar itens locais mesclados para a nuvem ($target): $e');
+          });
+        }
       }
       _lastSyncError = null;
       _safeNotify();
@@ -1710,9 +1741,26 @@ class ItemProvider with ChangeNotifier {
     }
   }
 
-  Future<void> _loadMonths() async {
+  Future<void> _pushMissingLocalMonthToCloud(String monthTitle) async {
+    if (!isSyncEnabled || DatabaseHelper.isDummySheetName(monthTitle)) return;
     try {
-      final localMonths = await _dbHelper.getMonthsByWorkspace(_currentWorkspace);
+      final localItems = await _dbHelper.getItems(monthTitle);
+      final details = await _dbHelper.getMonthDetails(monthTitle);
+      final budget = (details?['budget'] as num?)?.toDouble();
+      await _service.createNewMonth(monthTitle, false, initialBudget: budget);
+      if (localItems.isNotEmpty) {
+        await _service.overwriteAllItems(monthTitle, localItems);
+      }
+      debugPrint('☁️ Mês local "$monthTitle" (${localItems.length} itens) sincronizado com Google Sheets.');
+    } catch (e) {
+      debugPrint('Aviso ao enviar mês local "$monthTitle" para Google Sheets: $e');
+    }
+  }
+
+  Future<void> _loadMonths() async {
+    List<String> localMonths = [];
+    try {
+      localMonths = await _dbHelper.getMonthsByWorkspace(_currentWorkspace);
       debugPrint('🔍 _loadMonths: SQLite retornou ${localMonths.length} meses para workspace "$_currentWorkspace": $localMonths');
       _months = List.from(localMonths);
       final summaries = await _dbHelper.getMonthsSummaries();
@@ -1735,20 +1783,47 @@ class ItemProvider with ChangeNotifier {
     _safeNotify();
     
     try {
-      // Load months from service
-      var fetchedMonths = await _service.getAvailableMonths();
-      _months = fetchedMonths;
-      await _dbHelper.saveMonthsList(_months);
+      final prefs = await SharedPreferences.getInstance();
+      final deletedList = prefs.getStringList('explicitly_deleted_months') ?? const <String>[];
+      final Set<String> explicitlyDeleted = deletedList.map((e) => e.trim().toLowerCase()).toSet();
 
-      // Sincroniza o SQLite local com o Google Sheets APENAS para os meses do workspace pessoal
+      // Carrega abas da planilha no Google Sheets filtrando abas fantasmas e excluídas
+      final rawFetched = await _service.getAvailableMonths();
+      final fetchedMonths = rawFetched
+          .where((m) => !DatabaseHelper.isDummySheetName(m) && !explicitlyDeleted.contains(m.trim().toLowerCase()))
+          .toList();
+
+      // Mescla de forma NÃO-DESTRUTIVA: preserva listas locais e adiciona novas listas da nuvem
       final localPersonalMonths = await _dbHelper.getMonthsByWorkspace('personal');
-      for (var m in localPersonalMonths) {
-        if (!_months.contains(m)) {
-          await _dbHelper.deleteMonth(m);
-          _cachedSummary.remove(m);
-          _itemsCache.remove(m);
+      final List<String> mergedMonths = [];
+      final Set<String> seenLower = {};
+
+      for (final m in fetchedMonths) {
+        final key = m.trim().toLowerCase();
+        if (seenLower.add(key)) {
+          mergedMonths.add(m);
         }
       }
+      final List<String> missingInCloud = [];
+      for (final m in localPersonalMonths) {
+        final key = m.trim().toLowerCase();
+        if (DatabaseHelper.isDummySheetName(m) || explicitlyDeleted.contains(key)) continue;
+        if (seenLower.add(key)) {
+          mergedMonths.add(m);
+          missingInCloud.add(m);
+        }
+      }
+
+      _months = mergedMonths;
+      if (_months.isNotEmpty) {
+        await _dbHelper.saveMonthsList(_months);
+      }
+
+      // Envia para o Google Sheets em background qualquer lista local que ainda não exista na planilha
+      for (final missingMonth in missingInCloud) {
+        _pushMissingLocalMonthToCloud(missingMonth);
+      }
+
       await purgeObsoleteSyncOperations();
 
       // Load summaries
@@ -1850,6 +1925,16 @@ class ItemProvider with ChangeNotifier {
     String sourceMonth = '';
     final activeWs = workspace ?? _currentWorkspace;
     final activePurpose = purpose ?? 'geral';
+
+    // Se o mês estava marcado como excluído anteriormente, remove da lista de excluídos
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final deleted = prefs.getStringList('explicitly_deleted_months') ?? <String>[];
+      if (deleted.any((e) => e.trim().toLowerCase() == title.trim().toLowerCase())) {
+        deleted.removeWhere((e) => e.trim().toLowerCase() == title.trim().toLowerCase());
+        await prefs.setStringList('explicitly_deleted_months', deleted);
+      }
+    } catch (_) {}
     
     if (!_months.contains(title)) {
       _months.add(title);
@@ -1929,6 +2014,7 @@ class ItemProvider with ChangeNotifier {
         }
       }
 
+      _dbHelper.saveLocalBackupSnapshot();
       _safeNotify();
     }
     
@@ -1953,6 +2039,7 @@ class ItemProvider with ChangeNotifier {
         if (_itemsCache.containsKey(oldTitle)) {
           _itemsCache[newTitle] = _itemsCache.remove(oldTitle)!;
         }
+        _dbHelper.saveLocalBackupSnapshot();
       } catch (e) {
         debugPrint('Erro ao renomear mês no SQLite: $e');
       }
@@ -1975,6 +2062,23 @@ class ItemProvider with ChangeNotifier {
 
   Future<void> deleteMonth(String title) async {
     await initialization;
+    // Registra a exclusão explícita pelo usuário para que a recuperação automática respeite a decisão
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final deleted = prefs.getStringList('explicitly_deleted_months') ?? <String>[];
+      if (!deleted.any((e) => e.trim().toLowerCase() == title.trim().toLowerCase())) {
+        deleted.add(title.trim());
+        await prefs.setStringList('explicitly_deleted_months', deleted);
+      }
+      final rawSnap = prefs.getString('local_backup_carts_v1');
+      if (rawSnap != null && rawSnap.isNotEmpty) {
+        final decoded = jsonDecode(rawSnap);
+        if (decoded is Map<String, dynamic> && decoded.remove(title.trim()) != null) {
+          await prefs.setString('local_backup_carts_v1', jsonEncode(decoded));
+        }
+      }
+    } catch (_) {}
+
     // Purgar qualquer operação pendente na fila para este mês excluído
     _syncQueue.removeWhere((op) => op.month == title);
     await _saveSyncQueue();
@@ -2085,6 +2189,7 @@ class ItemProvider with ChangeNotifier {
     try {
       await _dbHelper.saveItems(month, _items);
       _itemsCache[month] = List.from(_items);
+      _dbHelper.saveLocalBackupSnapshot();
     } catch (e) {
       debugPrint('Erro ao salvar item adicionado no SQLite: $e');
     }
@@ -2140,6 +2245,7 @@ class ItemProvider with ChangeNotifier {
       try {
         await _dbHelper.saveItems(month, _items);
         _itemsCache[month] = List.from(_items);
+        _dbHelper.saveLocalBackupSnapshot();
       } catch (e) {
         debugPrint('Erro ao atualizar item no SQLite: $e');
       }
@@ -2200,6 +2306,7 @@ class ItemProvider with ChangeNotifier {
     try {
       await _dbHelper.saveItems(month, _items);
       _itemsCache[month] = List.from(_items);
+      _dbHelper.saveLocalBackupSnapshot();
     } catch (e) {
       debugPrint('Erro ao remover item no SQLite: $e');
     }
@@ -2227,6 +2334,7 @@ class ItemProvider with ChangeNotifier {
     try {
       await _dbHelper.saveItems(month, _items);
       _itemsCache[month] = List.from(_items);
+      _dbHelper.saveLocalBackupSnapshot();
     } catch (e) {
       debugPrint('Erro ao salvar status comprado no SQLite: $e');
     }

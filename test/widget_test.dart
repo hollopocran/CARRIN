@@ -24,6 +24,7 @@ import 'package:lista_compras/services/community_price_service.dart';
 import 'package:lista_compras/screens/market_map_screen.dart';
 import 'package:lista_compras/services/default_supermarkets.dart';
 import 'package:lista_compras/services/barcode_lookup_service.dart';
+import 'package:lista_compras/services/database_helper.dart';
 import 'package:lista_compras/widgets/interactive_tab_tutorial.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
@@ -975,6 +976,21 @@ void main() {
       await tester.tap(find.byIcon(Icons.close_rounded));
       await tester.pumpAndSettle();
       InteractiveTabTutorial.enableAutoShowInTests = false;
+    });
+  });
+
+  group('List Recovery & Dummy Sheet Protection Tests', () {
+    test('DatabaseHelper.isDummySheetName filters default empty spreadsheet tabs and preserves real months', () {
+      expect(DatabaseHelper.isDummySheetName('Página1'), isTrue);
+      expect(DatabaseHelper.isDummySheetName('Página 1'), isTrue);
+      expect(DatabaseHelper.isDummySheetName('pagina1'), isTrue);
+      expect(DatabaseHelper.isDummySheetName('Sheet1'), isTrue);
+      expect(DatabaseHelper.isDummySheetName('sheet 1'), isTrue);
+      expect(DatabaseHelper.isDummySheetName('   '), isTrue);
+
+      expect(DatabaseHelper.isDummySheetName('Outubro 2026'), isFalse);
+      expect(DatabaseHelper.isDummySheetName('Setembro 2026'), isFalse);
+      expect(DatabaseHelper.isDummySheetName('Churrasco'), isFalse);
     });
   });
 }

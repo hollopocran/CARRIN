@@ -105,6 +105,17 @@ class UserSheetsService {
     return prefs.getString('custom_spreadsheet_id');
   }
 
+  bool _isDummyTabName(String title) {
+    final lower = title.trim().toLowerCase();
+    return lower.isEmpty ||
+        lower == 'página1' ||
+        lower == 'página 1' ||
+        lower == 'pagina1' ||
+        lower == 'pagina 1' ||
+        lower == 'sheet1' ||
+        lower == 'sheet 1';
+  }
+
   Future<void> _ensureSpreadsheetExists() async {
     if (_spreadsheetId != null) return;
 
@@ -120,21 +131,51 @@ class UserSheetsService {
     if (driveApi == null || sheetsApi == null) throw Exception('Usuário não autenticado');
 
     final response = await driveApi.files.list(
-      q: "name = '$_spreadsheetName' and mimeType = 'application/vnd.google-apps.spreadsheet'",
+      q: "name contains 'CARRIN_Lista_Compras' and mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false",
       spaces: 'drive',
+      $fields: 'files(id, name, modifiedTime)',
     );
 
-    if (response.files != null && response.files!.isNotEmpty) {
-      _spreadsheetId = response.files!.first.id;
+    final files = response.files ?? [];
+    if (files.isNotEmpty) {
+      // Ordena priorizando correspondência exata com _spreadsheetName ou 'CARRIN_Lista_Compras'
+      files.sort((a, b) {
+        final aExact = a.name == _spreadsheetName ? 0 : (a.name == 'CARRIN_Lista_Compras' ? 1 : 2);
+        final bExact = b.name == _spreadsheetName ? 0 : (b.name == 'CARRIN_Lista_Compras' ? 1 : 2);
+        return aExact.compareTo(bExact);
+      });
+
+      if (files.length == 1) {
+        _spreadsheetId = files.first.id;
+      } else {
+        // Se houver múltiplas planilhas (ex: uma vazia recém-criada e outra com as listas reais),
+        // escolhe aquela que possui mais abas reais (além de Página1/Sheet1).
+        String? bestId = files.first.id;
+        int bestRealTabCount = -1;
+        for (final f in files.take(5)) {
+          final fid = f.id;
+          if (fid == null) continue;
+          try {
+            final ss = await sheetsApi.spreadsheets.get(fid);
+            final realTabs = ss.sheets
+                    ?.map((s) => s.properties?.title ?? '')
+                    .where((t) => !_isDummyTabName(t))
+                    .length ??
+                0;
+            if (realTabs > bestRealTabCount) {
+              bestRealTabCount = realTabs;
+              bestId = fid;
+            }
+          } catch (_) {}
+        }
+        _spreadsheetId = bestId;
+      }
     } else {
       var file = drive.File()
         ..name = _spreadsheetName
         ..mimeType = 'application/vnd.google-apps.spreadsheet';
       final created = await driveApi.files.create(file);
       _spreadsheetId = created.id;
-
-      // REMOVIDO: Não criamos mais o mês automaticamente. 
-      // O usuário deve criar sua primeira lista manualmente no app.
     }
   }
 
@@ -192,19 +233,12 @@ class UserSheetsService {
   Future<List<String>> getAvailableMonths() async {
     if (_spreadsheetId == null) await _ensureSpreadsheetExists();
     final api = _sheetsApi;
-    if (api == null) return [];
+    if (api == null) throw Exception('Sheets API indisponível');
 
     try {
       final ss = await api.spreadsheets.get(_spreadsheetId!);
       final list = ss.sheets?.map((s) => s.properties?.title ?? '').where((t) => t.isNotEmpty).toList() ?? [];
-      var filtered = list.where((t) {
-        final lower = t.toLowerCase();
-        return lower != 'página1' && lower != 'página 1' && lower != 'sheet1' && lower != 'sheet 1' && lower != 'pagina1' && lower != 'pagina 1';
-      }).toList();
-      if (filtered.isEmpty && list.isNotEmpty) {
-        filtered = list;
-      }
-      return filtered;
+      return list.where((t) => !_isDummyTabName(t)).toList();
     } catch (e) {
       debugPrint('Erro ao obter meses disponíveis: $e');
       rethrow;

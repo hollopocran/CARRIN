@@ -1,6 +1,6 @@
 # Documentação Técnica e Arquitetural: CARRIN
 
-> **Versão Atual:** `1.3.550` (Build `550`) — Outubro de 2026  
+> **Versão Atual:** `1.3.551` (Build `551`) — Outubro de 2026  
 > **Status:** Produção Estável  
 > **Slogan:** *"Sua lista, sem complicação."*
 
@@ -303,6 +303,8 @@ O [`BarcodeLookupService`](file:///C:/Dev/CARRIN/lib/services/barcode_lookup_ser
 * **Armazenamento Privado no Drive Pessoal:** O aplicativo cria e atualiza a planilha `CARRIN_LISTAS` no Google Drive exclusivo do usuário, garantindo privacidade absoluta sem servidores proprietários.
 * **Fila Resiliente de Sincronização (`sync_queue`):** Alterações realizadas sem internet são enfileiradas na tabela local SQLite `sync_queue` e despachadas sequencialmente em background assim que a conectividade for restabelecida.
 
+* **Sincronização Não-Destrutiva e Auto-Recuperação (`recoverAndConsolidateUserData`):** O motor de sincronização mescla listas locais e da nuvem sem jamais apagar listas locais que ainda não subiram para o Google Sheets, filtra abas padrão vazias (`Página1` / `Sheet1`), seleciona automaticamente a planilha mais completa no Google Drive e reconstrói listas/itens a partir de múltiplos bancos locais (`.db`), snapshots (`local_backup_carts_v1`) e histórico de preços (`cache_price_history_v2*`).
+
 ---
 
 ### 4.7 Leitor e Parser de Cupons Fiscais SEFAZ (`ReceiptScannerScreen`)
@@ -314,6 +316,13 @@ O [`BarcodeLookupService`](file:///C:/Dev/CARRIN/lib/services/barcode_lookup_ser
 ---
 
 ## 5. Histórico Cronológico de Atualizações e Versões
+
+### v1.3.551 (17 de Outubro de 2026)
+- **Blindagem Anti-Perda de Listas & Motor de Auto-Recuperação (`DatabaseHelper.recoverAndConsolidateUserData`):**
+  - **Fim da Exclusão Destrutiva no `_loadMonths()` (`ItemProvider`):** Removido o loop que deletava em cascata (`ON DELETE CASCADE`) os meses do SQLite local quando uma planilha recém-criada ou temporariamente dessincronizada no Google Drive retornava vazia ou apenas com a aba `Página1`. Agora a sincronização é 100% aditiva e envia automaticamente qualquer lista local ausente para o Google Sheets em segundo plano (`_pushMissingLocalMonthToCloud`).
+  - **Filtro Estrito de Abas Padrão & Seleção Inteligente de Planilha (`UserSheetsService`):** `getAvailableMonths()` nunca mais retorna `Página1` / `Sheet1` como nome de lista, e `_ensureSpreadsheetExists()` filtra `trashed = false` e prioriza a planilha `CARRIN_Lista_Compras*` que contém abas reais caso existam duplicatas no Google Drive.
+  - **Auto-Recuperação Multi-Fonte (`recoverAndConsolidateUserData`):** Na abertura do app e na troca de perfil, o `DatabaseHelper` varre automaticamente outros arquivos `.db` locais (`guest`, `offline`, contas), snapshots JSON (`local_backup_carts_v1`), caches de histórico de preços (`cache_price_history_v2*`) e cache local da comunidade (`community_prices_cache`) para restaurar imediatamente qualquer lista ou item que tenha sumido.
+  - **Carregamento Instantâneo das Listas no Boot (`_initProvider`):** As listas e itens locais do SQLite são carregados e exibidos na tela antes da inicialização do catálogo de 3.484 supermercados.
 
 ### v1.3.550 (17 de Outubro de 2026)
 - **Mapa Limpo & Modo Noturno 100% Sem API Key (Servidores Google Maps):**

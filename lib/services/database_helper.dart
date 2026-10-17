@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/item.dart';
@@ -536,19 +537,43 @@ class DatabaseHelper {
 
   Future<void> saveItems(String monthTitle, List<Item> items) async {
     final db = await database;
+    double calcTotal = 0.0;
+    int calcBought = 0;
+    for (final it in items) {
+      if (it.isBought) {
+        calcTotal += it.totalPrice;
+        calcBought++;
+      } else if (it.unitPrice > 0 && it.quantity > 0) {
+        calcTotal += it.totalPrice;
+      }
+    }
     await db.transaction((txn) async {
       await txn.insert(
         'months',
         {
           'title': monthTitle,
           'budget': 0.0,
-          'total': 0.0,
-          'balance': 0.0,
-          'totalItems': 0.0,
-          'boughtItems': 0.0,
+          'total': calcTotal,
+          'balance': -calcTotal,
+          'totalItems': items.length.toDouble(),
+          'boughtItems': calcBought.toDouble(),
           'is_finalized': 0,
         },
         conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+
+      final monthRows = await txn.query('months', columns: ['budget'], where: 'title = ?', whereArgs: [monthTitle]);
+      final existingBudget = monthRows.isNotEmpty ? ((monthRows.first['budget'] as num?)?.toDouble() ?? 0.0) : 0.0;
+      await txn.update(
+        'months',
+        {
+          'total': calcTotal,
+          'balance': existingBudget - calcTotal,
+          'totalItems': items.length.toDouble(),
+          'boughtItems': calcBought.toDouble(),
+        },
+        where: 'title = ?',
+        whereArgs: [monthTitle],
       );
 
       await txn.delete('items', where: 'month_title = ?', whereArgs: [monthTitle]);
@@ -747,19 +772,36 @@ class DatabaseHelper {
     }
   }
 
+  static bool isDummySheetName(String title) {
+    final lower = title.trim().toLowerCase();
+    return lower.isEmpty ||
+        lower == 'página1' ||
+        lower == 'página 1' ||
+        lower == 'pagina1' ||
+        lower == 'pagina 1' ||
+        lower == 'sheet1' ||
+        lower == 'sheet 1';
+  }
+
   Future<List<String>> getMonthsByWorkspace(String workspace) async {
     final db = await database;
     try {
       final List<Map<String, dynamic>> maps = await db.query(
         'months',
         columns: ['title'],
-        where: 'workspace = ?',
+        where: workspace == 'personal'
+            ? "(workspace = ? OR workspace IS NULL OR TRIM(workspace) = '')"
+            : 'workspace = ?',
         whereArgs: [workspace],
         orderBy: 'rowid ASC',
       );
-      return maps.map((m) => m['title'] as String).toList();
+      return maps
+          .map((m) => m['title'] as String)
+          .where((t) => !isDummySheetName(t))
+          .toList();
     } catch (_) {
-      return await getMonthsList();
+      final list = await getMonthsList();
+      return list.where((t) => !isDummySheetName(t)).toList();
     }
   }
 
@@ -1108,5 +1150,471 @@ class DatabaseHelper {
         await txn.delete('community_prices_cache');
       } catch (_) {}
     });
+  }
+
+  /// Salva um snapshot JSON de segurança de todas as listas e itens no SharedPreferences
+  Future<void> saveLocalBackupSnapshot() async {
+    try {
+      final db = await database;
+      final prefs = await SharedPreferences.getInstance();
+      final monthRows = await db.query('months', orderBy: 'rowid ASC');
+      if (monthRows.isEmpty) return;
+
+      final Map<String, dynamic> snapshot = {};
+      // Preserva backups anteriores de meses que ainda não estejam vazios
+      final existingRaw = prefs.getString('local_backup_carts_v1');
+      if (existingRaw != null && existingRaw.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(existingRaw);
+          if (decoded is Map<String, dynamic>) {
+            snapshot.addAll(decoded);
+          }
+        } catch (_) {}
+      }
+
+      for (final m in monthRows) {
+        final title = (m['title'] as String? ?? '').trim();
+        if (isDummySheetName(title)) continue;
+        final itemRows = await db.query(
+          'items',
+          where: 'month_title = ?',
+          whereArgs: [title],
+          orderBy: 'index_in_sheet ASC',
+        );
+        if (itemRows.isNotEmpty) {
+          snapshot[title] = {
+            'month': m,
+            'items': itemRows,
+            'updated_at': DateTime.now().toIso8601String(),
+          };
+        }
+      }
+
+      if (snapshot.isNotEmpty) {
+        await prefs.setString('local_backup_carts_v1', jsonEncode(snapshot));
+      }
+    } catch (e) {
+      debugPrint('Aviso ao salvar snapshot local de listas: $e');
+    }
+  }
+
+  /// Auto-recupera e consolida listas/carrinhos e itens do usuário a partir de:
+  /// 1. Itens órfãos no próprio banco SQLite
+  /// 2. Outros arquivos .db locais (guest, offline, outras sessões)
+  /// 3. Snapshot JSON local (`local_backup_carts_v1`)
+  /// 4. Histórico de preços salvo em SharedPreferences (`cache_price_history_v2*`)
+  /// 5. Cache local de compras do usuário (`community_prices_cache` com `local_%`)
+  Future<void> recoverAndConsolidateUserData() async {
+    try {
+      final db = await database;
+      final prefs = await SharedPreferences.getInstance();
+      final deletedList = prefs.getStringList('explicitly_deleted_months') ?? const <String>[];
+      final Set<String> explicitlyDeleted = deletedList.map((e) => e.trim().toLowerCase()).toSet();
+
+      bool isDeleted(String title) => explicitlyDeleted.contains(title.trim().toLowerCase());
+
+      // 1. Remove abas fantasmas ('Página1', 'Sheet1') que estejam vazias
+      final allMonths = await db.query('months');
+      for (final m in allMonths) {
+        final t = (m['title'] as String? ?? '').trim();
+        if (isDummySheetName(t)) {
+          final c = Sqflite.firstIntValue(
+                await db.rawQuery('SELECT COUNT(*) FROM items WHERE month_title = ?', [t]),
+              ) ??
+              0;
+          if (c == 0) {
+            await db.delete('months', where: 'title = ?', whereArgs: [t]);
+          }
+        }
+      }
+
+      // 2. Garante que qualquer month_title presente em `items` exista na tabela `months`
+      final distinctItemMonths = await db.rawQuery('SELECT DISTINCT month_title FROM items');
+      for (final row in distinctItemMonths) {
+        final mTitle = (row['month_title'] as String? ?? '').trim();
+        if (mTitle.isNotEmpty && !isDummySheetName(mTitle) && !isDeleted(mTitle)) {
+          await db.insert(
+            'months',
+            {
+              'title': mTitle,
+              'budget': 0.0,
+              'total': 0.0,
+              'balance': 0.0,
+              'totalItems': 0.0,
+              'boughtItems': 0.0,
+              'is_finalized': 0,
+              'purpose': 'geral',
+              'workspace': 'personal',
+            },
+            conflictAlgorithm: ConflictAlgorithm.ignore,
+          );
+        }
+      }
+
+      // 3. Varre outros arquivos .db no diretório do aplicativo para resgatar listas/itens
+      try {
+        final databasesPath = await getDatabasesPath();
+        final dir = Directory(databasesPath);
+        if (await dir.exists()) {
+          final dbFiles = dir.listSync().whereType<File>().where(
+                (f) => f.path.endsWith('.db') && !f.path.endsWith(_currentDatabaseName),
+              );
+          for (final otherFile in dbFiles) {
+            Database? otherDb;
+            try {
+              otherDb = await openDatabase(otherFile.path);
+              final otherMonths = await otherDb.query('months');
+              final otherItemMonths = await otherDb.rawQuery('SELECT DISTINCT month_title FROM items');
+
+              final Set<String> candidateTitles = {
+                for (final m in otherMonths) (m['title'] as String? ?? '').trim(),
+                for (final r in otherItemMonths) (r['month_title'] as String? ?? '').trim(),
+              };
+
+              for (final title in candidateTitles) {
+                if (title.isEmpty || isDummySheetName(title) || isDeleted(title)) continue;
+
+                final currentItemsCount = Sqflite.firstIntValue(
+                      await db.rawQuery('SELECT COUNT(*) FROM items WHERE month_title = ?', [title]),
+                    ) ??
+                    0;
+                final otherItems = await otherDb.query(
+                  'items',
+                  where: 'month_title = ?',
+                  whereArgs: [title],
+                  orderBy: 'index_in_sheet ASC',
+                );
+
+                final monthRowList = otherMonths.where((m) => (m['title'] as String? ?? '').trim() == title).toList();
+                final existingMonthInActive = await db.query('months', where: 'title = ?', whereArgs: [title]);
+
+                if (existingMonthInActive.isEmpty && (otherItems.isNotEmpty || monthRowList.isNotEmpty)) {
+                  final mData = monthRowList.isNotEmpty ? monthRowList.first : <String, dynamic>{};
+                  await db.insert(
+                    'months',
+                    {
+                      'title': title,
+                      'budget': (mData['budget'] as num?)?.toDouble() ?? 0.0,
+                      'total': (mData['total'] as num?)?.toDouble() ?? 0.0,
+                      'balance': (mData['balance'] as num?)?.toDouble() ?? 0.0,
+                      'totalItems': (mData['totalItems'] as num?)?.toDouble() ?? otherItems.length.toDouble(),
+                      'boughtItems': (mData['boughtItems'] as num?)?.toDouble() ?? 0.0,
+                      'is_finalized': (mData['is_finalized'] as int?) ?? 0,
+                      'purpose': (mData['purpose'] as String?) ?? 'geral',
+                      'category_caps': mData['category_caps'] as String?,
+                      'workspace': (mData['workspace'] as String?) ?? 'personal',
+                    },
+                    conflictAlgorithm: ConflictAlgorithm.ignore,
+                  );
+                }
+
+                if (otherItems.length > currentItemsCount) {
+                  final recovered = otherItems.map((map) {
+                    return Item(
+                      index: map['index_in_sheet'] as int?,
+                      name: (map['name'] as String?) ?? '',
+                      quantity: (map['quantity'] as num?)?.toDouble() ?? 0.0,
+                      unitPrice: (map['unit_price'] as num?)?.toDouble() ?? 0.0,
+                      isKg: map['is_kg'] == 1,
+                      category: (map['category'] as String?) ?? 'Outros',
+                      isBought: map['is_bought'] == 1,
+                      barcode: map['barcode'] as String?,
+                      supermarket: map['supermarket'] as String?,
+                    );
+                  }).toList();
+                  await saveItems(title, recovered);
+                  debugPrint('♻️ DatabaseHelper: Recuperados ${recovered.length} itens do mês "$title" de ${basename(otherFile.path)}');
+                }
+              }
+            } catch (e) {
+              debugPrint('Aviso ao inspecionar banco alternativo ${otherFile.path}: $e');
+            } finally {
+              try {
+                await otherDb?.close();
+              } catch (_) {}
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('Aviso ao varrer bancos alternativos na recuperação: $e');
+      }
+
+      // 4. Restaura a partir do snapshot JSON (`local_backup_carts_v1`) caso algum mês tenha sido perdido
+      try {
+        final rawSnapshot = prefs.getString('local_backup_carts_v1');
+        if (rawSnapshot != null && rawSnapshot.isNotEmpty) {
+          final decoded = jsonDecode(rawSnapshot);
+          if (decoded is Map<String, dynamic>) {
+            for (final entry in decoded.entries) {
+              final title = entry.key.trim();
+              if (title.isEmpty || isDummySheetName(title) || isDeleted(title)) continue;
+              final data = entry.value;
+              if (data is! Map<String, dynamic>) continue;
+
+              final currentCount = Sqflite.firstIntValue(
+                    await db.rawQuery('SELECT COUNT(*) FROM items WHERE month_title = ?', [title]),
+                  ) ??
+                  0;
+              final rawItems = data['items'];
+              if (currentCount == 0 && rawItems is List && rawItems.isNotEmpty) {
+                final mData = data['month'] is Map<String, dynamic>
+                    ? data['month'] as Map<String, dynamic>
+                    : <String, dynamic>{};
+                await db.insert(
+                  'months',
+                  {
+                    'title': title,
+                    'budget': (mData['budget'] as num?)?.toDouble() ?? 0.0,
+                    'total': (mData['total'] as num?)?.toDouble() ?? 0.0,
+                    'balance': (mData['balance'] as num?)?.toDouble() ?? 0.0,
+                    'totalItems': rawItems.length.toDouble(),
+                    'boughtItems': 0.0,
+                    'is_finalized': (mData['is_finalized'] as int?) ?? 0,
+                    'purpose': (mData['purpose'] as String?) ?? 'geral',
+                    'workspace': (mData['workspace'] as String?) ?? 'personal',
+                  },
+                  conflictAlgorithm: ConflictAlgorithm.ignore,
+                );
+
+                final restoredItems = <Item>[];
+                int idx = 7;
+                for (final raw in rawItems) {
+                  if (raw is Map) {
+                    restoredItems.add(Item(
+                      index: (raw['index_in_sheet'] as int?) ?? idx++,
+                      name: (raw['name'] as String?) ?? '',
+                      quantity: (raw['quantity'] as num?)?.toDouble() ?? 1.0,
+                      unitPrice: (raw['unit_price'] as num?)?.toDouble() ?? 0.0,
+                      isKg: raw['is_kg'] == 1 || raw['is_kg'] == true,
+                      category: (raw['category'] as String?) ?? 'Outros',
+                      isBought: raw['is_bought'] == 1 || raw['is_bought'] == true,
+                      barcode: raw['barcode'] as String?,
+                      supermarket: raw['supermarket'] as String?,
+                    ));
+                  }
+                }
+                if (restoredItems.isNotEmpty) {
+                  await saveItems(title, restoredItems);
+                  debugPrint('♻️ DatabaseHelper: Restaurados ${restoredItems.length} itens do mês "$title" via local_backup_carts_v1');
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('Aviso ao restaurar snapshot local: $e');
+      }
+
+      // 5. Reconstrói listas apagadas a partir do cache de histórico de preços (`cache_price_history_v2*`)
+      try {
+        final allKeys = prefs.getKeys();
+        final historyKeys = allKeys.where((k) => k.startsWith('cache_price_history_v2')).toList();
+        final Map<String, Map<String, Map<String, dynamic>>> itemsByMonth = {};
+
+        for (final key in historyKeys) {
+          final rawJson = prefs.getString(key);
+          if (rawJson == null || rawJson.isEmpty) continue;
+          try {
+            final decoded = jsonDecode(rawJson);
+            if (decoded is Map<String, dynamic>) {
+              for (final historyEntry in decoded.entries) {
+                final list = historyEntry.value;
+                if (list is List) {
+                  for (final itemEntry in list) {
+                    if (itemEntry is Map) {
+                      final month = (itemEntry['month'] as String? ?? '').trim();
+                      final name = (itemEntry['name'] as String? ?? '').trim();
+                      if (month.isEmpty || name.isEmpty || isDummySheetName(month) || isDeleted(month)) {
+                        continue;
+                      }
+                      final normName = Utils.normalize(name);
+                      final monthMap = itemsByMonth.putIfAbsent(month, () => {});
+                      final price = (itemEntry['price'] as num?)?.toDouble() ?? 0.0;
+                      final existing = monthMap[normName];
+                      if (existing == null || (price > 0 && ((existing['price'] as num?)?.toDouble() ?? 0.0) == 0.0)) {
+                        monthMap[normName] = {
+                          'name': name,
+                          'price': price,
+                          'category': (itemEntry['category'] as String?) ?? 'Outros',
+                          'barcode': itemEntry['barcode'] as String?,
+                          'supermarket': itemEntry['supermarket'] as String?,
+                        };
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          } catch (_) {}
+        }
+
+        // Recupera orçamento salvo em quick_summary se existir
+        double savedQuickBudget = 0.0;
+        String savedQuickMonth = '';
+        for (final k in allKeys.where((k) => k.startsWith('quick_summary'))) {
+          final rawQ = prefs.getString(k);
+          if (rawQ != null && rawQ.isNotEmpty) {
+            try {
+              final qMap = jsonDecode(rawQ);
+              if (qMap is Map) {
+                final b = (qMap['budget'] as num?)?.toDouble() ?? 0.0;
+                final m = (qMap['month'] as String? ?? '').trim();
+                if (b > 0) {
+                  savedQuickBudget = b;
+                  savedQuickMonth = m;
+                }
+              }
+            } catch (_) {}
+          }
+        }
+
+        for (final entry in itemsByMonth.entries) {
+          final monthTitle = entry.key;
+          final itemsMap = entry.value;
+          if (itemsMap.isEmpty) continue;
+
+          final existingCount = Sqflite.firstIntValue(
+                await db.rawQuery('SELECT COUNT(*) FROM items WHERE month_title = ?', [monthTitle]),
+              ) ??
+              0;
+
+          if (existingCount == 0) {
+            final budget = (savedQuickMonth == monthTitle && savedQuickBudget > 0) ? savedQuickBudget : 0.0;
+            await db.insert(
+              'months',
+              {
+                'title': monthTitle,
+                'budget': budget,
+                'total': 0.0,
+                'balance': budget,
+                'totalItems': itemsMap.length.toDouble(),
+                'boughtItems': 0.0,
+                'is_finalized': 0,
+                'purpose': 'geral',
+                'workspace': 'personal',
+              },
+              conflictAlgorithm: ConflictAlgorithm.ignore,
+            );
+
+            final List<Item> reconstructed = [];
+            int idx = 7;
+            for (final itData in itemsMap.values) {
+              final price = (itData['price'] as num?)?.toDouble() ?? 0.0;
+              reconstructed.add(Item(
+                index: idx++,
+                name: itData['name'] as String,
+                quantity: 1.0,
+                unitPrice: price,
+                isKg: false,
+                category: (itData['category'] as String?) ?? 'Outros',
+                isBought: price > 0,
+                barcode: itData['barcode'] as String?,
+                supermarket: itData['supermarket'] as String?,
+              ));
+            }
+            await saveItems(monthTitle, reconstructed);
+            debugPrint('♻️ DatabaseHelper: Reconstruídos ${reconstructed.length} itens do mês "$monthTitle" via cache_price_history_v2');
+          }
+        }
+      } catch (e) {
+        debugPrint('Aviso ao reconstruir listas do histórico de preços: $e');
+      }
+
+      // 6. Último fallback: se o banco continuar com 0 itens, verifica `community_prices_cache` (compras locais do usuário)
+      final totalItemsNow = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM items')) ?? 0;
+      if (totalItemsNow == 0) {
+        try {
+          final localCommRows = await db.query(
+            'community_prices_cache',
+            where: "id LIKE 'local_%' OR submitted_by = 'Cliente CARRIN'",
+          );
+          if (localCommRows.isNotEmpty) {
+            final now = DateTime.now();
+            const monthsPt = [
+              'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+              'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+            ];
+            final currentMonthTitle = '${monthsPt[now.month - 1]} ${now.year}';
+            if (!isDeleted(currentMonthTitle)) {
+              final List<Item> commRecovered = [];
+              int idx = 7;
+              final Set<String> seenNames = {};
+              for (final r in localCommRows) {
+                final name = (r['product_name'] as String? ?? '').trim();
+                final norm = Utils.normalize(name);
+                if (name.isEmpty || seenNames.contains(norm)) continue;
+                seenNames.add(norm);
+                final price = (r['price'] as num?)?.toDouble() ?? 0.0;
+                commRecovered.add(Item(
+                  index: idx++,
+                  name: name,
+                  quantity: 1.0,
+                  unitPrice: price,
+                  isKg: (r['unit'] as String? ?? '') == 'kg',
+                  category: (r['category'] as String?) ?? 'Outros',
+                  isBought: price > 0,
+                  supermarket: r['supermarket_name'] as String?,
+                ));
+              }
+              if (commRecovered.isNotEmpty) {
+                await saveItems(currentMonthTitle, commRecovered);
+                debugPrint('♻️ DatabaseHelper: Recuperados ${commRecovered.length} itens para "$currentMonthTitle" via community_prices_cache');
+              }
+            }
+          }
+        } catch (e) {
+          debugPrint('Aviso ao recuperar de community_prices_cache: $e');
+        }
+      }
+
+      // 7. Recalcula os resumos (total, totalItems, boughtItems, balance) e normaliza workspace em todos os meses
+      final refreshedMonths = await db.query('months');
+      for (final m in refreshedMonths) {
+        final title = (m['title'] as String? ?? '').trim();
+        if (title.isEmpty) continue;
+        final ws = (m['workspace'] as String? ?? '').trim();
+        final budget = (m['budget'] as num?)?.toDouble() ?? 0.0;
+        final monthItems = await db.query('items', where: 'month_title = ?', whereArgs: [title]);
+        if (monthItems.isNotEmpty) {
+          double total = 0.0;
+          int bought = 0;
+          for (final it in monthItems) {
+            final q = (it['quantity'] as num?)?.toDouble() ?? 0.0;
+            final p = (it['unit_price'] as num?)?.toDouble() ?? 0.0;
+            final isB = it['is_bought'] == 1;
+            if (isB) {
+              total += q * p;
+              bought++;
+            } else if (p > 0 && q > 0) {
+              total += q * p;
+            }
+          }
+          await db.update(
+            'months',
+            {
+              'total': total,
+              'balance': budget - total,
+              'totalItems': monthItems.length.toDouble(),
+              'boughtItems': bought.toDouble(),
+              if (ws.isEmpty) 'workspace': 'personal',
+            },
+            where: 'title = ?',
+            whereArgs: [title],
+          );
+        } else if (ws.isEmpty) {
+          await db.update(
+            'months',
+            {'workspace': 'personal'},
+            where: 'title = ?',
+            whereArgs: [title],
+          );
+        }
+      }
+
+      // 8. Salva snapshot atualizado de segurança
+      await saveLocalBackupSnapshot();
+    } catch (e) {
+      debugPrint('Erro em recoverAndConsolidateUserData: $e');
+    }
   }
 }
