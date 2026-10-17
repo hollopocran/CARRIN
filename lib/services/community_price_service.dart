@@ -55,18 +55,33 @@ class CommunityPriceService {
   String? _cachedUrl;
   String? _cachedAnonKey;
   bool _isInitialized = false;
+  Future<void>? _initFuture;
+  DateTime? _lastCloudFetchTime;
+  Future<void>? _ongoingCloudSync;
+  static const int _catalogSyncVersion = 548;
 
   Future<void> init() async {
     if (_isInitialized) return;
+    if (_initFuture != null) return _initFuture!;
+    _initFuture = _doInit();
+    await _initFuture;
+  }
+
+  Future<void> _doInit() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       _cachedUrl = prefs.getString(_prefUrlKey) ?? defaultSupabaseUrl;
       _cachedAnonKey = prefs.getString(_prefAnonKey) ?? defaultSupabaseAnonKey;
 
-      await DatabaseHelper.instance.purgeSeedCommunityPrices();
-      await DatabaseHelper.instance.cleanTestSupermarkets();
-      await DatabaseHelper.instance.ensureDefaultSupermarkets();
-      await DatabaseHelper.instance.assignDefaultSupermarket(defaultStoreName);
+      final lastSyncedCatalogVersion = prefs.getInt('community_catalog_sync_version') ?? 0;
+      if (lastSyncedCatalogVersion != _catalogSyncVersion) {
+        await DatabaseHelper.instance.purgeSeedCommunityPrices();
+        await DatabaseHelper.instance.cleanTestSupermarkets();
+        await DatabaseHelper.instance.ensureDefaultSupermarkets();
+        await DatabaseHelper.instance.assignDefaultSupermarket(defaultStoreName);
+        await prefs.setInt('community_catalog_sync_version', _catalogSyncVersion);
+      }
+
       await DatabaseHelper.instance.seedCommunityPricesFromUserPurchases();
 
       // Auto-sincronização obrigatória e transparente das compras do usuário para a comunidade
@@ -428,54 +443,111 @@ class CommunityPriceService {
     return list;
   }
 
+  /// Sincroniza dados da nuvem Supabase com controle de cooldown para evitar múltiplas chamadas seguidas
+  Future<void> syncFromCloud({
+    String? query,
+    double? userLat,
+    double? userLng,
+    bool force = false,
+  }) async {
+    await init();
+    if (!isConfigured) return;
+
+    final hasQuery = query != null && query.trim().isNotEmpty;
+    if (!force && !hasQuery && _lastCloudFetchTime != null) {
+      final elapsed = DateTime.now().difference(_lastCloudFetchTime!);
+      if (elapsed.inSeconds < 45) return;
+    }
+
+    if (!hasQuery && _ongoingCloudSync != null) {
+      await _ongoingCloudSync;
+      return;
+    }
+
+    final future = _performCloudSync(query: query, userLat: userLat, userLng: userLng);
+    if (!hasQuery) {
+      _ongoingCloudSync = future;
+    }
+    try {
+      await future;
+    } finally {
+      if (!hasQuery) {
+        _ongoingCloudSync = null;
+      }
+    }
+  }
+
+  Future<void> _performCloudSync({
+    String? query,
+    double? userLat,
+    double? userLng,
+  }) async {
+    try {
+      String urlStr = '${_cachedUrl!}/rest/v1/community_prices?select=*&order=created_at.desc&limit=500';
+      if (query != null && query.trim().isNotEmpty) {
+        urlStr += '&product_name=ilike.*${Uri.encodeComponent(query.trim())}*';
+      }
+      final endpoint = Uri.parse(urlStr);
+      final response = await http.get(
+        endpoint,
+        headers: _buildHeaders(isPost: false),
+      ).timeout(const Duration(milliseconds: 3500));
+
+      if (response.statusCode == 200) {
+        final List<dynamic> list = jsonDecode(response.body);
+        final cloudPrices = list
+            .map((item) => CommunityPrice.fromMap(item as Map<String, dynamic>, userLat: userLat, userLng: userLng))
+            .where((p) {
+              final isMock = p.submittedBy.contains('Teste') ||
+                             p.submittedBy == 'Comunidade CARRIN' ||
+                             p.id.startsWith('seed_');
+              return !isMock;
+            })
+            .toList();
+        if (cloudPrices.isNotEmpty) {
+          await DatabaseHelper.instance.saveCommunityPrices(cloudPrices);
+        }
+        if (query == null || query.trim().isEmpty) {
+          _lastCloudFetchTime = DateTime.now();
+        }
+      }
+    } catch (e) {
+      debugPrint('⚠️ Erro ao buscar feed no Supabase (usando cache local): $e');
+    }
+  }
+
   /// Busca os preços mais recentes e sincroniza com a nuvem se disponível
   Future<List<CommunityPrice>> getRecentFeed({
     double? userLat,
     double? userLng,
     double radiusKm = 25.0,
     String? query,
+    bool syncWithCloud = true,
+    bool forceCloudRefresh = false,
   }) async {
     await init();
 
-    // 1. Tenta buscar dados novos do Supabase se configurado
-    if (isConfigured) {
-      try {
-        String urlStr = '${_cachedUrl!}/rest/v1/community_prices?select=*&order=created_at.desc&limit=500';
-        if (query != null && query.trim().isNotEmpty) {
-          urlStr += '&product_name=ilike.*${Uri.encodeComponent(query.trim())}*';
-        }
-        final endpoint = Uri.parse(urlStr);
-        final response = await http.get(
-          endpoint,
-          headers: _buildHeaders(isPost: false),
-        ).timeout(const Duration(seconds: 4));
-
-        if (response.statusCode == 200) {
-          final List<dynamic> list = jsonDecode(response.body);
-          final cloudPrices = list
-              .map((item) => CommunityPrice.fromMap(item as Map<String, dynamic>, userLat: userLat, userLng: userLng))
-              .where((p) {
-                final isMock = p.submittedBy.contains('Teste') ||
-                               p.submittedBy == 'Comunidade CARRIN' ||
-                               p.id.startsWith('seed_');
-                return !isMock;
-              })
-              .toList();
-          if (cloudPrices.isNotEmpty) {
-            await DatabaseHelper.instance.saveCommunityPrices(cloudPrices);
-          }
-        }
-      } catch (e) {
-        debugPrint('⚠️ Erro ao buscar feed no Supabase (usando cache local): $e');
-      }
+    // 1. Tenta buscar dados novos do Supabase se solicitado (respeitando cooldown de 45s)
+    if (syncWithCloud) {
+      await syncFromCloud(
+        query: query,
+        userLat: userLat,
+        userLng: userLng,
+        force: forceCloudRefresh,
+      );
     }
 
     // 2. Lê do cache local SQLite
-    final localPrices = await DatabaseHelper.instance.getCachedCommunityPrices(
-      query: query,
-      userLat: userLat,
-      userLng: userLng,
-    );
+    List<CommunityPrice> localPrices = [];
+    try {
+      localPrices = await DatabaseHelper.instance.getCachedCommunityPrices(
+        query: query,
+        userLat: userLat,
+        userLng: userLng,
+      );
+    } catch (_) {
+      localPrices = [];
+    }
 
     // 3. Filtra pelo raio do GPS se o usuário tiver localização
     if (userLat != null && userLng != null) {
@@ -503,18 +575,39 @@ class CommunityPriceService {
     required double userLat,
     required double userLng,
     double radiusKm = 15.0,
+    List<CommunityPrice>? preloadedPrices,
+    bool syncWithCloud = false,
   }) async {
-    final allPrices = await getRecentFeed(userLat: userLat, userLng: userLng, radiusKm: radiusKm);
-    if (allPrices.isEmpty) return [];
+    await init();
+    final allPrices = preloadedPrices ??
+        await getRecentFeed(
+          userLat: userLat,
+          userLng: userLng,
+          radiusKm: radiusKm,
+          syncWithCloud: syncWithCloud,
+        );
 
-    // Agrupa preços por supermercado
+    List<Map<String, dynamic>> savedSupermarkets = [];
+    try {
+      savedSupermarkets = await DatabaseHelper.instance.getSupermarkets();
+    } catch (_) {
+      savedSupermarkets = [];
+    }
+    final Map<String, Map<String, dynamic>> savedByNormName = {};
+    for (final s in savedSupermarkets) {
+      final n = (s['name'] as String? ?? '').trim().toLowerCase();
+      if (n.isNotEmpty) {
+        savedByNormName[n] = s;
+      }
+    }
+
+    // Agrupa preços por supermercado canônico
     final Map<String, List<CommunityPrice>> marketMap = {};
     final Map<String, CommunityPrice> marketPosMap = {};
 
     for (var p in allPrices) {
       final rawMarket = p.supermarketName.trim();
       if (rawMarket.isEmpty) continue;
-      // Normaliza para o nome oficial do catálogo se coincidir (ex: "Supermercados Guanabara" -> "Supermercados Guanabara - Niterói")
       final match = DefaultSupermarketsData.findMatch(rawMarket, userLat: userLat, userLng: userLng);
       final market = match?.name ?? rawMarket;
 
@@ -533,9 +626,8 @@ class CommunityPriceService {
       }
     }
 
-    List<MarketComparison> comparisons = [];
-
-    final savedSupermarkets = await DatabaseHelper.instance.getSupermarkets();
+    final Map<String, MarketComparison> deduped = {};
+    final maxMeters = radiusKm * 1000;
 
     for (var entry in marketMap.entries) {
       final market = entry.key;
@@ -554,85 +646,120 @@ class CommunityPriceService {
 
       final avgPrice = prices.isNotEmpty ? totalSum / prices.length : 0.0;
       final posRef = marketPosMap[market];
-      // PRIORIDADE MÁXIMA: Catálogo oficial calibrado (DefaultSupermarketsData / SQLite)
-      final resolved = await resolveMarketCoordinates(market, userLat: userLat, userLng: userLng);
-      double? lat = resolved?['latitude'] ?? posRef?.latitude;
-      double? lng = resolved?['longitude'] ?? posRef?.longitude;
+
+      // Resolução O(1) em memória (Catálogo oficial -> SQLite carregado -> Fallback)
+      final preloaded = DefaultSupermarketsData.findMatch(market, userLat: userLat, userLng: userLng);
+      final saved = savedByNormName[market.toLowerCase()];
+
+      double? lat = preloaded?.latitude ??
+          (saved?['latitude'] as num?)?.toDouble() ??
+          posRef?.latitude;
+      double? lng = preloaded?.longitude ??
+          (saved?['longitude'] as num?)?.toDouble() ??
+          posRef?.longitude;
+
+      if ((lat == null || lng == null) && market.toLowerCase().contains('guanabara')) {
+        lat = defaultStoreLat;
+        lng = defaultStoreLng;
+      }
 
       double? dist;
       if (lat != null && lng != null) {
         dist = LocationService.instance.calculateDistance(userLat, userLng, lat, lng);
       }
 
-      comparisons.add(MarketComparison(
-        supermarketName: market,
+      final canonicalName = preloaded?.name ?? market;
+      final key = canonicalName.toLowerCase();
+
+      final comp = MarketComparison(
+        supermarketName: canonicalName,
         latitude: lat,
         longitude: lng,
         distanceMeters: dist,
         itemsCount: prices.length,
         averageItemPrice: avgPrice,
         cheapestCount: cheapestCount,
-      ));
+      );
+
+      if (!deduped.containsKey(key) || comp.itemsCount > deduped[key]!.itemsCount) {
+        deduped[key] = comp;
+      }
     }
 
-    // Inclui mercados salvos no SQLite mesmo que ainda não tenham compras cadastradas
+    // Inclui mercados do catálogo oficial dentro do raio (O(N) direto com pré-filtro de bounding box)
+    final maxDegLat = (radiusKm / 110.0) + 0.02;
+    final maxDegLng = (radiusKm / 100.0) + 0.02;
+    for (final pre in DefaultSupermarketsData.all) {
+      if ((pre.latitude - userLat).abs() > maxDegLat ||
+          (pre.longitude - userLng).abs() > maxDegLng) {
+        continue;
+      }
+      final key = pre.name.toLowerCase();
+      if (deduped.containsKey(key)) continue;
+
+      final dist = LocationService.instance.calculateDistance(userLat, userLng, pre.latitude, pre.longitude);
+      if (dist > maxMeters) continue;
+
+      deduped[key] = MarketComparison(
+        supermarketName: pre.name,
+        latitude: pre.latitude,
+        longitude: pre.longitude,
+        distanceMeters: dist,
+        itemsCount: 0,
+        averageItemPrice: 0.0,
+        cheapestCount: 0,
+      );
+    }
+
+    // Inclui mercados customizados salvos no SQLite
     for (var s in savedSupermarkets) {
       final sName = (s['name'] as String? ?? '').trim();
       if (sName.isEmpty) continue;
       final match = DefaultSupermarketsData.findMatch(sName, userLat: userLat, userLng: userLng);
       final canonicalName = match?.name ?? sName;
+      final key = canonicalName.toLowerCase();
 
-      final exists = comparisons.any((c) {
-        if (c.supermarketName.toLowerCase() == canonicalName.toLowerCase()) return true;
-        final cMatch = DefaultSupermarketsData.findMatch(c.supermarketName, userLat: userLat, userLng: userLng);
-        return cMatch?.name.toLowerCase() == canonicalName.toLowerCase();
-      });
+      if (deduped.containsKey(key)) continue;
 
-      if (!exists) {
-        final lat = match?.latitude ?? (s['latitude'] as num?)?.toDouble();
-        final lng = match?.longitude ?? (s['longitude'] as num?)?.toDouble();
-        double? dist;
-        if (lat != null && lng != null) {
-          dist = LocationService.instance.calculateDistance(userLat, userLng, lat, lng);
-          if (dist > radiusKm * 1000) continue;
-        }
-        comparisons.add(MarketComparison(
-          supermarketName: canonicalName,
-          latitude: lat,
-          longitude: lng,
-          distanceMeters: dist,
-          itemsCount: 0,
-          averageItemPrice: 0.0,
-          cheapestCount: 0,
-        ));
+      final lat = match?.latitude ?? (s['latitude'] as num?)?.toDouble();
+      final lng = match?.longitude ?? (s['longitude'] as num?)?.toDouble();
+      double? dist;
+      if (lat != null && lng != null) {
+        dist = LocationService.instance.calculateDistance(userLat, userLng, lat, lng);
+        if (dist > maxMeters) continue;
       }
+      deduped[key] = MarketComparison(
+        supermarketName: canonicalName,
+        latitude: lat,
+        longitude: lng,
+        distanceMeters: dist,
+        itemsCount: 0,
+        averageItemPrice: 0.0,
+        cheapestCount: 0,
+      );
     }
 
-    // Garante desduplicação rigorosa: mescla variações de nome do mesmo mercado
-    final Map<String, MarketComparison> deduped = {};
-    for (var comp in comparisons) {
-      final match = DefaultSupermarketsData.findMatch(comp.supermarketName, userLat: userLat, userLng: userLng);
-      final key = (match?.name ?? comp.supermarketName).toLowerCase();
-      if (!deduped.containsKey(key)) {
-        deduped[key] = comp;
-      } else {
-        final current = deduped[key]!;
-        if (comp.itemsCount > current.itemsCount) {
-          deduped[key] = comp;
-        }
-      }
-    }
-    comparisons = deduped.values.toList();
+    final comparisons = deduped.values.toList();
 
-    // Ordena pelo maior número de itens mais baratos e menor média
+    // Ordena: primeiro mercados com itens monitorados (por mais itens campeões e menor média), depois por distância
     comparisons.sort((a, b) {
+      final aHasItems = a.itemsCount > 0 ? 1 : 0;
+      final bHasItems = b.itemsCount > 0 ? 1 : 0;
+      if (bHasItems != aHasItems) {
+        return bHasItems.compareTo(aHasItems);
+      }
       if (b.cheapestCount != a.cheapestCount) {
         return b.cheapestCount.compareTo(a.cheapestCount);
       }
-      return a.averageItemPrice.compareTo(b.averageItemPrice);
+      if (a.averageItemPrice > 0 && b.averageItemPrice > 0 && a.averageItemPrice != b.averageItemPrice) {
+        return a.averageItemPrice.compareTo(b.averageItemPrice);
+      }
+      final distA = a.distanceMeters ?? double.infinity;
+      final distB = b.distanceMeters ?? double.infinity;
+      return distA.compareTo(distB);
     });
 
-    if (comparisons.isNotEmpty) {
+    if (comparisons.isNotEmpty && comparisons.first.itemsCount > 0) {
       final first = comparisons.first;
       comparisons[0] = MarketComparison(
         supermarketName: first.supermarketName,
@@ -656,9 +783,22 @@ class CommunityPriceService {
     double? userLat,
     double? userLng,
   }) async {
+    final targetMatch = DefaultSupermarketsData.findMatch(marketName, userLat: userLat, userLng: userLng);
+    final canonicalTarget = (targetMatch?.name ?? marketName).trim().toLowerCase();
     final cleanMarket = marketName.trim().toLowerCase();
-    final allPrices = await getRecentFeed(userLat: userLat, userLng: userLng, radiusKm: 50.0);
-    final marketPrices = allPrices.where((p) => p.supermarketName.trim().toLowerCase() == cleanMarket).toList();
+
+    final allPrices = await getRecentFeed(
+      userLat: userLat,
+      userLng: userLng,
+      radiusKm: 50.0,
+      syncWithCloud: false,
+    );
+    final marketPrices = allPrices.where((p) {
+      final pRaw = p.supermarketName.trim();
+      if (pRaw.toLowerCase() == cleanMarket || pRaw.toLowerCase() == canonicalTarget) return true;
+      final pMatch = DefaultSupermarketsData.findMatch(pRaw, userLat: userLat, userLng: userLng);
+      return pMatch != null && pMatch.name.toLowerCase() == canonicalTarget;
+    }).toList();
 
     // Remove produtos duplicados pelo nome, mantendo o menor preço
     final Map<String, CommunityPrice> uniqueByName = {};
@@ -683,8 +823,17 @@ class CommunityPriceService {
     double? userLat,
     double? userLng,
     double radiusKm = 20.0,
+    List<CommunityPrice>? preloadedPrices,
+    bool syncWithCloud = false,
   }) async {
-    final prices = await getRecentFeed(userLat: userLat, userLng: userLng, radiusKm: radiusKm, query: query);
+    final prices = preloadedPrices ??
+        await getRecentFeed(
+          userLat: userLat,
+          userLng: userLng,
+          radiusKm: radiusKm,
+          query: query,
+          syncWithCloud: syncWithCloud,
+        );
     final cleanQ = query.toLowerCase().trim();
     final matching = prices.where((p) => p.productName.toLowerCase().contains(cleanQ)).toList();
 
@@ -723,8 +872,17 @@ class CommunityPriceService {
     double? userLng,
     double radiusKm = 25.0,
     String? query,
+    List<CommunityPrice>? preloadedPrices,
+    bool syncWithCloud = false,
   }) async {
-    final prices = await getRecentFeed(userLat: userLat, userLng: userLng, radiusKm: radiusKm, query: query);
+    final prices = preloadedPrices ??
+        await getRecentFeed(
+          userLat: userLat,
+          userLng: userLng,
+          radiusKm: radiusKm,
+          query: query,
+          syncWithCloud: syncWithCloud,
+        );
     if (prices.isEmpty) return [];
 
     final Map<String, List<CommunityPrice>> grouped = {};

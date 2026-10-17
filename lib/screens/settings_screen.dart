@@ -9,6 +9,7 @@ import 'tutorial_screen.dart';
 import 'terms_screen.dart';
 import '../widgets/supermarket_avatar.dart';
 import '../widgets/theme_color_picker_sheet.dart';
+import '../widgets/interactive_tab_tutorial.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -24,6 +25,17 @@ class SettingsScreen extends StatelessWidget {
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.help_outline_rounded),
+            tooltip: 'Tutorial Interativo desta Aba',
+            onPressed: () => InteractiveTabTutorial.show(
+              context,
+              TutorialSection.settings,
+              userEmail: itemProvider.activeUserEmail,
+            ),
+          ),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),        children: [
@@ -152,14 +164,31 @@ class SettingsScreen extends StatelessWidget {
           const SizedBox(height: 12),
           _buildSettingItem(
             context,
-            title: 'Tutorial Interativo',
-            subtitle: 'Rever os recursos e dicas do app',
+            title: 'Tutorial Interativo Completo',
+            subtitle: 'Tour interativo por todas as abas e ferramentas',
             icon: Icons.school_outlined,
             onTap: () {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const TutorialScreen(showStartButton: false)),
               );
+            },
+          ),
+          _buildSettingItem(
+            context,
+            title: 'Resetar Tutoriais das Abas',
+            subtitle: 'Exibir novamente os cards interativos ao entrar em cada aba',
+            icon: Icons.replay_circle_filled_outlined,
+            onTap: () async {
+              await InteractiveTabTutorial.resetAllTabTutorials(userEmail: itemProvider.activeUserEmail);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Tutoriais das abas reativados! Eles aparecerão na sua próxima visita a cada seção.'),
+                    duration: Duration(seconds: 3),
+                  ),
+                );
+              }
             },
           ),
           _buildSettingItem(
@@ -181,7 +210,7 @@ class SettingsScreen extends StatelessWidget {
           const ListTile(
             leading: Icon(Icons.info_outline),
             title: Text('Versão', style: TextStyle(fontWeight: FontWeight.w500)),
-            trailing: Text('1.3.535', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+            trailing: Text('1.3.550', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
           ),
         ],
       ),

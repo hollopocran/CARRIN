@@ -24,6 +24,7 @@ import 'package:lista_compras/services/community_price_service.dart';
 import 'package:lista_compras/screens/market_map_screen.dart';
 import 'package:lista_compras/services/default_supermarkets.dart';
 import 'package:lista_compras/services/barcode_lookup_service.dart';
+import 'package:lista_compras/widgets/interactive_tab_tutorial.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 void main() {
@@ -699,7 +700,7 @@ void main() {
       expect(market.isCheapest, isFalse);
     });
 
-    testWidgets('MarketMapScreen instantiates with default params without throwing', (tester) async {
+    testWidgets('MarketMapScreen instantiates with default params and opens Google Maps style layer picker without throwing', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
           home: MarketMapScreen(
@@ -709,15 +710,40 @@ void main() {
           ),
         ),
       );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
       expect(find.byType(MarketMapScreen), findsOneWidget);
+      expect(find.byIcon(Icons.layers_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.touch_app_rounded), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.layers_rounded));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.textContaining('Tipo de Mapa'), findsOneWidget);
+      expect(find.text('Padrão Google'), findsOneWidget);
+      expect(find.text('Satélite'), findsOneWidget);
+      expect(find.text('Relevo'), findsOneWidget);
     });
 
-    test('DefaultSupermarketsData contains valid geolocated markets for all 5 target cities including Tribobó and Rio do Ouro', () {
+    test('DefaultSupermarketsData contains valid geolocated markets from MWM map files across RJ, ES and SP including Tribobó and Rio do Ouro', () {
       const markets = DefaultSupermarketsData.all;
-      expect(markets.length, greaterThanOrEqualTo(100));
+      expect(markets.length, greaterThanOrEqualTo(3000));
 
       final cities = markets.map((m) => m.city).toSet();
-      expect(cities, containsAll(['Niterói', 'São Gonçalo', 'Maricá', 'Itaboraí', 'Rio de Janeiro']));
+      expect(
+        cities,
+        containsAll([
+          'Niterói',
+          'São Gonçalo',
+          'Maricá',
+          'Itaboraí',
+          'Rio de Janeiro',
+          'Vitória',
+          'Vila Velha',
+          'Campinas',
+          'São Paulo',
+        ]),
+      );
 
       final names = markets.map((m) => m.name.toLowerCase()).toList();
       expect(names.any((n) => n.contains('tribobó') || n.contains('tribobo')), isTrue);
@@ -725,8 +751,8 @@ void main() {
 
       for (var market in markets) {
         expect(market.name.trim().isNotEmpty, isTrue);
-        expect(market.latitude, inInclusiveRange(-23.5, -22.5));
-        expect(market.longitude, inInclusiveRange(-44.0, -42.5));
+        expect(market.latitude, inInclusiveRange(-25.5, -17.5));
+        expect(market.longitude, inInclusiveRange(-53.5, -39.5));
         expect(market.radiusMeters, greaterThan(50));
         expect(market.colorHex.startsWith('#'), isTrue);
       }
@@ -770,7 +796,7 @@ void main() {
       expect(match.longitude, closeTo(-43.11535, 0.001));
     });
 
-    test('New Niterói markets from Maps.me (Multi Market, Pomar, Super Prix) are matchable', () {
+    test('New markets from Maps.me (.mwm) across RJ, ES, and SP are matchable and detectable offline by GPS radius', () {
       final multiMarket = DefaultSupermarketsData.findMatch('Multi Market - Santa Rosa');
       expect(multiMarket, isNotNull);
       expect(multiMarket!.latitude, closeTo(-22.89813, 0.001));
@@ -782,6 +808,10 @@ void main() {
       final superPrix = DefaultSupermarketsData.findMatch('Super Prix - Icaraí');
       expect(superPrix, isNotNull);
       expect(superPrix!.latitude, closeTo(-22.90296, 0.001));
+
+      final nearestGuanabara = DefaultSupermarketsData.findNearestWithinRadius(-22.89012, -43.11535);
+      expect(nearestGuanabara, isNotNull);
+      expect(nearestGuanabara!.name, equals('Supermercados Guanabara - Niterói'));
     });
   });
 
@@ -837,6 +867,114 @@ void main() {
       expect(ItemProvider.suggestCategoryForName('Maçã Fuji Nacional'), equals('Hortifruti'));
       expect(ItemProvider.suggestCategoryForName('Alcatra Bovina kg'), equals('Açougue e Frios'));
       expect(ItemProvider.suggestCategoryForName('Pão de Forma Tradicional'), equals('Padaria'));
+    });
+
+    test('getCachedOrLocal returns null synchronously for empty or uncached barcode', () {
+      expect(BarcodeLookupService.instance.getCachedOrLocal(''), isNull);
+      expect(BarcodeLookupService.instance.getCachedOrLocal('0000000000000'), isNull);
+    });
+
+    test('DefaultSupermarketsData identifies chains and filters by search/chain accurately', () {
+      expect(DefaultSupermarketsData.getChainName('Supermercados Guanabara - Niterói'), equals('Guanabara'));
+      expect(DefaultSupermarketsData.getChainName('Assaí Atacadista - Tribobó'), equals('Assaí'));
+      expect(DefaultSupermarketsData.getChainName('Supermarket - Rio do Ouro'), equals('Supermarket'));
+      expect(DefaultSupermarketsData.getChainName('Rede Economia - Inoã'), equals('Rede Economia'));
+      expect(DefaultSupermarketsData.getChainName('Mercado Varsilva - Rio do Ouro'), equals('Outras'));
+
+      expect(DefaultSupermarketsData.matchesChain('Assaí Atacadista - Tribobó', 'Todas'), isTrue);
+      expect(DefaultSupermarketsData.matchesChain('Assaí Atacadista - Tribobó', 'Assaí'), isTrue);
+      expect(DefaultSupermarketsData.matchesChain('Assaí Atacadista - Tribobó', 'Guanabara'), isFalse);
+
+      expect(
+        DefaultSupermarketsData.matchesSearch(
+          'Assaí Atacadista - Tribobó',
+          'tribobo assai',
+        ),
+        isTrue,
+      );
+      expect(
+        DefaultSupermarketsData.matchesSearch(
+          'Supermercados Guanabara - Niterói',
+          'marica',
+        ),
+        isFalse,
+      );
+    });
+  });
+
+  group('InteractiveTabTutorial & InteractiveSectionTutorialCard Tests', () {
+    testWidgets('InteractiveSectionTutorialCard renders and steps through all sections interactively', (tester) async {
+      for (final section in TutorialSection.values) {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: SingleChildScrollView(
+                child: InteractiveSectionTutorialCard(
+                  section: section,
+                  isModal: false,
+                ),
+              ),
+            ),
+          ),
+        );
+
+        expect(find.text('TUTORIAL INTERATIVO'), findsOneWidget);
+        expect(find.text(section.title), findsOneWidget);
+
+        if (find.text('Próximo').evaluate().isNotEmpty) {
+          await tester.tap(find.text('Próximo'));
+          await tester.pumpAndSettle();
+          expect(find.text('Anterior'), findsOneWidget);
+        }
+      }
+    });
+
+    testWidgets('InteractiveTabTutorial shows on first visit and respects resetAllTabTutorials', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      InteractiveTabTutorial.enableAutoShowInTests = true;
+      await InteractiveTabTutorial.resetAllTabTutorials();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () => InteractiveTabTutorial.checkAndShowIfFirstTime(
+                  context,
+                  TutorialSection.community,
+                  userEmail: 'test@carrin.app',
+                ),
+                child: const Text('Entrar na Aba'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // Primeira vez: deve abrir o modal interativo
+      await tester.tap(find.text('Entrar na Aba'));
+      await tester.pumpAndSettle();
+      expect(find.text('Comunidade & Radar'), findsOneWidget);
+
+      // Fecha o modal
+      await tester.tap(find.byIcon(Icons.close_rounded));
+      await tester.pumpAndSettle();
+      expect(find.text('Comunidade & Radar'), findsNothing);
+
+      // Segunda vez: não deve abrir novamente automaticamente
+      await tester.tap(find.text('Entrar na Aba'));
+      await tester.pumpAndSettle();
+      expect(find.text('Comunidade & Radar'), findsNothing);
+
+      // Após resetAllTabTutorials: deve abrir novamente
+      await InteractiveTabTutorial.resetAllTabTutorials(userEmail: 'test@carrin.app');
+      await tester.tap(find.text('Entrar na Aba'));
+      await tester.pumpAndSettle();
+      expect(find.text('Comunidade & Radar'), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.close_rounded));
+      await tester.pumpAndSettle();
+      InteractiveTabTutorial.enableAutoShowInTests = false;
     });
   });
 }

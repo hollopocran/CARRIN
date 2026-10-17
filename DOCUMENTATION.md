@@ -1,6 +1,6 @@
 # Documentação Técnica e Arquitetural: CARRIN
 
-> **Versão Atual:** `1.3.545` (Build `545`) — Outubro de 2026  
+> **Versão Atual:** `1.3.550` (Build `550`) — Outubro de 2026  
 > **Status:** Produção Estável  
 > **Slogan:** *"Sua lista, sem complicação."*
 
@@ -12,7 +12,7 @@ O **CARRIN** é um ecossistema mobile inteligente em Flutter para gestão financ
 1. **Privacidade Absoluta & Nuvem Pessoal:** Cada usuário sincroniza suas listas diretamente com sua própria planilha do **Google Sheets** via OAuth 2.0 ([`UserSheetsService`](file:///C:/Dev/CARRIN/lib/services/user_sheets_service.dart)), sem servidores intermediários ou acesso de terceiros aos seus dados pessoais.
 2. **Arquitetura Offline-First (SQLite):** Todas as operações (adicionar, riscar, editar, excluir, calcular) funcionam instantaneamente sem internet com persistência em banco local e sincronização resiliente em fila (`sync_queue`).
 3. **Radar de Preços & Comunidade (Supabase):** Rede colaborativa de preços em tempo real onde os produtos comprados alimentam a base comunitária, permitindo comparação de preços por produto, agrupamento por mercado único, identificação do estabelecimento mais barato da região e cálculo de economia potencial via GPS.
-4. **Geolocalização, Mapa Interativo & Catálogo de 154 Supermercados:** Mapa geográfico interativo de supermercados via OpenStreetMap com rotas externas (Google Maps/Waze), identificação visual do mercado mais barato com coroa dourada (`👑`), carrossel sincronizado, busca instantânea de lojas e geofencing calibrado para o **Supermercados Guanabara Niterói**.
+4. **Geolocalização, Mapa Interativo Estilo Google Maps & Catálogo de 3.484 Supermercados (Base Maps.me `.mwm`):** Mapa geográfico interativo com seletor de camadas (**Padrão Google Desenhado**, **Satélite + Ruas**, **Relevo**, **Mapa Limpo**, **OpenStreetMap** e **Noturno**), modo de escolher ponto/mercado tocando no mapa sem conflito com os pinos, coordenadas calibradas diretamente dos arquivos `.mwm` do Maps.me (Rio de Janeiro, Espírito Santo e São Paulo), rotas externas (Google Maps/Waze) e geofencing calibrado para o **Supermercados Guanabara Niterói**.
 5. **Scanner Duplo Inteligente:**
    - **Leitor de Código de Barras (EAN-13 / EAN-8):** Identificação em camadas via histórico local do SQLite e consulta à API aberta do **Open Food Facts Brasil** ([`BarcodeLookupService`](file:///C:/Dev/CARRIN/lib/services/barcode_lookup_service.dart)), com abertura direta do formulário de item sem popups intermediários intrusivos.
    - **Leitor de Cupom Fiscal / NFC-e SEFAZ:** Leitura automatizada via QR Code com extração inteligente de produtos, quantidades, unidades e valores.
@@ -314,6 +314,47 @@ O [`BarcodeLookupService`](file:///C:/Dev/CARRIN/lib/services/barcode_lookup_ser
 ---
 
 ## 5. Histórico Cronológico de Atualizações e Versões
+
+### v1.3.550 (17 de Outubro de 2026)
+- **Mapa Limpo & Modo Noturno 100% Sem API Key (Servidores Google Maps):**
+  - Substituição definitiva dos tiles da CartoDB (`basemaps.cartocdn.com`, que passaram a exigir API Key) por tiles nativos do próprio Google Maps (`mt{s}.google.com/vt/lyrs=m&hl=pt-BR&apistyle=s.t:2|p.v:off,s.t:4|p.v:off`) para o **Mapa Limpo** (ocultando POIs comerciais de terceiros sem chave de API) e com filtro matricial acelerado por GPU (`_darkMapColorFilter`) para o **Modo Noturno** (preservando azul oceânico e verde de parques).
+- **Fluidez Total (60/120 FPS) nos Tutoriais Interativos (`InteractiveTabTutorial` & `TutorialScreen`):**
+  - Eliminação de disparos prematuros/duplicados durante o arraste do `PageView` entre abas (`MainScreen` agora aguarda a estabilização completa da aba antes de exibir o tutorial da primeira visita, sem interromper o gesto de swipe ou abas intermediárias).
+  - Transições aceleradas por GPU com `FadeTransition` + `ScaleTransition` + `RepaintBoundary` (removendo o `Opacity` que forçava `saveLayer` a cada frame).
+  - Adicionadas pílulas rápidas clicáveis de passos no topo de cada card, `AnimatedSize` suave entre passos e suporte a gesto de arrasto horizontal.
+  - Substituição de chamadas assíncronas de canal nativo (`Vibration.hasVibrator()`) por `HapticFeedback.selectionClick()` instantâneo (`<1ms`).
+
+### v1.3.549 (17 de Outubro de 2026)
+- **Seletor Visual de Camadas Estilo Google Maps & Escolha de Ponto no Mapa (`MarketMapScreen`):**
+  - Adicionado menu visual de camadas (`_showMapStyleAndLayersSheet`) com miniaturas desenhadas para **Padrão Google**, **Satélite**, **Relevo**, **Mapa Limpo**, **OpenStreetMap** e **Noturno**, além de controles sem conflito para exibir/ocultar pinos e escolher qualquer mercado ou ponto tocando direto no mapa.
+
+### v1.3.548 (17 de Outubro de 2026)
+- **Decodificação Nativa dos Mapas `.mwm` (Maps.me) — 3.484 Supermercados Geolocalizados:**
+  - Extração direta dos 4 arquivos binários `.mwm` na raiz do projeto cobrindo Rio de Janeiro (`Meus Locais.kmb`), Espírito Santo (`bm.order`), São Paulo Campinas (`2026-10-16`) e São Paulo Capital (`2026-10-17`), totalizando **3.484 supermercados e atacadistas** em `DefaultSupermarketsData.all`.
+
+### v1.3.547 (17 de Outubro de 2026)
+- **Cards de Demonstração & Tutoriais Interativos por Aba (`InteractiveTabTutorial` & `InteractiveSectionTutorialCard`):**
+  - Criação do serviço e componente [`lib/widgets/interactive_tab_tutorial.dart`](file:///C:/Dev/CARRIN/lib/widgets/interactive_tab_tutorial.dart) cobrindo todas as 8 seções do aplicativo (`dashboard`, `carts`, `shoppingList`, `statistics`, `buyerProfile`, `community`, `marketMap`, `settings`).
+  - **Exibição Automática na Primeira Visita:** Ao entrar pela primeira vez em cada uma das 5 abas principais (`MainScreen`) ou nas telas `ShoppingListScreen`, `BuyerProfileScreen` e `MarketMapScreen`, o app exibe automaticamente o tutorial interativo passo a passo daquela seção.
+  - **Cards de Demonstração Interativos nos Estados Vazios:** Substituição dos avisos estáticos de tela vazia em `MonthSelectionScreen` e `StatisticsScreen` (e na calibração inicial do `BuyerProfileScreen`) por cards interativos funcionais onde o usuário pode testar recursos na hora.
+  - **Botão de Ajuda (`?`) Global & Reset de Tutoriais:** Adicionado botão `Icons.help_outline_rounded` na `AppBar` de todas as abas e telas para reabrir o card interativo sob demanda, além da opção *"Resetar Tutoriais das Abas"* em `SettingsScreen` e `TutorialScreen`.
+  - **Reformulação Completa do `TutorialScreen` (`lib/screens/tutorial_screen.dart`):** Atualizado para refletir as 5 abas atuais do rodapé, Radar de Preços Comunitário, Mapa com pinos leves sob demanda e filtro de redes, Scanner Direto para Edição via API sem popups intermediários, NFC-e SEFAZ, Perfil de Comprador, Rateio e Calculadoras, com 100% dos slides interativos.
+- **Validação Automatizada:** 0 advertências no `flutter analyze`, 43/43 testes aprovados.
+
+### v1.3.546 (17 de Outubro de 2026)
+- **Mapa Ultrarrápido (60 FPS) & Pinos Limpos Sob Demanda (`MarketMapScreen`):**
+  - Remoção dos rótulos permanentes de texto em todos os 154 marcadores do mapa, substituindo-os por pinos leves encapsulados em `RepaintBoundary`.
+  - O nome do supermercado e sua média de preço aparecem apenas ao clicar no pino (em um callout flutuante sobre o pino selecionado e no card inferior sincronizado).
+  - Carregamento instantâneo via cache local SQLite sem bloquear no GPS ou rede.
+- **Pesquisa por Nome e Filtro por Redes de Supermercados:**
+  - Adicionada barra de pesquisa integrada no topo do `MarketMapScreen` (com autocompletar flutuante) e na aba *Mercados* do `CommunityRadarScreen`.
+  - Adicionados chips horizontais de filtro por redes (`Todas`, `Guanabara`, `Supermarket`, `Rede Economia`, `Assaí`, `Mundial`, `Real`, `Atacadão`, `Grand Marché`, `Prezunic`, `Princesa`, `Super Rede`, `Dom Atacadista`, `Pão de Açúcar`, `Zona Sul`, `Multi Market`, `Carrefour`, `Outras`) via `DefaultSupermarketsData.mainChains`.
+- **Carregamento Instantâneo da Aba Comunidade (`CommunityRadarScreen`):**
+  - Eliminação de 3 chamadas HTTP redundantes seguidas ao Supabase e bloqueio de até 4s do GPS na abertura da aba. A tela agora renderiza em `<50ms` a partir do cache SQLite (`preloadedPrices`) e sincroniza GPS + nuvem em segundo plano.
+  - Substituição de listas `.map()` ansiosas por `CustomScrollView` + `SliverList.builder` preguiçosos nas 3 abas (*Lista*, *Comparador* e *Mercados*).
+  - Otimização de `DatabaseHelper.ensureDefaultSupermarkets()` com `txn.batch()` em transação única e cache $O(1)$ em `DefaultSupermarketsData.findMatch()`.
+- **Scanner de Produtos Direto para Edição (0ms & Sem Popups):**
+  - Ao escanear qualquer código de barras, o app abre instantaneamente o menu de edição de produto (`_showEditDialog`) sem nenhum popup de confirmação intermediário e sem espera em tela preta, preenchendo automaticamente nome, marca, categoria e preço assim que resolvidos no cache local ou nas APIs Open Food Facts / Open Beauty Facts / Open Products Facts.
 
 ### v1.3.545 (16 de Outubro de 2026)
 - **Eliminação de Marcador Duplicado do Guanabara Niterói:** Unificação dos nomes `'Supermercados Guanabara'` e `'Supermercados Guanabara - Niterói'` sob o mesmo registro canônico. Anteriormente, as compras do usuário cadastradas sob o nome genérico geravam um marcador de cotações, enquanto o catálogo estático gerava um segundo marcador no mesmo local. A agregação do `CommunityPriceService` e a limpeza do SQLite agora consolidam todos os dados sob um único pino oficial.

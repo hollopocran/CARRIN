@@ -12,6 +12,7 @@ import 'statistics_screen.dart';
 import 'shopping_list_screen.dart';
 import 'accounts_screen.dart';
 import '../widgets/supermarket_avatar.dart';
+import '../widgets/interactive_tab_tutorial.dart';
 import 'package:reorderable_grid_view/reorderable_grid_view.dart';
 
 /// The primary landing screen of the application.
@@ -166,6 +167,15 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
                     ),
                     actions: [
                       const SyncIndicator(),
+                      IconButton(
+                        icon: const Icon(Icons.help_outline_rounded),
+                        tooltip: 'Tutorial desta aba',
+                        onPressed: () => InteractiveTabTutorial.show(
+                          context,
+                          TutorialSection.dashboard,
+                          userEmail: provider.activeUserEmail,
+                        ),
+                      ),
                       IconButton(
                         icon: Icon(themeProvider.isDarkMode ? Icons.wb_sunny : Icons.nightlight_round),
                         tooltip: 'Alternar Tema',
@@ -359,38 +369,46 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
           const SizedBox(height: 24),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 28),
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.blueAccent.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.blueAccent.withValues(alpha: 0.15)),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: () => InteractiveTabTutorial.show(
+                context,
+                TutorialSection.dashboard,
+                userEmail: provider.activeUserEmail,
               ),
-              child: Row(
-                children: [
-                  const Icon(Icons.info_outline, color: Colors.blueAccent, size: 24),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Comece por aqui!',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.blueAccent),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Você não tem nenhuma lista de compras criada. Vá na aba "Carrinhos" no rodapé e clique no botão "+" para iniciar!',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.black87,
-                            height: 1.3,
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.blueAccent.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.blueAccent.withValues(alpha: 0.2)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.touch_app_rounded, color: Colors.blueAccent, size: 26),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Comece por aqui! (Toque para Demo Interativa)',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Colors.blueAccent),
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 4),
+                          Text(
+                            'Você ainda não criou nenhum carrinho. Toque aqui para testar o painel interativo ou vá na aba "Carrinhos" no rodapé!',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.black87,
+                              height: 1.3,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

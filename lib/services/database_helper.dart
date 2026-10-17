@@ -915,66 +915,97 @@ class DatabaseHelper {
     }
   }
 
-  /// Garante que todos os supermercados padrão de Niterói, São Gonçalo, Itaboraí e Rio de Janeiro estejam registrados no SQLite
+  /// Garante que os supermercados padrão estejam sincronizados e calibrados no SQLite sem gargalo de inicialização
   Future<void> ensureDefaultSupermarkets() async {
     final db = await database;
     try {
-      for (final s in DefaultSupermarketsData.all) {
-        final existing = await db.query(
-          'supermarkets',
-          where: 'LOWER(name) = ?',
-          whereArgs: [s.name.toLowerCase().trim()],
-        );
-        if (existing.isEmpty) {
-          await saveSupermarket(
-            name: s.name,
-            latitude: s.latitude,
-            longitude: s.longitude,
-            radiusMeters: s.radiusMeters,
-            icon: s.icon,
-            colorHex: s.colorHex,
-          );
-        } else {
-          final row = existing.first;
-          // Atualiza SEMPRE as coordenadas e raio para calibrar as localizações físicas reais
-          await db.update(
-            'supermarkets',
-            {
-              'latitude': s.latitude,
-              'longitude': s.longitude,
-              'radius_meters': s.radiusMeters,
-              'color_hex': s.colorHex,
-              'icon': s.icon,
-            },
-            where: 'id = ?',
-            whereArgs: [row['id']],
-          );
+      final existingRows = await db.query('supermarkets', columns: ['id', 'name']);
+      final Map<String, int> existingByName = {};
+      for (final row in existingRows) {
+        final n = (row['name'] as String? ?? '').trim().toLowerCase();
+        final id = row['id'] as int?;
+        if (n.isNotEmpty && id != null) {
+          existingByName[n] = id;
         }
-
-        // Atualiza também o cache de preços comunitários para alinhar os pinos antigos
-        await db.update(
-          'community_prices_cache',
-          {
-            'latitude': s.latitude,
-            'longitude': s.longitude,
-          },
-          where: 'LOWER(supermarket_name) = ?',
-          whereArgs: [s.name.toLowerCase().trim()],
-        );
       }
 
-      // Unifica qualquer supermercado legado 'Supermercados Guanabara' para 'Supermercados Guanabara - Niterói'
-      await db.rawUpdate('''
-        UPDATE community_prices_cache
-        SET supermarket_name = 'Supermercados Guanabara - Niterói'
-        WHERE LOWER(supermarket_name) = 'supermercados guanabara'
-      ''');
-      await db.rawDelete('''
-        DELETE FROM supermarkets
-        WHERE LOWER(name) = 'supermercados guanabara'
-      ''');
+      final cachedMarketsRows = await db.rawQuery(
+        'SELECT DISTINCT LOWER(supermarket_name) AS sname FROM community_prices_cache WHERE supermarket_name IS NOT NULL',
+      );
+      final Set<String> activeCachedMarketNames = {
+        for (final r in cachedMarketsRows)
+          if (r['sname'] is String) (r['sname'] as String).trim(),
+      };
 
-      debugPrint('📍 ${DefaultSupermarketsData.all.length} supermercados pré-cadastrados (Niterói, São Gonçalo, Maricá, Itaboraí e Rio) assegurados e calibrados no SQLite');
+      final nowIso = DateTime.now().toIso8601String();
+      const allCatalog = DefaultSupermarketsData.all;
+      final int coreLimit = allCatalog.length < 160 ? allCatalog.length : 160;
+
+      await db.transaction((txn) async {
+        final batch = txn.batch();
+
+        for (int i = 0; i < allCatalog.length; i++) {
+          final s = allCatalog[i];
+          final key = s.name.trim().toLowerCase();
+          final existingId = existingByName[key];
+
+          if (existingId != null) {
+            batch.update(
+              'supermarkets',
+              {
+                'latitude': s.latitude,
+                'longitude': s.longitude,
+                'radius_meters': s.radiusMeters,
+                'color_hex': s.colorHex,
+                'icon': s.icon,
+              },
+              where: 'id = ?',
+              whereArgs: [existingId],
+            );
+          } else if (i < coreLimit) {
+            batch.insert(
+              'supermarkets',
+              {
+                'name': s.name.trim(),
+                'latitude': s.latitude,
+                'longitude': s.longitude,
+                'radius_meters': s.radiusMeters,
+                'icon': s.icon,
+                'color_hex': s.colorHex,
+                'created_at': nowIso,
+              },
+              conflictAlgorithm: ConflictAlgorithm.replace,
+            );
+          }
+
+          if (activeCachedMarketNames.contains(key)) {
+            batch.update(
+              'community_prices_cache',
+              {
+                'latitude': s.latitude,
+                'longitude': s.longitude,
+              },
+              where: 'LOWER(supermarket_name) = ?',
+              whereArgs: [key],
+            );
+          }
+        }
+
+        // Unifica qualquer supermercado legado 'Supermercados Guanabara' para 'Supermercados Guanabara - Niterói'
+        batch.rawUpdate('''
+          UPDATE community_prices_cache
+          SET supermarket_name = 'Supermercados Guanabara - Niterói'
+          WHERE LOWER(supermarket_name) = 'supermercados guanabara'
+        ''');
+        batch.rawDelete('''
+          DELETE FROM supermarkets
+          WHERE LOWER(name) = 'supermercados guanabara'
+        ''');
+
+        await batch.commit(noResult: true);
+      });
+
+      debugPrint('📍 Catálogo de ${DefaultSupermarketsData.all.length} supermercados MWM ativo ($coreLimit base no SQLite)');
     } catch (e) {
       debugPrint('Erro ao assegurar mercados padrão: $e');
     }

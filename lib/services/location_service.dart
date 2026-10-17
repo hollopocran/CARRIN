@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
+import 'default_supermarkets.dart';
 import 'google_places_service.dart';
 
 class LocationService {
@@ -119,8 +120,9 @@ class LocationService {
 
   /// Comprehensive nearby supermarket detection:
   /// 1. Saved markets registered by the user (highest priority, custom radius)
-  /// 2. Google Places API (if API key is configured in GooglePlacesService)
-  /// 3. OpenStreetMap reverse geocode fallback
+  /// 2. Official MWM preloaded supermarkets catalog (3,484+ stores across RJ, ES, SP)
+  /// 3. Google Places API (if API key is configured in GooglePlacesService)
+  /// 4. OpenStreetMap reverse geocode fallback
   Future<Map<String, dynamic>?> identifyNearbySupermarket(
     Position position,
     List<Map<String, dynamic>> savedMarkets,
@@ -131,6 +133,29 @@ class LocationService {
       if (savedMatch != null) {
         return savedMatch;
       }
+    }
+
+    // 1.5. Catálogo estático MWM em memória (instantâneo e offline)
+    final mwmMatch = DefaultSupermarketsData.findNearestWithinRadius(
+      position.latitude,
+      position.longitude,
+    );
+    if (mwmMatch != null) {
+      final dist = calculateDistance(
+        position.latitude,
+        position.longitude,
+        mwmMatch.latitude,
+        mwmMatch.longitude,
+      );
+      return {
+        'name': mwmMatch.name,
+        'latitude': mwmMatch.latitude,
+        'longitude': mwmMatch.longitude,
+        'radius_meters': mwmMatch.radiusMeters,
+        'current_distance_meters': dist,
+        'formatted_distance': formatDistance(dist),
+        'source': 'mwm_catalog',
+      };
     }
 
     // 2. Google Places API (se chave configurada)

@@ -1,6 +1,6 @@
 # CARRIN — Sua lista, sem complicação. 🛒
 
-> **Versão:** `1.3.545` (Build `545`) — Outubro de 2026  
+> **Versão:** `1.3.550` (Build `550`) — Outubro de 2026  
 > **Status:** Produção Estável  
 > **Framework:** Flutter 3.x / Dart 3.x  
 
@@ -13,23 +13,24 @@ O **CARRIN** é um ecossistema mobile inteligente em Flutter para gestão financ
 * 📱 **Privacidade Total com Google Sheets:** Sincronização direta com a planilha pessoal do seu Google Drive via OAuth 2.0 ([`UserSheetsService`](file:///C:/Dev/CARRIN/lib/services/user_sheets_service.dart)). Seus dados nunca passam por servidores de terceiros.
 * ⚡ **Arquitetura Offline-First (SQLite):** Todas as operações funcionam instantaneamente mesmo sem sinal no supermercado, com fila resiliente de sincronização em segundo plano.
 * 📡 **Radar de Preços Comunitário (Supabase):** 
-  - Feed colaborativo em tempo real com distância calculada via GPS.
-  - **Comparador Inteligente:** Filtro horizontal de supermercados (`Todos os Mercados`, `Supermercados Guanabara`), cartões consolidados por loja (sem repetição de datas/cards), cálculo de economia percentual (%) e seleção sob demanda por toque.
-  - Ranking de supermercados mais econômicos da região.
-* 🗺️ **Mapa Geográfico Interativo (OpenStreetMap):** 
-  - Renderização fluida com `flutter_map` e `latlong2` nos modos Claro (OSM Standard) e Escuro (CartoDB Dark Matter).
-  - Pinos dos **154 supermercados geolocalizados** com endereços físicos reais em Niterói, São Gonçalo, Maricá, Itaboraí e Rio de Janeiro.
+  - Carregamento instantâneo via cache SQLite com sincronização assíncrona em background.
+  - **Comparador Inteligente:** Filtro horizontal de supermercados, cartões consolidados por loja, cálculo de economia percentual (%) e seleção sob demanda por toque.
+  - **Mercados:** Pesquisa instantânea pelo nome/bairro e filtro por redes de supermercado (`Guanabara`, `Supermarket`, `Rede Economia`, `Assaí`, `Mundial`, `Real`, `Atacadão`, `Grand Marché`, `Prezunic`, `Princesa`, `Extra`, `Dia`, `Hortifruti`, `Extrabom`, etc.).
+* 🗺️ **Mapa Geográfico Interativo (Estilo Google Maps + Base Maps.me `.mwm`):** 
+  - **Seletor de Tipo de Mapa (Estilo Google Maps):** Escolha entre **Padrão Google (Desenhado)**, **Satélite + Ruas**, **Relevo**, **Mapa Limpo**, **OpenStreetMap** e **Modo Noturno**, com controle para exibir/ocultar pinos e modo de **Escolher Ponto ou Mercado Tocando no Mapa** sem nenhum conflito visual.
+  - Renderização ultrarrápida a 60 FPS com pinos leves (`RepaintBoundary`) para **3.484 supermercados e atacadistas geolocalizados** extraídos diretamente dos mapas `.mwm` (Rio de Janeiro, Niterói, São Gonçalo, Maricá, Itaboraí, Região dos Lagos/Serrana/Baixada, Espírito Santo e São Paulo).
+  - Exibição limpa somente com pinos: o nome e preço do mercado aparecem sob demanda ao tocar no pino, mantendo o mapa fluido e sem poluição visual.
+  - Barra de pesquisa integrada no topo do mapa com autocompletar instantâneo + chips horizontais de filtro por redes de supermercados.
   - Destaque supremo do supermercado mais barato da região com uma **Coroa de Ouro (`👑`)**.
-  - Barra de busca instantânea por loja ou bairro (ex: *"Tribobó"*, *"Inoã"*, *"Guanabara"*).
-  - Carrossel horizontal deslizante sincronizado com o mapa.
   - Traçado de rotas externas direto no **Google Maps** ou **Waze** com 1 toque.
 * 📍 **Geofencing & Unificação Canônica:** Reconhecimento automático ao chegar ao supermercado, calibrado e unificado para o *Supermercados Guanabara Niterói*.
 * 🧾 **Scanner Duplo Inteligente:**
-  - **Código de Barras Zero-Fricção (EAN-13 / EAN-8):** Identificação em camadas via histórico local SQLite e API aberta do **Open Food Facts Brasil** ([`BarcodeLookupService`](file:///C:/Dev/CARRIN/lib/services/barcode_lookup_service.dart)), preenchendo automaticamente nome oficial, marca, categoria sugerida e abrindo direto o formulário de item sem popups intermediários.
+  - **Código de Barras Zero-Fricção (EAN-13 / EAN-8):** Abre instantaneamente (0ms) o menu de edição de produto sem nenhum popup intermediário de confirmação, buscando e preenchendo automaticamente nome oficial, marca, categoria sugerida e último preço via histórico local e API aberta do **Open Food Facts / Open Beauty Facts / Open Products Facts** ([`BarcodeLookupService`](file:///C:/Dev/CARRIN/lib/services/barcode_lookup_service.dart)).
   - **Cupom Fiscal / NFC-e (SEFAZ QR Code):** Leitura de notas fiscais com extração automatizada de itens, quantidades fracionárias e valores.
 * ⚖️ **Calculadora de Peso (Kg):** Calcula a quantidade comprada automaticamente ao digitar o preço por quilo e o valor total na balança.
 * 🧮 **Calculadora Flutuante & Rateio:** Assistente de cálculo rápido em cima da lista e divisão de conta por pessoa com 1 toque.
 * 📊 **Análises & Perfil de Comprador:** Gráficos interativos (`fl_chart`) e algoritmo que traça seu perfil de consumo (Econômico, Gourmet, Planejador, etc.).
+* 🎓 **Cards de Demonstração e Tutoriais Interativos por Aba (`InteractiveTabTutorial`):** Na primeira visita a cada aba/tela (e nos estados vazios de *Meus Carrinhos* e *Estatísticas*), o usuário conta com simuladores interativos passo a passo ([`InteractiveSectionTutorialCard`](file:///C:/Dev/CARRIN/lib/widgets/interactive_tab_tutorial.dart)) e acesso rápido pelo botão `?` no topo de todas as telas.
 * 🎨 **Personalização & Acessibilidade:** Temas Claro, Escuro e Pastel, seletor de ícone do app, modos para daltônicos (Protanopia, Deuteranopia, Tritanopia) e controle dinâmico da escala de fonte.
 * 📄 **Exportação em PDF:** Gere relatórios profissionais das compras para impressão ou compartilhamento direto no WhatsApp.
 

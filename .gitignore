@@ -74,5 +74,10 @@ analyze.txt
 WhatsApp*.jpeg
 MapsWithMe.zip
 MapsWithMe/
+*.mwm
+*.kmb
+bm.order
+2026-10-*
+
 
 

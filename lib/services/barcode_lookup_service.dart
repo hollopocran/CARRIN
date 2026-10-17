@@ -30,12 +30,38 @@ class ScannedProductInfo {
 }
 
 /// Serviço inteligente para identificar produtos a partir do código de barras
-/// Consultando histórico local do usuário e a base aberta Open Food Facts Brasil
+/// Consultando histórico local do usuário e bases abertas (Open Food Facts, Open Beauty Facts, Open Products Facts)
 class BarcodeLookupService {
   BarcodeLookupService._privateConstructor();
   static final BarcodeLookupService instance = BarcodeLookupService._privateConstructor();
 
   final Map<String, ScannedProductInfo> _cache = {};
+
+  /// Retorna imediatamente se o código de barras já estiver em cache ou no histórico local
+  ScannedProductInfo? getCachedOrLocal(String barcode, {ItemProvider? itemProvider}) {
+    final cleanBarcode = Item.parseBarcode(barcode);
+    if (cleanBarcode == null || cleanBarcode.isEmpty) return null;
+
+    if (itemProvider != null) {
+      final local = itemProvider.findProductByBarcode(cleanBarcode);
+      if (local != null) {
+        final name = (local['name'] as String? ?? '').trim();
+        if (name.isNotEmpty) {
+          final info = ScannedProductInfo(
+            barcode: cleanBarcode,
+            name: name,
+            category: (local['category'] as String?) ?? ItemProvider.suggestCategoryForName(name),
+            lastPrice: (local['price'] as num?)?.toDouble(),
+            source: 'local',
+          );
+          _cache[cleanBarcode] = info;
+          return info;
+        }
+      }
+    }
+
+    return _cache[cleanBarcode];
+  }
 
   /// Formata strings em Title Case (primeira letra de cada palavra maiúscula)
   String _toTitleCase(String text) {
@@ -81,58 +107,39 @@ class BarcodeLookupService {
     return cleanName.trim();
   }
 
-  /// Busca informações detalhadas de um produto pelo código de barras
-  Future<ScannedProductInfo?> lookup(
-    String barcode, {
+  Future<ScannedProductInfo?> _queryOpenFactsHost(
+    String host,
+    String cleanBarcode, {
     ItemProvider? itemProvider,
   }) async {
-    final cleanBarcode = Item.parseBarcode(barcode);
-    if (cleanBarcode == null || cleanBarcode.isEmpty) return null;
-
-    // 1. Tenta identificar no histórico local do próprio usuário (mais relevante e com preço real)
-    if (itemProvider != null) {
-      final local = itemProvider.findProductByBarcode(cleanBarcode);
-      if (local != null) {
-        final name = (local['name'] as String? ?? '').trim();
-        if (name.isNotEmpty) {
-          final info = ScannedProductInfo(
-            barcode: cleanBarcode,
-            name: name,
-            category: (local['category'] as String?) ?? ItemProvider.suggestCategoryForName(name),
-            lastPrice: (local['price'] as num?)?.toDouble(),
-            source: 'local',
-          );
-          _cache[cleanBarcode] = info;
-          return info;
-        }
-      }
-    }
-
-    // 2. Verifica se já está em cache em memória
-    if (_cache.containsKey(cleanBarcode)) {
-      return _cache[cleanBarcode];
-    }
-
-    // 3. Consulta a API global/nacional do Open Food Facts
     try {
       final endpoint = Uri.parse(
-        'https://world.openfoodfacts.org/api/v2/product/$cleanBarcode.json?fields=product_name,product_name_pt,brands,categories,quantity,image_url',
+        'https://$host/api/v2/product/$cleanBarcode.json?fields=product_name,product_name_pt,generic_name_pt,generic_name,abbreviated_product_name,brands,categories,quantity,image_url',
       );
 
       final response = await http.get(
         endpoint,
         headers: {
-          'User-Agent': 'CarrinApp/1.0 (Android; pt-BR; https://github.com/hollopocran/CARRIN)',
+          'User-Agent': 'CarrinApp/1.3 (Android; pt-BR; https://github.com/hollopocran/CARRIN)',
         },
-      ).timeout(const Duration(seconds: 4));
+      ).timeout(const Duration(milliseconds: 3200));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['status'] == 1 && data['product'] != null) {
           final p = data['product'] as Map<String, dynamic>;
-          final rawName = (p['product_name_pt'] as String?) ??
-              (p['product_name'] as String?) ??
-              (p['brands'] as String?);
+          final candidates = [
+            p['product_name_pt'] as String?,
+            p['product_name'] as String?,
+            p['abbreviated_product_name'] as String?,
+            p['generic_name_pt'] as String?,
+            p['generic_name'] as String?,
+            p['brands'] as String?,
+          ];
+          final rawName = candidates.firstWhere(
+            (c) => c != null && c.trim().isNotEmpty,
+            orElse: () => null,
+          );
 
           if (rawName != null && rawName.trim().isNotEmpty) {
             final brand = p['brands'] as String?;
@@ -142,24 +149,63 @@ class BarcodeLookupService {
             final formattedName = _formatProductName(rawName, brand, quantity);
             final suggestedCategory = ItemProvider.suggestCategoryForName(formattedName);
 
-            final info = ScannedProductInfo(
+            double? foundPrice;
+            if (itemProvider != null) {
+              final hist = itemProvider.getPriceHistorySync(formattedName, barcode: cleanBarcode);
+              if (hist.isNotEmpty) {
+                foundPrice = (hist.last['price'] as num?)?.toDouble();
+              }
+            }
+
+            return ScannedProductInfo(
               barcode: cleanBarcode,
               name: formattedName,
               brand: brand != null ? _toTitleCase(brand.split(',')[0].trim()) : null,
               category: suggestedCategory,
               quantity: quantity?.trim(),
               imageUrl: imageUrl,
+              lastPrice: foundPrice,
               source: 'online',
             );
-
-            _cache[cleanBarcode] = info;
-            debugPrint('🔍 BarcodeLookup: Produto identificado online -> $formattedName ($suggestedCategory)');
-            return info;
           }
         }
       }
-    } catch (e) {
-      debugPrint('⚠️ BarcodeLookup: Erro na busca online do barcode $cleanBarcode: $e');
+    } catch (_) {}
+    return null;
+  }
+
+  /// Busca informações detalhadas de um produto pelo código de barras
+  Future<ScannedProductInfo?> lookup(
+    String barcode, {
+    ItemProvider? itemProvider,
+  }) async {
+    final cleanBarcode = Item.parseBarcode(barcode);
+    if (cleanBarcode == null || cleanBarcode.isEmpty) return null;
+
+    // 1. Verifica cache em memória ou histórico local
+    final cached = getCachedOrLocal(cleanBarcode, itemProvider: itemProvider);
+    if (cached != null) return cached;
+
+    // 2. Consulta primária no Open Food Facts (alimentos, bebidas, mercearia)
+    var info = await _queryOpenFactsHost(
+      'world.openfoodfacts.org',
+      cleanBarcode,
+      itemProvider: itemProvider,
+    );
+
+    // 3. Fallback rápido para Open Beauty Facts (higiene/perfumaria) e Open Products Facts (limpeza/bazar)
+    if (info == null) {
+      final results = await Future.wait([
+        _queryOpenFactsHost('world.openbeautyfacts.org', cleanBarcode, itemProvider: itemProvider),
+        _queryOpenFactsHost('world.openproductsfacts.org', cleanBarcode, itemProvider: itemProvider),
+      ]);
+      info = results.firstWhere((r) => r != null, orElse: () => null);
+    }
+
+    if (info != null) {
+      _cache[cleanBarcode] = info;
+      debugPrint('🔍 BarcodeLookup: Produto identificado online -> ${info.name} (${info.category})');
+      return info;
     }
 
     return null;

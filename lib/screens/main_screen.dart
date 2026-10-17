@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dashboard_screen.dart';
@@ -7,6 +8,7 @@ import 'community_radar_screen.dart';
 import 'settings_screen.dart';
 import '../services/notification_service.dart';
 import '../providers/item_provider.dart';
+import '../widgets/interactive_tab_tutorial.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -18,6 +20,38 @@ class MainScreen extends StatefulWidget {
 class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int _currentIndex = 0;
   late PageController _pageController;
+  Timer? _tutorialSettleTimer;
+  int? _programmaticTargetIndex;
+
+  TutorialSection _sectionForTab(int index) {
+    switch (index) {
+      case 0:
+        return TutorialSection.dashboard;
+      case 1:
+        return TutorialSection.carts;
+      case 2:
+        return TutorialSection.statistics;
+      case 3:
+        return TutorialSection.community;
+      case 4:
+      default:
+        return TutorialSection.settings;
+    }
+  }
+
+  void _scheduleTabTutorial(int index, {Duration delay = const Duration(milliseconds: 240)}) {
+    _tutorialSettleTimer?.cancel();
+    _tutorialSettleTimer = Timer(delay, () {
+      if (!mounted || _currentIndex != index) return;
+      if (_programmaticTargetIndex != null && _programmaticTargetIndex != index) return;
+      final itemProvider = Provider.of<ItemProvider>(context, listen: false);
+      InteractiveTabTutorial.checkAndShowIfFirstTime(
+        context,
+        _sectionForTab(index),
+        userEmail: itemProvider.activeUserEmail,
+      );
+    });
+  }
 
   @override
   void initState() {
@@ -25,10 +59,13 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _pageController = PageController(initialPage: _currentIndex);
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final itemProvider = Provider.of<ItemProvider>(context, listen: false);
       // Detecção silenciosa e invisível em segundo plano logo na inicialização
-      Provider.of<ItemProvider>(context, listen: false).detectNearbySupermarket(
+      itemProvider.detectNearbySupermarket(
         notify: false,
       );
+      _scheduleTabTutorial(_currentIndex, delay: const Duration(milliseconds: 220));
     });
   }
 
@@ -44,6 +81,7 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _tutorialSettleTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _pageController.dispose();
     super.dispose();
@@ -56,18 +94,29 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   void _onPageChanged(int index) {
-    Provider.of<ItemProvider>(context, listen: false).setInteractingWithChart(false);
+    final itemProvider = Provider.of<ItemProvider>(context, listen: false);
+    itemProvider.setInteractingWithChart(false);
     setState(() {
       _currentIndex = index;
     });
+    if (_programmaticTargetIndex != null && _programmaticTargetIndex != index) {
+      return;
+    }
+    _scheduleTabTutorial(index, delay: const Duration(milliseconds: 240));
   }
 
-  void _onItemTapped(int index) {
-    _pageController.animateToPage(
+  Future<void> _onItemTapped(int index) async {
+    if (index == _currentIndex) return;
+    _tutorialSettleTimer?.cancel();
+    _programmaticTargetIndex = index;
+    await _pageController.animateToPage(
       index,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOutCubic,
     );
+    if (!mounted) return;
+    _programmaticTargetIndex = null;
+    _scheduleTabTutorial(index, delay: const Duration(milliseconds: 80));
   }
 
   @override

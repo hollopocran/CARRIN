@@ -22,6 +22,7 @@ import '../widgets/pdf_export_dialog.dart';
 import '../widgets/assistive_calculator_button.dart';
 import '../widgets/market_lock_overlay.dart';
 import '../widgets/market_and_purpose_widgets.dart';
+import '../widgets/interactive_tab_tutorial.dart';
 
 import 'barcode_scanner_screen.dart';
 import 'receipt_scanner_screen.dart';
@@ -64,10 +65,16 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       final provider = Provider.of<ItemProvider>(context, listen: false);
       if (provider.items.isEmpty) {
         provider.loadItems();
       }
+      InteractiveTabTutorial.checkAndShowIfFirstTime(
+        context,
+        TutorialSection.shoppingList,
+        userEmail: provider.activeUserEmail,
+      );
     });
   }
 
@@ -454,6 +461,15 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                             actions: [
                               const SyncIndicator(),
                               IconButton(
+                                icon: const Icon(Icons.help_outline_rounded),
+                                tooltip: 'Tutorial Interativo da Lista',
+                                onPressed: () => InteractiveTabTutorial.show(
+                                  context,
+                                  TutorialSection.shoppingList,
+                                  userEmail: itemProvider.activeUserEmail,
+                                ),
+                              ),
+                              IconButton(
                                 icon: const Icon(Icons.search),
                                 onPressed: showLoader ? null : () {
                                   showSearch(
@@ -510,7 +526,13 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                                 icon: const Icon(Icons.more_vert),
                                 tooltip: 'Mais opções',
                                 onSelected: (value) async {
-                                  if (value == 'receipt') {
+                                  if (value == 'tutorial') {
+                                    InteractiveTabTutorial.show(
+                                      context,
+                                      TutorialSection.shoppingList,
+                                      userEmail: itemProvider.activeUserEmail,
+                                    );
+                                  } else if (value == 'receipt') {
                                     if (context.mounted) {
                                       Navigator.push(context, MaterialPageRoute(builder: (_) => const ReceiptScannerScreen()));
                                     }
@@ -539,6 +561,15 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                                   }
                                 },
                                 itemBuilder: (context) => [
+                                  const PopupMenuItem(
+                                    value: 'tutorial',
+                                    child: ListTile(
+                                      leading: Icon(Icons.help_outline_rounded, color: Colors.indigoAccent),
+                                      title: Text('Tutorial Interativo da Lista'),
+                                      dense: true,
+                                      contentPadding: EdgeInsets.zero,
+                                    ),
+                                  ),
                                   const PopupMenuItem(
                                     value: 'purpose_caps',
                                     child: ListTile(
@@ -841,7 +872,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                 heroTag: 'scan_fab_wavy',
                 onPressed: showLoader || itemProvider.isCurrentMonthFinalized ? null : () async {
                   if (itemProvider.priceHistoryCache.isEmpty) {
-                    await itemProvider.loadFullPriceHistory();
+                    itemProvider.loadFullPriceHistory();
                   }
                   if (!context.mounted) return;
                   final result = await Navigator.push<String>(context, MaterialPageRoute(builder: (_) => const BarcodeScannerScreen()));
@@ -859,30 +890,20 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                       }
                     }
 
-                    // 2. Busca informações do produto (local ou online via Open Food Facts)
-                    ScannedProductInfo? productInfo;
-                    final localInfo = itemProvider.findProductByBarcode(cleanBarcode);
-                    if (localInfo != null) {
-                      productInfo = ScannedProductInfo(
-                        barcode: cleanBarcode,
-                        name: localInfo['name'] as String,
-                        category: (localInfo['category'] as String?) ?? 'Mercearia',
-                        lastPrice: (localInfo['price'] as num?)?.toDouble(),
-                        source: 'local',
-                      );
-                    } else {
-                      productInfo = await BarcodeLookupService.instance.lookup(cleanBarcode, itemProvider: itemProvider);
-                    }
+                    // 2. Verifica cache síncrono (local ou API já em memória) sem bloquear
+                    final cachedInfo = BarcodeLookupService.instance.getCachedOrLocal(
+                      cleanBarcode,
+                      itemProvider: itemProvider,
+                    );
 
-                    if (matchedItem == null && productInfo != null) {
-                      final prodNormalized = Utils.normalize(productInfo.name);
+                    if (matchedItem == null && cachedInfo != null) {
+                      final prodNormalized = Utils.normalize(cachedInfo.name);
                       for (var it in itemProvider.items) {
                         if (Utils.normalize(it.name) == prodNormalized) {
                           matchedItem = it;
-                          // Já vincula o barcode ao item que estava sem barcode na lista atual!
                           if (it.barcode == null || it.barcode!.trim().isEmpty) {
                             final updatedWithBarcode = it.copyWith(barcode: cleanBarcode);
-                            await itemProvider.updateItem(updatedWithBarcode);
+                            itemProvider.updateItem(updatedWithBarcode);
                             matchedItem = updatedWithBarcode;
                           }
                           break;
@@ -893,18 +914,23 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                     if (!context.mounted) return;
 
                     if (matchedItem != null) {
-                      // Item já existe na lista! Abre diretamente para editar/marcar comprado
-                      _showEditDialog(context, matchedItem);
-                    } else {
-                      // Produto não está na lista: vai direto para a tela de edição com dados já preenchidos!
-                      final lastPrice = productInfo?.lastPrice;
+                      // Item já existe na lista: abre diretamente no menu de edição
                       _showEditDialog(
-                        context, 
-                        null, 
+                        context,
+                        matchedItem,
                         scannedBarcode: cleanBarcode,
-                        prefilledName: productInfo?.name,
-                        prefilledCategory: productInfo?.category,
+                      );
+                    } else {
+                      // Vai direto para o menu de edição de produto (se ainda não estiver no cache local, busca na API em tempo real dentro do modal!)
+                      final lastPrice = cachedInfo?.lastPrice;
+                      _showEditDialog(
+                        context,
+                        null,
+                        scannedBarcode: cleanBarcode,
+                        prefilledName: cachedInfo?.name,
+                        prefilledCategory: cachedInfo?.category,
                         prefilledPrice: (lastPrice != null && lastPrice > 0) ? lastPrice : null,
+                        lookupOnlineOnOpen: cachedInfo == null,
                       );
                     }
                   }
@@ -1571,33 +1597,35 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
     String? prefilledName, 
     String? prefilledCategory,
     double? prefilledPrice,
+    bool lookupOnlineOnOpen = false,
   }) {
     final provider = Provider.of<ItemProvider>(context, listen: false);
     provider.loadFullPriceHistory();
 
+    Item? activeItem = item;
     final cleanScannedBarcode = Item.parseBarcode(scannedBarcode);
     final productFromBc = cleanScannedBarcode != null ? provider.findProductByBarcode(cleanScannedBarcode) : null;
     
-    final initialName = item?.name ?? prefilledName ?? (productFromBc != null ? productFromBc['name'] as String : '');
-    final initialPrice = (item != null && item.unitPrice != 0) 
-        ? Utils.formatNumber(item.unitPrice) 
+    final initialName = activeItem?.name ?? prefilledName ?? (productFromBc != null ? productFromBc['name'] as String : '');
+    final initialPrice = (activeItem != null && activeItem.unitPrice != 0) 
+        ? Utils.formatNumber(activeItem.unitPrice) 
         : (prefilledPrice != null && prefilledPrice > 0)
             ? Utils.formatNumber(prefilledPrice)
             : (productFromBc != null && (productFromBc['price'] as num) > 0 ? Utils.formatNumber((productFromBc['price'] as num).toDouble()) : '');
     final nameController = TextEditingController(text: initialName);
     final priceController = TextEditingController(text: initialPrice);
-    final qtyController = TextEditingController(text: item != null ? ((item.quantity != 0) ? Utils.formatNumber(item.quantity) : '') : '1');
-    bool isKg = item?.isKg ?? (productFromBc?['isKg'] ?? false);
-    String category = item?.category ?? prefilledCategory ?? (productFromBc?['category'] ?? (initialName.isNotEmpty ? ItemProvider.suggestCategoryForName(initialName) : 'Mercearia'));
+    final qtyController = TextEditingController(text: activeItem != null ? ((activeItem.quantity != 0) ? Utils.formatNumber(activeItem.quantity) : '') : '1');
+    bool isKg = activeItem?.isKg ?? (productFromBc?['isKg'] ?? false);
+    String category = activeItem?.category ?? prefilledCategory ?? (productFromBc?['category'] ?? (initialName.isNotEmpty ? ItemProvider.suggestCategoryForName(initialName) : 'Mercearia'));
     
-    String? currentBarcode = (item != null && item.barcode != null && item.barcode!.trim().isNotEmpty)
-        ? Item.parseBarcode(item.barcode)
+    String? currentBarcode = (activeItem != null && activeItem.barcode != null && activeItem.barcode!.trim().isNotEmpty)
+        ? Item.parseBarcode(activeItem.barcode)
         : cleanScannedBarcode;
-    if ((currentBarcode == null || currentBarcode.isEmpty) && item != null) {
-      currentBarcode = provider.findBarcodeForProductName(item.name);
+    if ((currentBarcode == null || currentBarcode.isEmpty) && activeItem != null) {
+      currentBarcode = provider.findBarcodeForProductName(activeItem.name);
     }
     final barcodeController = TextEditingController(text: currentBarcode ?? '');
-    final initialSupermarket = item?.supermarket ?? provider.selectedSupermarketFilter ?? provider.detectedSupermarket?['name'] ?? '';
+    final initialSupermarket = activeItem?.supermarket ?? provider.selectedSupermarketFilter ?? provider.detectedSupermarket?['name'] ?? '';
     final supermarketController = TextEditingController(text: initialSupermarket);
 
     // Garante que o cursor comece colapsado no final do texto para evitar seleção de bloco ao tocar
@@ -1612,370 +1640,476 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
     final priceFocusNode = FocusNode();
     final qtyFocusNode = FocusNode();
 
+    bool isLookingUpBarcode = lookupOnlineOnOpen && cleanScannedBarcode != null && initialName.isEmpty;
+    bool onlineLookupStarted = false;
+    bool filledFromBarcode = initialName.isNotEmpty && cleanScannedBarcode != null;
+
     _showAnimatedDialog(
       context,
       StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-          title: Text(item == null ? 'Novo Item' : 'Editar Item', style: const TextStyle(fontWeight: FontWeight.bold)),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (prefilledName != null && prefilledName.isNotEmpty) ...[
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: Colors.teal.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.qr_code_scanner_rounded, size: 15, color: Colors.teal),
-                        SizedBox(width: 6),
-                        Text(
-                          'Preenchido via código de barras',
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.teal),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-                TextField(
-                  controller: nameController, 
-                  focusNode: nameFocusNode,
-                  textInputAction: TextInputAction.next,
-                  onSubmitted: (_) => barcodeFocusNode.requestFocus(),
-                  autofocus: item == null && scannedBarcode == null, 
-                  onChanged: (val) => setState(() {
-                    category = ItemProvider.suggestCategoryForName(val);
-                    if (barcodeController.text.isEmpty) {
-                      final foundBc = provider.findBarcodeForProductName(val);
-                      if (foundBc != null && foundBc.isNotEmpty) {
-                        currentBarcode = foundBc;
-                        barcodeController.text = foundBc;
-                        barcodeController.selection = TextSelection.collapsed(offset: foundBc.length);
+        builder: (dialogContext, setState) {
+          if (isLookingUpBarcode && !onlineLookupStarted && cleanScannedBarcode != null) {
+            onlineLookupStarted = true;
+            BarcodeLookupService.instance
+                .lookup(cleanScannedBarcode, itemProvider: provider)
+                .then((onlineInfo) {
+              if (!dialogContext.mounted) return;
+              setState(() {
+                isLookingUpBarcode = false;
+                if (onlineInfo != null) {
+                  filledFromBarcode = true;
+                  if (nameController.text.trim().isEmpty) {
+                    nameController.text = onlineInfo.name;
+                    nameController.selection = TextSelection.collapsed(offset: onlineInfo.name.length);
+                  }
+                  category = onlineInfo.category;
+                  if (priceController.text.trim().isEmpty &&
+                      onlineInfo.lastPrice != null &&
+                      onlineInfo.lastPrice! > 0) {
+                    final formatted = Utils.formatNumber(onlineInfo.lastPrice!);
+                    priceController.text = formatted;
+                    priceController.selection = TextSelection.collapsed(offset: formatted.length);
+                  }
+                  if (activeItem == null) {
+                    final normName = Utils.normalize(onlineInfo.name);
+                    for (final it in provider.items) {
+                      if (Utils.normalize(it.name) == normName) {
+                        activeItem = it;
+                        if (priceController.text.trim().isEmpty && it.unitPrice > 0) {
+                          final formatted = Utils.formatNumber(it.unitPrice);
+                          priceController.text = formatted;
+                          priceController.selection = TextSelection.collapsed(offset: formatted.length);
+                        }
+                        if (it.quantity > 0) {
+                          final formattedQty = Utils.formatNumber(it.quantity);
+                          qtyController.text = formattedQty;
+                          qtyController.selection = TextSelection.collapsed(offset: formattedQty.length);
+                        }
+                        isKg = it.isKg;
+                        break;
                       }
                     }
-                  }),
-                  style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black),
-                  decoration: const InputDecoration(labelText: 'Nome do Produto', floatingLabelBehavior: FloatingLabelBehavior.always, border: UnderlineInputBorder())
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: supermarketController,
-                  textInputAction: TextInputAction.next,
-                  style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black),
-                  decoration: InputDecoration(
-                    labelText: 'Supermercado / Loja (Opcional)',
-                    hintText: 'Ex: Supermercados Guanabara, Açougue...',
-                    floatingLabelBehavior: FloatingLabelBehavior.always,
-                    border: const UnderlineInputBorder(),
-                    prefixIcon: const Icon(Icons.storefront_outlined, size: 20),
-                    suffixIcon: provider.supermarkets.isNotEmpty
-                        ? PopupMenuButton<String>(
-                            icon: const Icon(Icons.arrow_drop_down),
-                            tooltip: 'Escolher mercado salvo',
-                            onSelected: (val) {
-                              setState(() {
-                                supermarketController.text = val;
-                              });
-                            },
-                            itemBuilder: (ctx) => provider.supermarkets.map((m) {
-                              final mName = m['name'] as String;
-                              return PopupMenuItem(
-                                value: mName,
-                                child: Text(mName),
-                              );
-                            }).toList(),
-                          )
-                        : null,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: barcodeController,
-                  focusNode: barcodeFocusNode,
-                  textInputAction: TextInputAction.next,
-                  onSubmitted: (_) => priceFocusNode.requestFocus(),
-                  onChanged: (v) => currentBarcode = v.trim(),
-                  style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black),
-                  decoration: InputDecoration(
-                    labelText: 'Código de Barras',
-                    floatingLabelBehavior: FloatingLabelBehavior.always,
-                    border: const UnderlineInputBorder(),
-                    suffixIcon: IconButton(
-                      icon: Icon(Icons.qr_code_scanner, size: 20, color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFFAEB2FF) : AppThemes.primaryNavy),
-                      onPressed: () async {
-                        final prov = Provider.of<ItemProvider>(context, listen: false);
-                        if (prov.priceHistoryCache.isEmpty) await prov.loadFullPriceHistory();
-                        if (!context.mounted) return;
-                        final result = await Navigator.push<String>(context, MaterialPageRoute(builder: (_) => const BarcodeScannerScreen()));
-                        if (result != null) {
-                           final cleanBc = Item.parseBarcode(result) ?? result.trim();
-                           final product = prov.findProductByBarcode(cleanBc);
-                           ScannedProductInfo? onlineInfo;
-                           if (product == null) {
-                             onlineInfo = await BarcodeLookupService.instance.lookup(cleanBc, itemProvider: prov);
-                           }
-                           setState(() {
-                             currentBarcode = cleanBc;
-                             barcodeController.text = cleanBc;
-                             barcodeController.selection = TextSelection.collapsed(offset: cleanBc.length);
-                             if (product != null) {
-                               final foundName = product['name'] as String;
-                               if (nameController.text.isEmpty && foundName != cleanBc && !RegExp(r'^\d+$').hasMatch(foundName)) {
-                                 nameController.text = foundName;
-                                 nameController.selection = TextSelection.collapsed(offset: foundName.length);
-                               }
-                               priceController.text = Utils.formatNumber(product['price']);
-                               priceController.selection = TextSelection.collapsed(offset: priceController.text.length);
-                               category = product['category'] ?? category;
-                             } else if (onlineInfo != null) {
-                               if (nameController.text.isEmpty) {
-                                 nameController.text = onlineInfo.name;
-                                 nameController.selection = TextSelection.collapsed(offset: onlineInfo.name.length);
-                               }
-                               category = onlineInfo.category;
-                             }
-                           });
-                        }
-                      },
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                const Text('CATEGORIA', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey)),
-                DropdownButton<String>(
-                  value: category, isExpanded: true,
-                  dropdownColor: Theme.of(context).cardColor,
-                  style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black),
-                  underline: Container(height: 1, color: Colors.grey.withValues(alpha: 0.2)),
-                  items: ItemProvider.categories.map((String value) => DropdownMenuItem<String>(value: value, child: Text(value))).toList(),
-                  onChanged: (v) => setState(() => category = v!),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: priceController, 
-                        focusNode: priceFocusNode,
-                        textInputAction: TextInputAction.next,
-                        onSubmitted: (_) => qtyFocusNode.requestFocus(),
-                        style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black), 
-                        decoration: InputDecoration(
-                          labelText: 'Preço Unit.', 
-                          hintText: '0,00', 
-                          prefixText: 'R\$ ', 
-                          prefixStyle: const TextStyle(fontSize: 16), 
-                          floatingLabelBehavior: FloatingLabelBehavior.always,
-                          suffixIcon: IconButton(
-                            icon: const Icon(Icons.calculate_outlined, size: 20),
-                            tooltip: 'Calculadora',
-                            onPressed: () {
-                              FloatingCalculatorPopup.show(context, onUseValue: (val) {
-                                setState(() {
-                                  priceController.text = Utils.formatNumber(val);
-                                  priceController.selection = TextSelection.collapsed(offset: priceController.text.length);
-                                });
-                              });
-                            },
+                  }
+                }
+              });
+            });
+          }
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+            title: Text(activeItem == null ? 'Novo Item' : 'Editar Item', style: const TextStyle(fontWeight: FontWeight.bold)),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (isLookingUpBarcode) ...[
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppThemes.primaryNavy.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            width: 13,
+                            height: 13,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.teal),
                           ),
-                        ), 
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          SizedBox(width: 8),
+                          Text(
+                            'Buscando produto na API...',
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.teal),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: TextField(
-                        controller: qtyController, 
-                        focusNode: qtyFocusNode,
-                        textInputAction: TextInputAction.done,
-                        onSubmitted: (_) => FocusScope.of(context).unfocus(),
-                        style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black), 
-                        decoration: const InputDecoration(labelText: 'Quantidade', floatingLabelBehavior: FloatingLabelBehavior.always), 
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  ] else if (filledFromBarcode) ...[
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: Colors.teal.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.qr_code_scanner_rounded, size: 15, color: Colors.teal),
+                          SizedBox(width: 6),
+                          Text(
+                            'Preenchido via código de barras',
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.teal),
+                          ),
+                        ],
                       ),
                     ),
                   ],
-                ),
-                const SizedBox(height: 16),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text('Vendido por Peso (kg)', style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black)),
-                  value: isKg, 
-                  activeThumbColor: const Color(0xFFAEB2FF),
-                  onChanged: (v) => setState(() => isKg = v)
-                ),
-                if (isKg) ...[
-                  const SizedBox(height: 8),
-                  TextButton.icon(
-                    onPressed: () => _showWeightCalculator(context, priceController, qtyController),
-                    icon: Icon(Icons.calculate_outlined, size: 18, color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFFAEB2FF) : AppThemes.primaryNavy),
-                    label: Text(
-                      'Calcular peso pelo preço total',
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFFAEB2FF) : AppThemes.primaryNavy),
-                    ),
-                    style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                  TextField(
+                    controller: nameController, 
+                    focusNode: nameFocusNode,
+                    textInputAction: TextInputAction.next,
+                    onSubmitted: (_) => barcodeFocusNode.requestFocus(),
+                    autofocus: activeItem == null && scannedBarcode == null, 
+                    onChanged: (val) => setState(() {
+                      category = ItemProvider.suggestCategoryForName(val);
+                      if (barcodeController.text.isEmpty) {
+                        final foundBc = provider.findBarcodeForProductName(val);
+                        if (foundBc != null && foundBc.isNotEmpty) {
+                          currentBarcode = foundBc;
+                          barcodeController.text = foundBc;
+                          barcodeController.selection = TextSelection.collapsed(offset: foundBc.length);
+                        }
+                      }
+                    }),
+                    style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black),
+                    decoration: const InputDecoration(labelText: 'Nome do Produto', floatingLabelBehavior: FloatingLabelBehavior.always, border: UnderlineInputBorder())
                   ),
-                ],
-                Builder(
-                  builder: (context) {
-                    final provider = Provider.of<ItemProvider>(context, listen: false);
-                    final query = nameController.text.trim();
-                    if (query.length < 3) return const SizedBox.shrink();
-                    final history = provider.getPriceHistorySync(query, barcode: currentBarcode);
-                    if (history.isEmpty) return const SizedBox.shrink();
-                    
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 16),
-                        const Text('HISTÓRICO DE PREÇOS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey)),
-                        const SizedBox(height: 8),
-                        SizedBox(
-                          height: 54,
-                          child: ListView.builder(
-                            scrollDirection: Axis.horizontal,
-                            shrinkWrap: true,
-                            itemCount: history.length,
-                            itemBuilder: (context, idx) {
-                              final entry = history[idx];
-                              final month = entry['month'] as String;
-                              final price = (entry['price'] as num).toDouble();
-                              return Card(
-                                elevation: 0,
-                                color: Theme.of(context).primaryColor.withValues(alpha: 0.05),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  side: BorderSide(color: Theme.of(context).primaryColor.withValues(alpha: 0.15)),
-                                ),
-                                margin: const EdgeInsets.only(right: 8),
-                                child: InkWell(
-                                  borderRadius: BorderRadius.circular(12),
-                                  onTap: () {
-                                    setState(() {
-                                      priceController.text = Utils.formatNumber(price);
-                                    });
-                                  },
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                    child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(month, style: TextStyle(fontSize: 10, color: Colors.grey[600], fontWeight: FontWeight.bold)),
-                                        const SizedBox(height: 2),
-                                        Text(Utils.formatCurrency(price), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                                      ],
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: supermarketController,
+                    textInputAction: TextInputAction.next,
+                    style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black),
+                    decoration: InputDecoration(
+                      labelText: 'Supermercado / Loja (Opcional)',
+                      hintText: 'Ex: Supermercados Guanabara, Açougue...',
+                      floatingLabelBehavior: FloatingLabelBehavior.always,
+                      border: const UnderlineInputBorder(),
+                      prefixIcon: const Icon(Icons.storefront_outlined, size: 20),
+                      suffixIcon: provider.supermarkets.isNotEmpty
+                          ? PopupMenuButton<String>(
+                              icon: const Icon(Icons.arrow_drop_down),
+                              tooltip: 'Escolher mercado salvo',
+                              onSelected: (val) {
+                                setState(() {
+                                  supermarketController.text = val;
+                                });
+                              },
+                              itemBuilder: (ctx) => provider.supermarkets.map((m) {
+                                final mName = m['name'] as String;
+                                return PopupMenuItem(
+                                  value: mName,
+                                  child: Text(mName),
+                                );
+                              }).toList(),
+                            )
+                          : null,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: barcodeController,
+                    focusNode: barcodeFocusNode,
+                    textInputAction: TextInputAction.next,
+                    onSubmitted: (_) => priceFocusNode.requestFocus(),
+                    onChanged: (v) => currentBarcode = v.trim(),
+                    style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black),
+                    decoration: InputDecoration(
+                      labelText: 'Código de Barras',
+                      floatingLabelBehavior: FloatingLabelBehavior.always,
+                      border: const UnderlineInputBorder(),
+                      suffixIcon: IconButton(
+                        icon: Icon(Icons.qr_code_scanner, size: 20, color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFFAEB2FF) : AppThemes.primaryNavy),
+                        onPressed: () async {
+                          final prov = Provider.of<ItemProvider>(context, listen: false);
+                          if (prov.priceHistoryCache.isEmpty) prov.loadFullPriceHistory();
+                          if (!context.mounted) return;
+                          final result = await Navigator.push<String>(context, MaterialPageRoute(builder: (_) => const BarcodeScannerScreen()));
+                          if (result != null) {
+                            final cleanBc = Item.parseBarcode(result) ?? result.trim();
+                            final cached = BarcodeLookupService.instance.getCachedOrLocal(cleanBc, itemProvider: prov);
+                            setState(() {
+                              currentBarcode = cleanBc;
+                              barcodeController.text = cleanBc;
+                              barcodeController.selection = TextSelection.collapsed(offset: cleanBc.length);
+                              if (cached != null) {
+                                filledFromBarcode = true;
+                                nameController.text = cached.name;
+                                nameController.selection = TextSelection.collapsed(offset: cached.name.length);
+                                category = cached.category;
+                                if (cached.lastPrice != null && cached.lastPrice! > 0) {
+                                  priceController.text = Utils.formatNumber(cached.lastPrice!);
+                                  priceController.selection = TextSelection.collapsed(offset: priceController.text.length);
+                                }
+                              } else {
+                                isLookingUpBarcode = true;
+                              }
+                            });
+                            if (cached == null) {
+                              final onlineInfo = await BarcodeLookupService.instance.lookup(cleanBc, itemProvider: prov);
+                              if (!dialogContext.mounted) return;
+                              setState(() {
+                                isLookingUpBarcode = false;
+                                if (onlineInfo != null) {
+                                  filledFromBarcode = true;
+                                  nameController.text = onlineInfo.name;
+                                  nameController.selection = TextSelection.collapsed(offset: onlineInfo.name.length);
+                                  category = onlineInfo.category;
+                                  if (onlineInfo.lastPrice != null && onlineInfo.lastPrice! > 0) {
+                                    priceController.text = Utils.formatNumber(onlineInfo.lastPrice!);
+                                    priceController.selection = TextSelection.collapsed(offset: priceController.text.length);
+                                  }
+                                }
+                              });
+                            }
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text('CATEGORIA', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey)),
+                  DropdownButton<String>(
+                    value: category, isExpanded: true,
+                    dropdownColor: Theme.of(context).cardColor,
+                    style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black),
+                    underline: Container(height: 1, color: Colors.grey.withValues(alpha: 0.2)),
+                    items: ItemProvider.categories.map((String value) => DropdownMenuItem<String>(value: value, child: Text(value))).toList(),
+                    onChanged: (v) => setState(() => category = v!),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: priceController, 
+                          focusNode: priceFocusNode,
+                          textInputAction: TextInputAction.next,
+                          onSubmitted: (_) => qtyFocusNode.requestFocus(),
+                          style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black), 
+                          decoration: InputDecoration(
+                            labelText: 'Preço Unit.', 
+                            hintText: '0,00', 
+                            prefixText: 'R\$ ', 
+                            prefixStyle: const TextStyle(fontSize: 16), 
+                            floatingLabelBehavior: FloatingLabelBehavior.always,
+                            suffixIcon: IconButton(
+                              icon: const Icon(Icons.calculate_outlined, size: 20),
+                              tooltip: 'Calculadora',
+                              onPressed: () {
+                                FloatingCalculatorPopup.show(context, onUseValue: (val) {
+                                  setState(() {
+                                    priceController.text = Utils.formatNumber(val);
+                                    priceController.selection = TextSelection.collapsed(offset: priceController.text.length);
+                                  });
+                                });
+                              },
+                            ),
+                          ), 
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: TextField(
+                          controller: qtyController, 
+                          focusNode: qtyFocusNode,
+                          textInputAction: TextInputAction.done,
+                          onSubmitted: (_) => FocusScope.of(context).unfocus(),
+                          style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black), 
+                          decoration: const InputDecoration(labelText: 'Quantidade', floatingLabelBehavior: FloatingLabelBehavior.always), 
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text('Vendido por Peso (kg)', style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black)),
+                    value: isKg, 
+                    activeThumbColor: const Color(0xFFAEB2FF),
+                    onChanged: (v) => setState(() => isKg = v)
+                  ),
+                  if (isKg) ...[
+                    const SizedBox(height: 8),
+                    TextButton.icon(
+                      onPressed: () => _showWeightCalculator(context, priceController, qtyController),
+                      icon: Icon(Icons.calculate_outlined, size: 18, color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFFAEB2FF) : AppThemes.primaryNavy),
+                      label: Text(
+                        'Calcular peso pelo preço total',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFFAEB2FF) : AppThemes.primaryNavy),
+                      ),
+                      style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                    ),
+                  ],
+                  Builder(
+                    builder: (context) {
+                      final provider = Provider.of<ItemProvider>(context, listen: false);
+                      final query = nameController.text.trim();
+                      if (query.length < 3) return const SizedBox.shrink();
+                      final history = provider.getPriceHistorySync(query, barcode: currentBarcode);
+                      if (history.isEmpty) return const SizedBox.shrink();
+                      
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 16),
+                          const Text('HISTÓRICO DE PREÇOS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey)),
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            height: 54,
+                            child: ListView.builder(
+                              scrollDirection: Axis.horizontal,
+                              shrinkWrap: true,
+                              itemCount: history.length,
+                              itemBuilder: (context, idx) {
+                                final entry = history[idx];
+                                final month = entry['month'] as String;
+                                final price = (entry['price'] as num).toDouble();
+                                return Card(
+                                  elevation: 0,
+                                  color: Theme.of(context).primaryColor.withValues(alpha: 0.05),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    side: BorderSide(color: Theme.of(context).primaryColor.withValues(alpha: 0.15)),
+                                  ),
+                                  margin: const EdgeInsets.only(right: 8),
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(12),
+                                    onTap: () {
+                                      setState(() {
+                                        priceController.text = Utils.formatNumber(price);
+                                      });
+                                    },
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(month, style: TextStyle(fontSize: 10, color: Colors.grey[600], fontWeight: FontWeight.bold)),
+                                          const SizedBox(height: 2),
+                                          Text(Utils.formatCurrency(price), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                        ],
+                                      ),
                                     ),
                                   ),
-                                ),
-                              );
-                            },
+                                );
+                              },
+                            ),
                           ),
-                        ),
-                      ],
-                    );
-                  }
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar', style: TextStyle(color: Colors.grey))),
-            ElevatedButton(
-              onPressed: () async {
-                final name = nameController.text.trim();
-                if (name.isEmpty) return;
-                final provider = Provider.of<ItemProvider>(context, listen: false);
-
-                final double parsedQty = qtyController.text.trim().isEmpty 
-                    ? 1.0 
-                    : (double.tryParse(qtyController.text.replaceAll(',', '.')) ?? 1.0);
-                final String? finalBarcode = (currentBarcode != null && currentBarcode!.trim().isNotEmpty)
-                    ? Item.parseBarcode(currentBarcode)
-                    : Item.parseBarcode(barcodeController.text);
-                final double parsedPrice = double.tryParse(priceController.text.replaceAll(',', '.')) ?? 0.0;
-
-                if (item == null) {
-                  final normalizedNewName = Utils.normalize(name);
-                  Item? existingItem;
-                  for (var it in provider.items) {
-                    if (Utils.normalize(it.name) == normalizedNewName || 
-                        (finalBarcode != null && Item.parseBarcode(it.barcode) == finalBarcode)) {
-                      existingItem = it;
-                      break;
-                    }
-                  }
-
-                  if (existingItem != null) {
-                    final proceed = await showDialog<String>(
-                      context: context,
-                      builder: (ctx) => AlertDialog(
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-                        title: const Text('Item Já Existe na Lista'),
-                        content: Text('O item "${existingItem!.name}" já está na lista de compras.\n\nDeseja atualizar o item existente em vez de criar um duplicado?'),
-                        actions: [
-                          TextButton(onPressed: () => Navigator.pop(ctx, 'cancel'), child: const Text('Cancelar', style: TextStyle(color: Colors.grey))),
-                          TextButton(onPressed: () => Navigator.pop(ctx, 'duplicate'), child: const Text('Criar Duplicado')),
-                          ElevatedButton(onPressed: () => Navigator.pop(ctx, 'update'), child: const Text('Atualizar Existente', style: TextStyle(fontWeight: FontWeight.bold))),
                         ],
-                      ),
-                    );
-                    if (proceed == null || proceed == 'cancel') {
-                      return;
-                    }
-                    if (proceed == 'update') {
-                      final finalSupermarket = supermarketController.text.trim().isNotEmpty
-                          ? supermarketController.text.trim()
-                          : null;
-                      if (finalSupermarket != null) {
-                        provider.addOrUpdateSupermarket(name: finalSupermarket);
-                      }
-                      final updated = existingItem.copyWith(
-                        unitPrice: parsedPrice > 0 ? parsedPrice : existingItem.unitPrice,
-                        quantity: parsedQty,
-                        barcode: finalBarcode ?? existingItem.barcode,
-                        category: category,
-                        supermarket: finalSupermarket ?? existingItem.supermarket,
                       );
-                      provider.updateItem(updated);
-                      if (context.mounted) Navigator.pop(context);
-                      return;
+                    }
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar', style: TextStyle(color: Colors.grey))),
+              ElevatedButton(
+                onPressed: () async {
+                  final name = nameController.text.trim();
+                  if (name.isEmpty) return;
+                  final provider = Provider.of<ItemProvider>(context, listen: false);
+
+                  final double parsedQty = qtyController.text.trim().isEmpty 
+                      ? 1.0 
+                      : (double.tryParse(qtyController.text.replaceAll(',', '.')) ?? 1.0);
+                  final String? finalBarcode = (currentBarcode != null && currentBarcode!.trim().isNotEmpty)
+                      ? Item.parseBarcode(currentBarcode)
+                      : Item.parseBarcode(barcodeController.text);
+                  final double parsedPrice = double.tryParse(priceController.text.replaceAll(',', '.')) ?? 0.0;
+
+                  if (activeItem == null) {
+                    final normalizedNewName = Utils.normalize(name);
+                    Item? existingItem;
+                    for (var it in provider.items) {
+                      if (Utils.normalize(it.name) == normalizedNewName || 
+                          (finalBarcode != null && Item.parseBarcode(it.barcode) == finalBarcode)) {
+                        existingItem = it;
+                        break;
+                      }
+                    }
+
+                    if (existingItem != null) {
+                      // Se veio do scanner de código de barras, atualiza direto sem exibir popup de confirmação!
+                      if (scannedBarcode != null) {
+                        final finalSupermarket = supermarketController.text.trim().isNotEmpty
+                            ? supermarketController.text.trim()
+                            : null;
+                        if (finalSupermarket != null) {
+                          provider.addOrUpdateSupermarket(name: finalSupermarket);
+                        }
+                        final updated = existingItem.copyWith(
+                          unitPrice: parsedPrice > 0 ? parsedPrice : existingItem.unitPrice,
+                          quantity: parsedQty,
+                          barcode: finalBarcode ?? existingItem.barcode,
+                          category: category,
+                          supermarket: finalSupermarket ?? existingItem.supermarket,
+                        );
+                        provider.updateItem(updated);
+                        if (context.mounted) Navigator.pop(context);
+                        return;
+                      }
+
+                      final proceed = await showDialog<String>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+                          title: const Text('Item Já Existe na Lista'),
+                          content: Text('O item "${existingItem!.name}" já está na lista de compras.\n\nDeseja atualizar o item existente em vez de criar um duplicado?'),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(ctx, 'cancel'), child: const Text('Cancelar', style: TextStyle(color: Colors.grey))),
+                            TextButton(onPressed: () => Navigator.pop(ctx, 'duplicate'), child: const Text('Criar Duplicado')),
+                            ElevatedButton(onPressed: () => Navigator.pop(ctx, 'update'), child: const Text('Atualizar Existente', style: TextStyle(fontWeight: FontWeight.bold))),
+                          ],
+                        ),
+                      );
+                      if (proceed == null || proceed == 'cancel') {
+                        return;
+                      }
+                      if (proceed == 'update') {
+                        final finalSupermarket = supermarketController.text.trim().isNotEmpty
+                            ? supermarketController.text.trim()
+                            : null;
+                        if (finalSupermarket != null) {
+                          provider.addOrUpdateSupermarket(name: finalSupermarket);
+                        }
+                        final updated = existingItem.copyWith(
+                          unitPrice: parsedPrice > 0 ? parsedPrice : existingItem.unitPrice,
+                          quantity: parsedQty,
+                          barcode: finalBarcode ?? existingItem.barcode,
+                          category: category,
+                          supermarket: finalSupermarket ?? existingItem.supermarket,
+                        );
+                        provider.updateItem(updated);
+                        if (context.mounted) Navigator.pop(context);
+                        return;
+                      }
                     }
                   }
-                }
 
-                final finalSupermarket = supermarketController.text.trim().isNotEmpty
-                    ? supermarketController.text.trim()
-                    : null;
-                if (finalSupermarket != null) {
-                  provider.addOrUpdateSupermarket(name: finalSupermarket);
-                }
+                  final finalSupermarket = supermarketController.text.trim().isNotEmpty
+                      ? supermarketController.text.trim()
+                      : null;
+                  if (finalSupermarket != null) {
+                    provider.addOrUpdateSupermarket(name: finalSupermarket);
+                  }
 
-                final newItem = Item(
-                  index: item?.index, 
-                  name: name, 
-                  unitPrice: parsedPrice,
-                  quantity: parsedQty, 
-                  isKg: isKg, 
-                  category: category, 
-                  isBought: item?.isBought ?? false,
-                  barcode: finalBarcode,
-                  supermarket: finalSupermarket,
-                );
-                if (item == null) { provider.addItem(newItem); } else { provider.updateItem(newItem); }
-                if (context.mounted) Navigator.pop(context);
-              },
-              child: const Text('Salvar', style: TextStyle(fontWeight: FontWeight.bold)),
-            ),
-          ],
-        ),
+                  final newItem = Item(
+                    index: activeItem?.index, 
+                    name: name, 
+                    unitPrice: parsedPrice,
+                    quantity: parsedQty, 
+                    isKg: isKg, 
+                    category: category, 
+                    isBought: activeItem?.isBought ?? false,
+                    barcode: finalBarcode,
+                    supermarket: finalSupermarket,
+                  );
+                  if (activeItem == null) { provider.addItem(newItem); } else { provider.updateItem(newItem); }
+                  if (context.mounted) Navigator.pop(context);
+                },
+                child: const Text('Salvar', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

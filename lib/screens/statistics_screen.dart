@@ -7,6 +7,7 @@ import 'dart:math' as math;
 import '../providers/item_provider.dart';
 import '../theme/app_themes.dart';
 import '../widgets/cart_loading_indicator.dart';
+import '../widgets/interactive_tab_tutorial.dart';
 import '../services/utils.dart';
 import 'shopping_list_screen.dart';
 import 'buyer_profile_screen.dart';
@@ -90,6 +91,15 @@ class _StatisticsScreenState extends State<StatisticsScreen> with AutomaticKeepA
         centerTitle: true,
         actions: [
           IconButton(
+            icon: const Icon(Icons.help_outline_rounded),
+            tooltip: 'Tutorial Interativo desta Aba',
+            onPressed: () => InteractiveTabTutorial.show(
+              context,
+              TutorialSection.statistics,
+              userEmail: provider.activeUserEmail,
+            ),
+          ),
+          IconButton(
             icon: const Icon(Icons.psychology_alt_rounded),
             tooltip: 'Perfil de Comprador',
             onPressed: () => Navigator.push(
@@ -109,7 +119,29 @@ class _StatisticsScreenState extends State<StatisticsScreen> with AutomaticKeepA
             child: (!_shouldShowContent && provider.cachedSummary.isEmpty)
               ? const Center(child: CartLoadingIndicator(key: ValueKey('stats_loader'), message: 'Analisando planilhas...'))
               : filteredMonths.isEmpty 
-                ? const Center(child: Text('Dados insuficientes para gerar gráficos.'))
+                ? SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 110),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 500),
+                        child: Column(
+                          children: [
+                            _buildBuyerProfileBanner(isDarkMode, cardColor, textColor),
+                            const SizedBox(height: 16),
+                            const Text(
+                              'Ainda não há carrinhos suficientes para gerar gráficos reais. Experimente o simulador interativo abaixo:',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: Colors.grey, fontSize: 13.5, fontWeight: FontWeight.w600),
+                            ),
+                            const SizedBox(height: 14),
+                            const InteractiveSectionTutorialCard(
+                              section: TutorialSection.statistics,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  )
                   : SingleChildScrollView(
                     key: const ValueKey('stats_content'),
                     physics: _isInteractingWithChart 
