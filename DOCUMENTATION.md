@@ -9,11 +9,13 @@
 ## 1. Visão Geral do Projeto
 
 O **CARRIN** é um ecossistema mobile inteligente em Flutter para gestão financeira doméstica, compras de supermercado e economia colaborativa comunitária. O aplicativo une privacidade total com poder analítico:
-1. **Privacidade Absoluta & Nuvem Pessoal:** Cada usuário sincroniza suas listas diretamente com sua própria planilha do **Google Sheets** via OAuth 2.0 (`UserSheetsService`), sem servidores intermediários ou acesso de terceiros aos seus dados pessoais.
+1. **Privacidade Absoluta & Nuvem Pessoal:** Cada usuário sincroniza suas listas diretamente com sua própria planilha do **Google Sheets** via OAuth 2.0 ([`UserSheetsService`](file:///C:/Dev/CARRIN/lib/services/user_sheets_service.dart)), sem servidores intermediários ou acesso de terceiros aos seus dados pessoais.
 2. **Arquitetura Offline-First (SQLite):** Todas as operações (adicionar, riscar, editar, excluir, calcular) funcionam instantaneamente sem internet com persistência em banco local e sincronização resiliente em fila (`sync_queue`).
-3. **Radar de Preços & Comunidade (Supabase):** Rede colaborativa de preços em tempo real onde os produtos comprados alimentam a base comunitária, permitindo comparação de preços, identificação do mercado mais barato da região e cálculo de economia potencial via GPS.
-4. **Geolocalização, Mapa Interativo & Geofencing:** Mapa geográfico interativo de supermercados via OpenStreetMap com rotas externas (Google Maps/Waze), identificação do mercado mais barato e geofencing calibrado para o **Supermercados Guanabara Niterói**.
-5. **Scanner Duplo:** Leitor de código de barras para preenchimento de itens e leitor de cupom fiscal / NFC-e SEFAZ via QR Code com extração automatizada de produtos, quantidades e valores.
+3. **Radar de Preços & Comunidade (Supabase):** Rede colaborativa de preços em tempo real onde os produtos comprados alimentam a base comunitária, permitindo comparação de preços por produto, agrupamento por mercado único, identificação do estabelecimento mais barato da região e cálculo de economia potencial via GPS.
+4. **Geolocalização, Mapa Interativo & Catálogo de 154 Supermercados:** Mapa geográfico interativo de supermercados via OpenStreetMap com rotas externas (Google Maps/Waze), identificação visual do mercado mais barato com coroa dourada (`👑`), carrossel sincronizado, busca instantânea de lojas e geofencing calibrado para o **Supermercados Guanabara Niterói**.
+5. **Scanner Duplo Inteligente:**
+   - **Leitor de Código de Barras (EAN-13 / EAN-8):** Identificação em camadas via histórico local do SQLite e consulta à API aberta do **Open Food Facts Brasil** ([`BarcodeLookupService`](file:///C:/Dev/CARRIN/lib/services/barcode_lookup_service.dart)), com abertura direta do formulário de item sem popups intermediários intrusivos.
+   - **Leitor de Cupom Fiscal / NFC-e SEFAZ:** Leitura automatizada via QR Code com extração inteligente de produtos, quantidades, unidades e valores.
 
 ---
 
@@ -41,15 +43,15 @@ flowchart TD
 
   %% --- FLUXO DA ABA 1: INÍCIO ---
   Tab0 --> Accounts["AccountsScreen<br/>(Contas Online & Perfis Offline)"]
-  Tab0 --> ScanQuick["BarcodeScannerScreen<br/>(Busca / Leitura Rápida)"]
+  Tab0 --> ScanQuick["BarcodeScannerScreen<br/>(Busca Rápida de Produto)"]
   Tab0 --> QuickSum["QuickSummary<br/>(Métricas de Saldo & Orçamento)"]
   Tab0 --> MonthQuickNav["Navegação Direta<br/>(Abre Carrinho do Mês Ativo)"]
 
   %% --- FLUXO DA ABA 2: CARRINHOS ---
   Tab1 --> NewCart["Modal Novo Carrinho<br/>(Em Branco ou Usar Anterior)"]
   Tab1 --> ShoppingList["ShoppingListScreen<br/>(Lista de Compras Ativa)"]
-  ShoppingList --> AddItem["Modal Adicionar/Editar Item"]
-  ShoppingList --> BarcodeScan["BarcodeScannerScreen<br/>(Autofill por Histórico)"]
+  ShoppingList --> AddItem["Modal Adicionar/Editar Item<br/>(Nome, Preço, Qtd, Categoria, Barcode)"]
+  ShoppingList --> BarcodeScan["BarcodeScannerScreen<br/>(Scanner EAN-13 / EAN-8)"]
   ShoppingList --> ReceiptScan["ReceiptScannerScreen<br/>(NFC-e / Cupom SEFAZ QR Code)"]
   ShoppingList --> WeightCalc["WeightCalculatorDialog<br/>(Calculadora Preço/Kg)"]
   ShoppingList --> FloatCalc["FloatingCalculatorPopup<br/>(Calculadora Assistiva Flutuante)"]
@@ -59,23 +61,46 @@ flowchart TD
   ShoppingList --> MarketPurpose["MarketAndPurposeWidgets<br/>(Definir Mercado & Propósito)"]
   ShoppingList --> PdfExport["PdfExportDialog<br/>(Compartilhamento WhatsApp / PDF)"]
 
+  %% Subfluxo: Reconhecimento Inteligente de Código de Barras
+  BarcodeScan --> BarcodeLookup["BarcodeLookupService<br/>(Busca em Camadas com Cache)"]
+  BarcodeLookup --> LookupLocal["1. Histórico SQLite Local<br/>(Último Preço e Categoria Salva)"]
+  BarcodeLookup --> LookupOFF["2. Open Food Facts Brasil API<br/>(Nome Oficial, Marca, Gramatura)"]
+  BarcodeLookup --> LookupCat["3. Categorização Automática<br/>(suggestCategoryForName)"]
+  BarcodeLookup --> DirectForm["Abertura Direta do AddItemDialog<br/>(Zero Fricção • Sem Popup Confirmatório)"]
+  DirectForm --> AddItem
+
+  %% Subfluxo: Leitura de Cupom Fiscal
+  ReceiptScan --> SefazParser["Parser SEFAZ NFC-e<br/>(Extração de Itens, Qtd e Preços)"]
+  SefazParser --> ShoppingList
+
   %% --- FLUXO DA ABA 3: ANÁLISES ---
   Tab2 --> BuyerProfile["BuyerProfileScreen<br/>(Perfil de Comprador & Hábitos)"]
   Tab2 --> TimeFilter["Filtros Temporais<br/>(3 meses / 6 meses / 1 ano / Tudo)"]
   Tab2 --> CatBreakdown["Detalhamento por Categorias<br/>(Gráfico de Pizza & Barras FL Chart)"]
 
   %% --- FLUXO DA ABA 4: COMUNIDADE ---
-  Tab3 --> ComList["Sub-Aba 1: Lista<br/>(Feed de Preços Recentes)"]
-  Tab3 --> ComComp["Sub-Aba 2: Comparador<br/>(Filtro de Supermercados & Comparativo por Produto)"]
+  Tab3 --> ComList["Sub-Aba 1: Lista<br/>(Feed de Preços Recentes & Selo NFC-e)"]
+  Tab3 --> ComComp["Sub-Aba 2: Comparador<br/>(Economia % & Comparativo por Supermercado)"]
   Tab3 --> ComRank["Sub-Aba 3: Mercados<br/>(Ranking de Menor Preço Médio)"]
-  Tab3 --> GpsRadius["Seletor de Raio GPS<br/>(5 km, 10 km, 15 km, 30 km)"]
-  Tab3 --> CollabPrice["Modal Colaborar Preço<br/>(Envio Manual)"]
+  Tab3 --> CollabPrice["Modal Colaborar Preço<br/>(Envio Manual de Cotação)"]
   Tab3 --> MapScreen["MarketMapScreen<br/>(Mapa Geográfico Interativo OSM & Rotas)"]
 
-  %% Detalhamento do Comparador
-  ComComp --> MarketChips["Filtro por Supermercados<br/>(Todos os Mercados / Supermercados Guanabara)"]
-  ComComp --> ProductTap["Seleção sob Demanda<br/>(Toque no Produto para Expandir Comparativo)"]
+  %% Detalhamento do Comparador (Aba 4)
+  ComComp --> MarketChips["Filtro Horizontal de Supermercados<br/>(Todos os Mercados / Supermercados Guanabara)"]
+  ComComp --> ProductTap["Seleção sob Demanda<br/>(Toque no Produto para Abrir Comparativo)"]
   ComComp --> GroupedQuotes["Agrupamento por Supermercado<br/>(1 Card por Mercado • Menor Preço e Variação)"]
+
+  %% Detalhamento do Mapa Geográfico (MarketMapScreen)
+  MapScreen --> OsmTiles["OpenStreetMap TileLayer<br/>(Modo Claro OSM / Modo Escuro CartoDB)"]
+  MapScreen --> UserGpsMarker["Marcador do Usuário<br/>(GPS em Tempo Real + Anel de Raio)"]
+  MapScreen --> RadiusChips["Seletor de Raio de Cobertura<br/>(5 km, 10 km, 15 km, 25 km, 30 km, 50 km)"]
+  MapScreen --> SearchStores["Busca Rápida de Mercados<br/>(Filtro Insensível a Acentos: ex. Tribobó, Inoã)"]
+  MapScreen --> StoreMarkers["Pinos dos 154 Supermercados<br/>(Catálogo DefaultSupermarketsData)"]
+  StoreMarkers --> CrownMarker["👑 Supermercado Mais Barato<br/>(Pino Dourado de Destaque)"]
+  StoreMarkers --> StandardMarker["Pinos Padrão de Mercados<br/>(Nome e Preço Médio Regional)"]
+  MapScreen --> StoreCarousel["Carrossel Inferior de Lojas<br/>(Cards Deslizantes com Vôo Suave no Mapa)"]
+  MapScreen --> StoreModal["Modal de Detalhes do Mercado<br/>(Endereço Completo, Preço Médio & Top Ofertas)"]
+  StoreModal --> ExtRoutes["Botão Como Chegar<br/>(Navegação Externa: Google Maps / Waze)"]
 
   %% --- FLUXO DA ABA 5: AJUSTES ---
   Tab4 --> ThemeSheet["ThemeColorPickerSheet<br/>(Paleta de Cores do Tema)"]
@@ -88,23 +113,26 @@ flowchart TD
 
 ### 2.2 Estrutura Detalhada de Rotas e Telas
 
-| Tela / Rota | Arquivo Fonte | Responsabilidade Principal |
+| Tela / Rota / Serviço | Arquivo Fonte | Responsabilidade Principal |
 | :--- | :--- | :--- |
-| **SplashScreen** | [`lib/screens/splash_screen.dart`](file:///C:/dev/CARRIN/lib/screens/splash_screen.dart) | Animação de entrada, inicialização assíncrona de banco SQLite, preferências e GPS. |
-| **MainScreen** | [`lib/screens/main_screen.dart`](file:///C:/dev/CARRIN/lib/screens/main_screen.dart) | Host principal com `PageView` e `BottomNavigationBar` de 5 posições com navegação resiliente (`PopScope`). |
-| **DashboardScreen** | [`lib/screens/dashboard_screen.dart`](file:///C:/dev/CARRIN/lib/screens/dashboard_screen.dart) | Visão geral do mês ativo, medidor circular (gauge), grid reordenável de métricas e atalhos rápidos. |
-| **MonthSelectionScreen** | [`lib/screens/month_selection_screen.dart`](file:///C:/dev/CARRIN/lib/screens/month_selection_screen.dart) | Lista histórica de todos os carrinhos na ordem orgânica de criação, progresso de itens e status trancado. |
-| **ShoppingListScreen** | [`lib/screens/shopping_list_screen.dart`](file:///C:/dev/CARRIN/lib/screens/shopping_list_screen.dart) | Lista de compras com slivers responsivos, seleção em lote, cálculo de peso, scanner, rateio e exportação. |
-| **StatisticsScreen** | [`lib/screens/statistics_screen.dart`](file:///C:/dev/CARRIN/lib/screens/statistics_screen.dart) | Relatórios visuais com `fl_chart`, evolução mensal, divisão por categorias e atalho para o perfil. |
-| **BuyerProfileScreen** | [`lib/screens/buyer_profile_screen.dart`](file:///C:/dev/CARRIN/lib/screens/buyer_profile_screen.dart) | Diagnóstico inteligente do perfil de consumo (Econômico, Gourmet, Planejador, etc.) e métricas de hábito. |
-| **CommunityRadarScreen** | [`lib/screens/community_radar_screen.dart`](file:///C:/dev/CARRIN/lib/screens/community_radar_screen.dart) | Radar comunitário com abas de Feed, Comparador de Produtos (% de economia e filtro de mercados), Ranking de Mercados por GPS e atalho para o Mapa. |
-| **MarketMapScreen** | [`lib/screens/market_map_screen.dart`](file:///C:/dev/CARRIN/lib/screens/market_map_screen.dart) | Mapa geográfico interativo OpenStreetMap com GPS do usuário, pinos dos mercados com badge do mais barato, carrossel inferior e traçado de rotas externas. |
-| **SettingsScreen** | [`lib/screens/settings_screen.dart`](file:///C:/dev/CARRIN/lib/screens/settings_screen.dart) | Customização de cores, ícone do app, modo daltônico, backup/restore, animações e sobre. |
-| **AccountsScreen** | [`lib/screens/accounts_screen.dart`](file:///C:/dev/CARRIN/lib/screens/accounts_screen.dart) | Gestão de login Google OAuth 2.0 e perfis locais offline isolados. |
-| **ReceiptScannerScreen** | [`lib/screens/receipt_scanner_screen.dart`](file:///C:/dev/CARRIN/lib/screens/receipt_scanner_screen.dart) | Scanner de NFC-e (SEFAZ QR Code) com parser de cupons de 1 e 2 linhas. |
-| **BarcodeScannerScreen** | [`lib/screens/barcode_scanner_screen.dart`](file:///C:/dev/CARRIN/lib/screens/barcode_scanner_screen.dart) | Scanner de códigos de barras EAN-13 para inserção e busca instantânea. |
-| **TutorialScreen** | [`lib/screens/tutorial_screen.dart`](file:///C:/dev/CARRIN/lib/screens/tutorial_screen.dart) | Tutorial guiado passo a passo com demonstrações interativas de cada função. |
-| **TermsScreen** | [`lib/screens/terms_screen.dart`](file:///C:/dev/CARRIN/lib/screens/terms_screen.dart) | Termos de serviço, garantias de privacidade e política de transparência de dados. |
+| **SplashScreen** | [`lib/screens/splash_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/splash_screen.dart) | Animação de entrada, inicialização assíncrona de banco SQLite, preferências e GPS. |
+| **MainScreen** | [`lib/screens/main_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/main_screen.dart) | Host principal com `PageView` e `BottomNavigationBar` de 5 posições com navegação resiliente (`PopScope`). |
+| **DashboardScreen** | [`lib/screens/dashboard_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/dashboard_screen.dart) | Visão geral do mês ativo, medidor circular (gauge), grid reordenável de métricas e atalhos rápidos. |
+| **MonthSelectionScreen** | [`lib/screens/month_selection_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/month_selection_screen.dart) | Lista histórica de todos os carrinhos na ordem orgânica de criação, progresso de itens e status trancado. |
+| **ShoppingListScreen** | [`lib/screens/shopping_list_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/shopping_list_screen.dart) | Lista de compras com slivers responsivos, seleção em lote, cálculo de peso, scanner, rateio e exportação. |
+| **StatisticsScreen** | [`lib/screens/statistics_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/statistics_screen.dart) | Relatórios visuais com `fl_chart`, evolução mensal, divisão por categorias e atalho para o perfil. |
+| **BuyerProfileScreen** | [`lib/screens/buyer_profile_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/buyer_profile_screen.dart) | Diagnóstico inteligente do perfil de consumo (Econômico, Gourmet, Planejador, etc.) e métricas de hábito. |
+| **CommunityRadarScreen** | [`lib/screens/community_radar_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/community_radar_screen.dart) | Radar comunitário com abas de Feed, Comparador de Produtos (% de economia e filtro de mercados), Ranking de Mercados por GPS e atalho para o Mapa. |
+| **MarketMapScreen** | [`lib/screens/market_map_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/market_map_screen.dart) | Mapa geográfico interativo OpenStreetMap com GPS do usuário, pinos dos 154 mercados, badge de ouro `👑` para o mais barato, carrossel inferior sincronizado, busca rápida e rotas externas (Google Maps/Waze). |
+| **SettingsScreen** | [`lib/screens/settings_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/settings_screen.dart) | Customização de cores, ícone do app, modo daltônico, backup/restore, animações e sobre. |
+| **AccountsScreen** | [`lib/screens/accounts_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/accounts_screen.dart) | Gestão de login Google OAuth 2.0 e perfis locais offline isolados. |
+| **ReceiptScannerScreen** | [`lib/screens/receipt_scanner_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/receipt_scanner_screen.dart) | Scanner de NFC-e (SEFAZ QR Code) com parser de cupons de 1 e 2 linhas. |
+| **BarcodeScannerScreen** | [`lib/screens/barcode_scanner_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/barcode_scanner_screen.dart) | Scanner de códigos de barras EAN-13/EAN-8 para inserção e busca instantânea. |
+| **BarcodeLookupService** | [`lib/services/barcode_lookup_service.dart`](file:///C:/Dev/CARRIN/lib/services/barcode_lookup_service.dart) | Motor de resolução em camadas (SQLite local + Open Food Facts Brasil REST + IA de categorias) com fluxo zero-fricção direto para edição. |
+| **DefaultSupermarketsData** | [`lib/services/default_supermarkets.dart`](file:///C:/Dev/CARRIN/lib/services/default_supermarkets.dart) | Catálogo oficial de 154 supermercados geolocalizados com endereço físico completo em Niterói, São Gonçalo, Maricá, Itaboraí e Rio de Janeiro. |
+| **CommunityPriceService** | [`lib/services/community_price_service.dart`](file:///C:/Dev/CARRIN/lib/services/community_price_service.dart) | Conexão com Supabase REST, sincronização em background, purga de dados legados e cálculo de proximidade Haversine. |
+| **TutorialScreen** | [`lib/screens/tutorial_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/tutorial_screen.dart) | Tutorial guiado passo a passo com demonstrações interativas de cada função. |
+| **TermsScreen** | [`lib/screens/terms_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/terms_screen.dart) | Termos de serviço, garantias de privacidade e política de transparência de dados. |
 
 ---
 
@@ -116,14 +144,15 @@ flowchart TD
 - **Armazenamento de Preferências:** `shared_preferences: ^2.2.2`
 - **Nuvem Pessoal:** `googleapis: ^11.4.0` + `google_sign_in: ^6.2.1` (Google Drive & Sheets API v4)
 - **Nuvem Comunitária (Preços):** REST API Supabase (Tabela pública `community_prices` com RLS)
+- **Rede & APIs Externas:** `http: ^1.6.0` (Consulta à base aberta Open Food Facts Brasil e Supabase REST)
 - **Geolocalização & Proximidade:** `geolocator: ^13.0.2` + OpenStreetMap (Nominatim Reverse Geocoding)
-- **Mapa Geográfico Interativo:** `flutter_map: ^8.3.2` + `latlong2: ^0.10.1` (OpenStreetMap / CartoDB tiles)
-- **Navegação & Rotas Externas:** `url_launcher: ^6.3.3` (Google Maps / Waze)
+- **Mapa Geográfico Interativo:** `flutter_map: ^8.3.2` + `latlong2: ^0.10.1` (OpenStreetMap / CartoDB Dark Matter tiles)
+- **Navegação & Rotas Externas:** `url_launcher: ^6.3.3` (Esquemas nativos `geo:` para Google Maps e Waze com fallback web)
 - **Gráficos Financeiros:** `fl_chart: ^1.2.0`
 - **Animações Fluidas:** `flutter_staggered_animations: ^1.1.1`
 - **Relatórios & PDF:** `pdf: ^3.12.0` + `printing: ^5.14.3` + `share_plus: ^10.1.4`
-- **Câmera & Scanners:** `mobile_scanner: ^6.0.4`
-- **Notificações em Tempo Real:** `flutter_local_notifications: ^18.0.1`
+- **Câmera & Scanners:** `mobile_scanner: ^5.1.1` (Leitura de códigos de barras EAN-13, EAN-8 e QR Code NFC-e)
+- **Notificações em Tempo Real:** `flutter_local_notifications: ^17.2.2`
 - **Internacionalização:** `intl: ^0.20.2` (padrão monetário `R$ 0,00` e datas `pt_BR`)
 
 ---
@@ -194,31 +223,93 @@ CREATE TABLE community_prices_cache (
 );
 ```
 
-### 4.2 Supermercado Padrão e Geofencing
+### 4.2 Catálogo Consolidado de 154 Supermercados e Geofencing (`DefaultSupermarketsData`)
 
-O aplicativo adota por padrão a calibração de coordenadas de alta precisão para a unidade central de referência:
-* **Supermercado de Referência:** `Supermercados Guanabara`
-* **Endereço:** *R. Marechal Deodoro, 360 - Centro, Niterói - RJ, 24030-060*
-* **Coordenadas:** Latitude `-22.88975`, Longitude `-43.11515`
-* **Raio de Detecção:** 250 metros
-* **Comportamento:** Ao entrar no raio de alcance, o aplicativo reconhece o mercado e associa os produtos registrados diretamente ao Supermercados Guanabara.
+O CARRIN conta com um catálogo nativo rigorosamente calibrado de **154 supermercados geolocalizados** com endereços físicos completos e coordenadas obtidas via cruzamento cartográfico de alta precisão (OpenStreetMap, Photon e Maps.me):
+
+* **Distribuição Geográfica Regional:**
+  - **Niterói (45+ lojas):** Supermercados Guanabara (Centro/Fonseca), Mundial (Jardim Icaraí), Pão de Açúcar (Icaraí e Ingá), Prezunic (Fonseca), Supermarket, Grand Marché (Itaipu, Piratininga, Fonseca, Barreto), Real Supermercados (Icaraí, Santa Rosa, São Francisco, Pendotiba, Piratininga, Maravista, Itaipu), Princesa (Icaraí, Fonseca), Super Prix (Icaraí Praia e Otávio Carneiro), Pomar (Icaraí e Santa Rosa), Multi Market (Santa Rosa), Mercado Extra (Centro), Mercado Fruto da Terra, Rede Economia (Ingá e Centro), Garritano (Centro), Hortifruti e Mercado Municipal de Niterói.
+  - **São Gonçalo (40+ lojas):** Assaí Atacadista (Tribobó - Rodovia RJ-104/RJ-106, Alcântara e Porto Velho), Atacadão (Alcântara), Carrefour, Extra, Guanabara São Gonçalo, Rede Economia (Tribobó, Rio do Ouro, Trindade, Rocha, Zé Garoto, Porto Novo, Mutondo, Jardim Catarina), Supermarket (Arsenal, Rio do Ouro, Alcântara, Rocha, Santa Catarina, Neves), Mercado Varsilva (Rio do Ouro / Engenho do Roçado) e Super Rede (Trindade).
+  - **Maricá (25+ lojas):** Cobertura total de todos os eixos comerciais: Centro (*Supermarket, Princesa, Rede Economia, Super Rede*), Inoã (*Dom Atacadista, Supermarket, Super Lagos, Litoral, Costazul*), Itaipuaçu / Barroco (*Grand Marché Barroco, Grand Marché Recanto, Rio Sul, Rede Economia*), São José do Imbassaí (*Supermarket, Mercado Joana*) e Itapeba (*Atacadão Maricá, Assaí Atacadista Maricá*).
+  - **Itaboraí & Rio de Janeiro (40+ lojas):** Principais polos atacadistas e redes de varejo da Região Metropolitana.
+
+* **Unificação Canônica do Supermercado de Referência:**
+  - **Estabelecimento:** `Supermercados Guanabara`
+  - **Endereço:** *R. Marechal Deodoro, 360 - Centro, Niterói - RJ, 24030-060*
+  - **Coordenadas Oficiais:** Latitude `-22.88975`, Longitude `-43.11515`
+  - **Raio de Geofencing:** 250 metros
+  - **Desduplicação e Limpeza:** As variantes `'Supermercados Guanabara'` e `'Supermercados Guanabara - Niterói'` foram unificadas sob o mesmo registro canônico. Todas as compras do usuário e o pino estático do catálogo convergem para um único marcador oficial no mapa e no radar.
+
+* **Motor Inteligente de Busca e Resolução (`DefaultSupermarketsData.findMatch`):**
+  - Normalização sem diacríticos (remove acentos, cedilhas e pontuações).
+  - Correspondência exata de nome ou decomposição em tokens (ex: *"Assaí Tribobó"* coincide com *"Assaí Atacadista - Tribobó"*).
+  - Desempate espacial por proximidade euclidiana quando as coordenadas do usuário estão disponíveis.
+  - Auto-sincronização no SQLite: `DatabaseHelper.ensureDefaultSupermarkets()` atualiza em tempo de execução as coordenadas de lojas legadas e de itens em cache sem deletar históricos locais.
+
+---
 
 ### 4.3 Rede de Preços Comunitária (`CommunityPriceService`)
 
-* **Auto-Sincronização Invisível:** Quando o usuário preenche suas listas ou finaliza compras, o app publica em lote os produtos com preço (`publishPricesBatch`) no Supabase, garantindo que a base comunitária esteja sempre atualizada.
-* **Garantia de Exclusividade e Purga de Testes:** O serviço implementa filtros automáticos para garantir que nenhum registro de teste residual (como Carrefour, Atacadão ou Assaí de mocks iniciais) seja exibido na UI ou salvo no cache do usuário.
-* **Comparador de Economia e Filtro de Supermercados:** 
-  - Filtro horizontal dinâmico por estabelecimentos (`Todos os Mercados`, `Supermercados Guanabara`).
-  - Agrupamento inteligente de preços por supermercado único (`_buildGroupedMarketCards`): cada estabelecimento aparece exatamente uma vez por produto, exibindo o menor preço, o volume de compras registradas e a variação de preço observada, eliminando poluição visual e datas repetidas.
-  - Seleção sob demanda: os detalhes comparativos abrem apenas quando o usuário toca ativamente em um produto, com opção de fechar a visualização a qualquer momento.
+* **Auto-Sincronização Invisível em Background:** Quando o usuário preenche suas listas ou tranca um carrinho, o app publica em lote os produtos com preço (`publishPricesBatch`) no Supabase, garantindo que a base comunitária esteja sempre atualizada.
+* **Purga de Mocks e Resíduos de Teste:** O serviço descarta incondicionalmente registros residuais de testes iniciais, preservando apenas supermercados reais cadastrados no catálogo ou validados via GPS.
+* **Comparador de Economia e Filtros da UI:**
+  - **Filtro Horizontal por Estabelecimentos:** Chips dinâmicos no topo da aba (`Todos os Mercados`, `Supermercados Guanabara`, etc.).
+  - **Agrupamento Único por Supermercado (`_buildGroupedMarketCards`):** Cada estabelecimento aparece exatamente uma vez por produto pesquisado. O card consolidado exibe o menor preço apurado, a data da cotação mais recente, o volume total de compras registradas e a faixa de variação de preço, eliminando duplicidade visual e repetição de datas idênticas.
+  - **Seleção sob Demanda (Zero Poluição):** A tela não auto-seleciona arbitrariamente nenhum produto ao ser aberta. Os detalhes comparativos abrem apenas quando o usuário toca ativamente em um item, com opção de fechar a visualização a qualquer momento.
+  - **Cálculo de Economia Relativa:** Aponta a porcentagem de economia (`economize até X%`) comparando o menor preço daquele item com o maior preço registrado na comunidade.
+  - **Fórmula Haversine:** Filtro dinâmico por raio de alcance geográfico a partir da posição GPS do usuário.
+
+---
 
 ### 4.4 Mapa Geográfico dos Mercados & Rotas GPS (`MarketMapScreen`)
 
-* **Mapeamento OpenStreetMap (Livre e Ilimitado):** Renderização vetorial fluida com `flutter_map` e suporte a modos Claro (OSM padrão) e Escuro (CartoDB Dark Matter).
-* **Localização GPS do Usuário:** Marcador com anel pulsante e círculo de alcance do raio de busca selecionado (5km, 10km, 15km, 30km) com botão de recentralização rápida.
-* **Pinos Inteligentes com Destaque de Economia:** O supermercado mais barato da região é destacado com coroa de ouro (`👑`) e cor âmbar vibrante, enquanto os demais exibem pinos estilizados com nome e preço médio.
-* **Carrossel Inferior Interativo:** Navegação horizontal entre os mercados que desloca a câmera suavemente para cada estabelecimento no mapa.
-* **Modal Completo de Detalhes:** Exibe preço médio, quantidade de menores preços, lista com as melhores ofertas do mercado, atalho para abrir o Radar filtrado e botão *"Como Chegar"* integrado com Google Maps e Waze via `url_launcher`.
+* **Mapeamento OpenStreetMap Livre e Ilimitado:** Renderização vetorial fluida com `flutter_map: ^8.3.2` e `latlong2: ^0.10.1`, sem dependência de chaves pagas do Google Maps SDK, alternando dinamicamente entre Modo Claro (OSM Standard) e Modo Escuro (CartoDB Dark Matter).
+* **Localização GPS do Usuário:** Marcador com anel pulsante azul e círculo semitransparente do raio de busca selecionado (5 km, 10 km, 15 km, 25 km, 30 km e 50 km) com botão flutuante de recentralização rápida.
+* **Pinos Inteligentes com Destaque de Economia:**
+  - O supermercado com o menor preço médio da região recebe destaque supremo com uma **Coroa de Ouro** (`👑`) e gradiente âmbar (`#FFA000` a `#FF6F00`).
+  - Os demais supermercados exibem pinos estilizados com ícone da loja e indicador de preço médio apurado.
+* **Barra de Busca Rápida de Lojas (`_openSearchDialog`):** Modal com campo de pesquisa em tempo real que filtra estabelecimentos por nome, bairro ou cidade (ex: *"Tribobó"*, *"Inoã"*, *"Guanabara"*), com normalização de acentos e deslocamento suave da câmera do mapa para o local selecionado.
+* **Carrossel Inferior Sincronizado (`PageView`):** Cards deslizantes translúcidos que exibem o nome do mercado, distância calculada, badge de menor preço e botão para focalizar o pino no mapa com transição suave.
+* **Modal Completo de Detalhes do Mercado (`_showMarketBottomSheet`):** Exibe endereço físico completo, preço médio da cesta, contagem de produtos com menor preço, lista das melhores ofertas do mercado, atalho direto para o Comparador de Preços e botão *"Como Chegar"*.
+* **Traçado de Rotas Externas (`_openNavigation`):** Acionamento nativo de aplicativos de navegação GPS (Google Maps e Waze) através de esquemas `geo:latitude,longitude?q=...` com fallback automático para rotas web HTTPS via `url_launcher`.
+
+---
+
+### 4.5 Reconhecimento Inteligente de Código de Barras (`BarcodeLookupService`)
+
+O [`BarcodeLookupService`](file:///C:/Dev/CARRIN/lib/services/barcode_lookup_service.dart) implementa uma arquitetura de identificação em camadas para códigos de barras EAN-13 e EAN-8 lidos pela câmera:
+
+1. **Camada 1 — Histórico Local SQLite (Offline-First):**
+   - Ao ler o código de barras, o app pesquisa primeiramente no banco local do usuário (`findProductByBarcode`).
+   - Se o usuário já comprou o item anteriormente, os dados reais da sua rotina (nome customizado, último preço pago e categoria) são retornados imediatamente em menos de 10ms, sem depender de internet.
+2. **Camada 2 — API Open Food Facts Brasil (Base Aberta):**
+   - Caso o item seja novo para o usuário, o serviço dispara uma requisição HTTP para a API nacional/global do Open Food Facts (`world.openfoodfacts.org/api/v2/product/{barcode}.json`).
+   - Extrai nome oficial em português (`product_name_pt` / `product_name`), marca do fabricante (`brands`), gramatura/volume (`quantity`) e foto do produto (`image_url`).
+   - Formatação automática em Title Case e sanitização do nome do produto.
+3. **Camada 3 — IA de Categorização Automática:**
+   - O método heurístico [`ItemProvider.suggestCategoryForName`](file:///C:/Dev/CARRIN/lib/providers/item_provider.dart) analisa o nome e marca retornados e classifica automaticamente o item na categoria correta da lista (*Mercearia, Bebidas, Limpeza, Higiene, Frios & Laticínios, Hortifruti, etc.*).
+4. **Cache em Memória & Timeout Resiliente:**
+   - Resultados cacheados em memória para respostas instantâneas caso o código seja lido novamente.
+   - Timeout rígido de 4 segundos que evita travamentos em áreas de subsolo sem sinal celular.
+5. **Experiência Zero-Fricção (Adição Direta):**
+   - Eliminação de caixas de diálogo confirmatórias invasivas (*"Deseja adicionar agora?"*).
+   - O escaneamento abre imediatamente o diálogo de item ([`AddItemDialog`](file:///C:/Dev/CARRIN/lib/screens/shopping_list_screen.dart)) com nome, código de barras, categoria sugerida e badge sutil de procedência (`🌐 Base Aberta` ou `🛒 Seu Histórico`).
+
+---
+
+### 4.6 Sincronização Google Sheets Pessoal (`UserSheetsService`)
+
+* **Autenticação Pessoal via OAuth 2.0:** O usuário conecta diretamente sua conta Google via [`GoogleSignIn`](file:///C:/Dev/CARRIN/lib/services/user_sheets_service.dart).
+* **Armazenamento Privado no Drive Pessoal:** O aplicativo cria e atualiza a planilha `CARRIN_LISTAS` no Google Drive exclusivo do usuário, garantindo privacidade absoluta sem servidores proprietários.
+* **Fila Resiliente de Sincronização (`sync_queue`):** Alterações realizadas sem internet são enfileiradas na tabela local SQLite `sync_queue` e despachadas sequencialmente em background assim que a conectividade for restabelecida.
+
+---
+
+### 4.7 Leitor e Parser de Cupons Fiscais SEFAZ (`ReceiptScannerScreen`)
+
+* **Leitura de NFC-e via QR Code:** Captura a URL pública emitida pelas Secretarias de Fazenda estaduais (SEFAZ) nos cupons fiscais eletrônicos.
+* **Parser Inteligente de Cupons (1 e 2 Linhas):** Algoritmo de extração textual com suporte a cupons fiscais onde a descrição, código e valores estão dispostos em uma única linha ou divididos em duas linhas sucessivas.
+* **Importação em Lote:** Itens do cupom fiscal são convertidos automaticamente em instâncias do modelo `Item` e adicionados diretamente ao carrinho ativo com quantidades fracionárias, preços unitários e categorias pré-sugeridas.
 
 ---
 
