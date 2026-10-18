@@ -1,6 +1,6 @@
 # Documentação Técnica e Arquitetural: CARRIN
 
-> **Versão Atual:** `1.3.559` (Build `559`) — Outubro de 2026  
+> **Versão Atual:** `1.3.564` (Build `564`) — Outubro de 2026  
 > **Status:** Produção Estável  
 > **Slogan:** *"Sua lista, sem complicação."*
 
@@ -23,114 +23,123 @@ O **CARRIN** é um ecossistema mobile inteligente em Flutter para gestão financ
 
 ### 2.1 Diagrama de Navegação e Fluxo de Telas (Mermaid)
 
+> [!TIP]
+> Os diagramas abaixo foram modularizados por áreas de fluxo do aplicativo. Dessa forma, cada diagrama é renderizado em escala natural de 100%, com fontes grandes, nítidas e legíveis sem necessidade de dar zoom na tela.
+
+#### 2.1.1 Arquitetura Geral de Navegação (Hub & 5 Abas)
+```mermaid
+flowchart LR
+  Splash["SplashScreen<br/><b>Inicialização & Sessão</b>"] --> Main["MainScreen<br/><b>Navegação Principal (Rodapé)</b>"]
+  Main --> Tab0["1. Início<br/><b>DashboardScreen</b>"]
+  Main --> Tab1["2. Carrinhos<br/><b>MonthSelectionScreen</b>"]
+  Main --> Tab2["3. Análises<br/><b>StatisticsScreen</b>"]
+  Main --> Tab3["4. Comunidade<br/><b>CommunityRadarScreen</b>"]
+  Main --> Tab4["5. Ajustes<br/><b>SettingsScreen</b>"]
+```
+
+#### 2.1.2 Fluxo da Home & Meus Carrinhos (Abas 1 e 2)
 ```mermaid
 flowchart TD
-  Splash["SplashScreen<br/>(Abertura & Checagem de Sessão)"] --> Main["MainScreen<br/>(Navegação por 5 Abas no Rodapé)"]
-  
-  subgraph Rodape["Navegação Principal (Rodapé)"]
-    Tab0["1. Início<br/>(DashboardScreen)"]
-    Tab1["2. Carrinhos<br/>(MonthSelectionScreen)"]
-    Tab2["3. Análises<br/>(StatisticsScreen)"]
-    Tab3["4. Comunidade<br/>(CommunityRadarScreen)"]
-    Tab4["5. Ajustes<br/>(SettingsScreen)"]
+  subgraph Home["Aba 1: Início (Dashboard)"]
+    Dash["DashboardScreen<br/>(Saldo, Orçamento & Atalhos)"]
+    Accounts["AccountsScreen<br/>(Perfis Locais & Google OAuth)"]
+    Dash --> Accounts
   end
 
-  Main --> Tab0
-  Main --> Tab1
-  Main --> Tab2
-  Main --> Tab3
-  Main --> Tab4
+  subgraph Carts["Aba 2: Carrinhos & Compras"]
+    Months["MonthSelectionScreen<br/>(Mais Recentes no Topo • Toggle Ordem)"]
+    Shop["ShoppingListScreen<br/>(Lista Ativa de Compras)"]
+    AddItem["Modal Adicionar/Editar Item<br/>(Nome, Preço, Qtd, Categoria, Barcode)"]
+    BarScan["BarcodeScannerScreen<br/>(Scanner EAN-13 / EAN-8)"]
+    RecScan["ReceiptScannerScreen<br/>(NFC-e / SEFAZ QR Code)"]
+    Calculators["Calculadoras Assistivas<br/>(Preço/Kg & Flutuante)"]
+    Share["Exportação<br/>(PDF & WhatsApp)"]
+    Rateio["RateioDialog<br/>(Divisão de Conta)"]
 
-  %% --- FLUXO DA ABA 1: INÍCIO ---
-  Tab0 --> Accounts["AccountsScreen<br/>(Contas Online & Perfis Offline)"]
-  Tab0 --> ScanQuick["BarcodeScannerScreen<br/>(Busca Rápida de Produto)"]
-  Tab0 --> QuickSum["QuickSummary<br/>(Métricas de Saldo & Orçamento)"]
-  Tab0 --> MonthQuickNav["Navegação Direta<br/>(Abre Carrinho do Mês Ativo)"]
+    Months --> Shop
+    Shop --> AddItem
+    Shop --> BarScan
+    Shop --> RecScan
+    Shop --> Calculators
+    Shop --> Share
+    Shop --> Rateio
+    BarScan -->|"Lookup Rápido"| AddItem
+  end
 
-  %% --- FLUXO DA ABA 2: CARRINHOS ---
-  Tab1 --> NewCart["Modal Novo Carrinho<br/>(Em Branco ou Usar Anterior)"]
-  Tab1 --> ShoppingList["ShoppingListScreen<br/>(Lista de Compras Ativa)"]
-  ShoppingList --> AddItem["Modal Adicionar/Editar Item<br/>(Nome, Preço, Qtd, Categoria, Barcode)"]
-  ShoppingList --> BarcodeScan["BarcodeScannerScreen<br/>(Scanner EAN-13 / EAN-8)"]
-  ShoppingList --> ReceiptScan["ReceiptScannerScreen<br/>(NFC-e / Cupom SEFAZ QR Code)"]
-  ShoppingList --> WeightCalc["WeightCalculatorDialog<br/>(Calculadora Preço/Kg)"]
-  ShoppingList --> FloatCalc["FloatingCalculatorPopup<br/>(Calculadora Assistiva Flutuante)"]
-  ShoppingList --> RateioDialog["RateioDialog<br/>(Divisão de Conta por Pessoa)"]
-  ShoppingList --> FilterSheet["ShoppingFilterBottomSheet<br/>(Filtros, Categorias & Ordenação)"]
-  ShoppingList --> MarketLock["MarketLockOverlay<br/>(Finalizar / Trancar Carrinho)"]
-  ShoppingList --> MarketPurpose["MarketAndPurposeWidgets<br/>(Definir Mercado & Propósito)"]
-  ShoppingList --> PdfExport["PdfExportDialog<br/>(Compartilhamento WhatsApp / PDF)"]
+  Dash -->|"Abre Carrinho Ativo"| Shop
+```
 
-  %% Subfluxo: Reconhecimento Inteligente de Código de Barras
-  BarcodeScan --> BarcodeLookup["BarcodeLookupService<br/>(Busca em Camadas com Cache)"]
-  BarcodeLookup --> LookupLocal["1. Histórico SQLite Local<br/>(Último Preço e Categoria Salva)"]
-  BarcodeLookup --> LookupOFF["2. Open Food Facts Brasil API<br/>(Nome Oficial, Marca, Gramatura)"]
-  BarcodeLookup --> LookupCat["3. Categorização Automática<br/>(suggestCategoryForName)"]
-  BarcodeLookup --> DirectForm["Abertura Direta do AddItemDialog<br/>(Zero Fricção • Sem Popup Confirmatório)"]
-  DirectForm --> AddItem
+#### 2.1.3 Fluxo de Análises, Radar Comunitário & Mapa (Abas 3 e 4)
+```mermaid
+flowchart TD
+  subgraph TabAnalytics["Aba 3: Análises"]
+    Stats["StatisticsScreen<br/>(Gráficos FL Chart & Gastos)"]
+    Profile["BuyerProfileScreen<br/>(Perfil de Comprador)"]
+    Stats --> Profile
+  end
 
-  %% Subfluxo: Leitura de Cupom Fiscal
-  ReceiptScan --> SefazParser["Parser SEFAZ NFC-e<br/>(Extração de Itens, Qtd e Preços)"]
-  SefazParser --> ShoppingList
+  subgraph TabCommunity["Aba 4: Comunidade & Mapa Geográfico"]
+    Radar["CommunityRadarScreen<br/>(Navegação Livre entre Abas)"]
+    SubFeed["1. Lista / Feed<br/>(Cotações Recentes)"]
+    SubComp["2. Comparador<br/>(Card Único por Mercado & % Economia)"]
+    SubRank["3. Mercados<br/>(Ranking Regional por GPS)"]
+    Collab["Colaborar Preço<br/>(FAB na Cor do Tema)"]
+    
+    Radar --> SubFeed
+    Radar --> SubComp
+    Radar --> SubRank
+    Radar --> Collab
+    
+    Map["MarketMapScreen<br/>(3.484 Mercados • 6 Estilos de Mapa)"]
+    Radar -->|"Atalho Mapa"| Map
+    
+    Map --> Layers["6 Estilos de Camadas<br/>(Google, Satélite, OSM, Dark)"]
+    Map --> PointPick["Seleção de Ponto<br/>(Toque no Mapa • Ir até Aqui)"]
+    Map --> SearchMap["Busca Rápida & Redes<br/>(Filtro de Lojas com Sugestões)"]
+    Map --> ExternalNav["Rotas Externas<br/>(Google Maps & Waze)"]
+  end
+```
 
-  %% --- FLUXO DA ABA 3: ANÁLISES ---
-  Tab2 --> BuyerProfile["BuyerProfileScreen<br/>(Perfil de Comprador & Hábitos)"]
-  Tab2 --> TimeFilter["Filtros Temporais<br/>(3 meses / 6 meses / 1 ano / Tudo)"]
-  Tab2 --> CatBreakdown["Detalhamento por Categorias<br/>(Gráfico de Pizza & Barras FL Chart)"]
+#### 2.1.4 Fluxo de Ajustes, Personalização & Sistema (Aba 5)
+```mermaid
+flowchart TD
+  subgraph TabSettings["Aba 5: Ajustes & Sistema"]
+    Settings["SettingsScreen<br/>(Painel Central de Ajustes)"]
+    Themes["ThemeColorPickerSheet<br/>(Cores do Ícone & Coleções)"]
+    Access["Acessibilidade<br/>(Modos Daltônicos & Escala)"]
+    Backup["Backup & Restauração<br/>(SQLite JSON Local)"]
+    Tutorials["Tutorial Interativo<br/>(Acesso na Home & Configurações)"]
+    Terms["TermsScreen<br/>(Termos de Uso & LGPD)"]
 
-  %% --- FLUXO DA ABA 4: COMUNIDADE ---
-  Tab3 --> ComList["Sub-Aba 1: Lista<br/>(Feed de Preços Recentes & Selo NFC-e)"]
-  Tab3 --> ComComp["Sub-Aba 2: Comparador<br/>(Economia % & Comparativo por Supermercado)"]
-  Tab3 --> ComRank["Sub-Aba 3: Mercados<br/>(Ranking de Menor Preço Médio)"]
-  Tab3 --> CollabPrice["Modal Colaborar Preço<br/>(Envio Manual de Cotação)"]
-  Tab3 --> MapScreen["MarketMapScreen<br/>(Mapa Geográfico Interativo OSM & Rotas)"]
-
-  %% Detalhamento do Comparador (Aba 4)
-  ComComp --> MarketChips["Filtro Horizontal de Supermercados<br/>(Todos os Mercados / Supermercados Guanabara)"]
-  ComComp --> ProductTap["Seleção sob Demanda<br/>(Toque no Produto para Abrir Comparativo)"]
-  ComComp --> GroupedQuotes["Agrupamento por Supermercado<br/>(1 Card por Mercado • Menor Preço e Variação)"]
-
-  %% Detalhamento do Mapa Geográfico (MarketMapScreen)
-  MapScreen --> OsmTiles["OpenStreetMap TileLayer<br/>(Modo Claro OSM / Modo Escuro CartoDB)"]
-  MapScreen --> UserGpsMarker["Marcador do Usuário<br/>(GPS em Tempo Real + Anel de Raio)"]
-  MapScreen --> RadiusChips["Seletor de Raio de Cobertura<br/>(5 km, 10 km, 15 km, 25 km, 30 km, 50 km)"]
-  MapScreen --> SearchStores["Busca Rápida de Mercados<br/>(Filtro Insensível a Acentos: ex. Tribobó, Inoã)"]
-  MapScreen --> StoreMarkers["Pinos dos 154 Supermercados<br/>(Catálogo DefaultSupermarketsData)"]
-  StoreMarkers --> CrownMarker["👑 Supermercado Mais Barato<br/>(Pino Dourado de Destaque)"]
-  StoreMarkers --> StandardMarker["Pinos Padrão de Mercados<br/>(Nome e Preço Médio Regional)"]
-  MapScreen --> StoreCarousel["Carrossel Inferior de Lojas<br/>(Cards Deslizantes com Vôo Suave no Mapa)"]
-  MapScreen --> StoreModal["Modal de Detalhes do Mercado<br/>(Endereço Completo, Preço Médio & Top Ofertas)"]
-  StoreModal --> ExtRoutes["Botão Como Chegar<br/>(Navegação Externa: Google Maps / Waze)"]
-
-  %% --- FLUXO DA ABA 5: AJUSTES ---
-  Tab4 --> ThemeSheet["ThemeColorPickerSheet<br/>(Paleta de Cores do Tema)"]
-  Tab4 --> IconSheet["Seletor de Ícones do App<br/>(Ícone Clássico vs Moderno)"]
-  Tab4 --> AccessOpts["Acessibilidade<br/>(Modos Daltônicos & Escala de Fonte)"]
-  Tab4 --> BackupOpt["Backup & Restauração<br/>(Exportar / Importar SQLite JSON)"]
-  Tab4 --> ResetTutorials["Resetar Tutoriais das Abas<br/>(Reativar Cards Contextuais)"]
-  Tab4 --> TermsNav["TermsScreen<br/>(Termos de Uso & Política LGPD)"]
+    Settings --> Themes
+    Settings --> Access
+    Settings --> Backup
+    Settings --> Tutorials
+    Settings --> Terms
+  end
 ```
 
 ### 2.2 Estrutura Detalhada de Rotas e Telas
 
 | Tela / Rota / Serviço | Arquivo Fonte | Responsabilidade Principal |
 | :--- | :--- | :--- |
-| **SplashScreen** | [`lib/screens/splash_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/splash_screen.dart) | Animação de entrada, inicialização assíncrona de banco SQLite, preferências e GPS. |
-| **MainScreen** | [`lib/screens/main_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/main_screen.dart) | Host principal com `PageView` e `BottomNavigationBar` de 5 posições com navegação resiliente (`PopScope`). |
-| **DashboardScreen** | [`lib/screens/dashboard_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/dashboard_screen.dart) | Visão geral do mês ativo, medidor circular (gauge), grid reordenável de métricas e atalhos rápidos. |
-| **MonthSelectionScreen** | [`lib/screens/month_selection_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/month_selection_screen.dart) | Lista histórica de todos os carrinhos na ordem orgânica de criação, progresso de itens e status trancado. |
-| **ShoppingListScreen** | [`lib/screens/shopping_list_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/shopping_list_screen.dart) | Lista de compras com slivers responsivos, seleção em lote, cálculo de peso, scanner, rateio e exportação. |
-| **StatisticsScreen** | [`lib/screens/statistics_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/statistics_screen.dart) | Relatórios visuais com `fl_chart`, evolução mensal, divisão por categorias e atalho para o perfil. |
+| **SplashScreen** | [`lib/screens/splash_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/splash_screen.dart) | Animação cinematográfica de entrada com motion design vetorial, física de partículas, inicialização assíncrona do SQLite, preferências e GPS. |
+| **MainScreen** | [`lib/screens/main_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/main_screen.dart) | Host principal com `PageView` e `BottomNavigationBar` de 5 posições com navegação resiliente (`PopScope`) e transições horizontais livres. |
+| **DashboardScreen** | [`lib/screens/dashboard_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/dashboard_screen.dart) | Visão geral do mês ativo, medidor circular (gauge), grid reordenável de métricas, atalhos rápidos e botões de workspace fiéis ao tema sem poluição de interrogação. |
+| **MonthSelectionScreen** | [`lib/screens/month_selection_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/month_selection_screen.dart) | Lista de carrinhos com ordenação inteligente (mais recentes no topo por padrão), botão alternador de ordem (`Icons.arrow_downward_rounded` / `Icons.arrow_upward_rounded`) com persistência, progresso de itens e status trancado. |
+| **ShoppingListScreen** | [`lib/screens/shopping_list_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/shopping_list_screen.dart) | Lista de compras com slivers responsivos, seleção em lote, cálculo de peso, scanner, rateio, máscara monetária em tempo real e exportação PDF. |
+| **StatisticsScreen** | [`lib/screens/statistics_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/statistics_screen.dart) | Relatórios visuais com `fl_chart`, evolução mensal, divisão por categorias e atalho para o perfil de hábitos. |
 | **BuyerProfileScreen** | [`lib/screens/buyer_profile_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/buyer_profile_screen.dart) | Diagnóstico inteligente do perfil de consumo (Econômico, Gourmet, Planejador, etc.) e métricas de hábito. |
-| **CommunityRadarScreen** | [`lib/screens/community_radar_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/community_radar_screen.dart) | Radar comunitário com abas de Feed, Comparador de Produtos (% de economia e filtro de mercados), Ranking de Mercados por GPS e atalho para o Mapa. |
-| **MarketMapScreen** | [`lib/screens/market_map_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/market_map_screen.dart) | Mapa geográfico interativo OpenStreetMap com GPS do usuário, pinos dos 154 mercados, badge de ouro `👑` para o mais barato, carrossel inferior sincronizado, busca rápida e rotas externas (Google Maps/Waze). |
-| **SettingsScreen** | [`lib/screens/settings_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/settings_screen.dart) | Customização de cores, ícone do app, modo daltônico, backup/restore, animações e sobre. |
+| **CommunityRadarScreen** | [`lib/screens/community_radar_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/community_radar_screen.dart) | Radar comunitário com abas de Feed, Comparador de Produtos (% de economia e agrupamento único por mercado), Ranking de Mercados por GPS, botão Colaborar Preço na cor do tema e atalho para o Mapa. |
+| **MarketMapScreen** | [`lib/screens/market_map_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/market_map_screen.dart) | Mapa geográfico interativo estilo Google Maps com 6 estilos visuais de camadas (Google Padrão, Satélite, Relevo, Limpo, OSM e CartoDB Dark), catálogo de 3.484 supermercados (RJ, ES e SP), GPS do usuário, badge dourado `👑` para o mais barato, seleção de ponto tocando no mapa, filtro de redes, carrossel inferior sincronizado, busca rápida com sugestões e rotas externas (Google Maps/Waze). |
+| **SettingsScreen** | [`lib/screens/settings_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/settings_screen.dart) | Customização de 36 temas e cores do ícone, seletor de ícone do app, acessibilidade/modos daltônicos, backup/restore, reset de tutoriais e sobre. |
 | **AccountsScreen** | [`lib/screens/accounts_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/accounts_screen.dart) | Gestão de login Google OAuth 2.0 e perfis locais offline isolados. |
 | **ReceiptScannerScreen** | [`lib/screens/receipt_scanner_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/receipt_scanner_screen.dart) | Scanner de NFC-e (SEFAZ QR Code) com parser de cupons de 1 e 2 linhas. |
 | **BarcodeScannerScreen** | [`lib/screens/barcode_scanner_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/barcode_scanner_screen.dart) | Scanner de códigos de barras EAN-13/EAN-8 para inserção e busca instantânea. |
 | **BarcodeLookupService** | [`lib/services/barcode_lookup_service.dart`](file:///C:/Dev/CARRIN/lib/services/barcode_lookup_service.dart) | Motor de resolução em camadas (SQLite local + Open Food Facts Brasil REST + IA de categorias) com fluxo zero-fricção direto para edição. |
-| **DefaultSupermarketsData** | [`lib/services/default_supermarkets.dart`](file:///C:/Dev/CARRIN/lib/services/default_supermarkets.dart) | Catálogo oficial de 154 supermercados geolocalizados com endereço físico completo em Niterói, São Gonçalo, Maricá, Itaboraí e Rio de Janeiro. |
+| **DefaultSupermarketsData** | [`lib/services/default_supermarkets.dart`](file:///C:/Dev/CARRIN/lib/services/default_supermarkets.dart) | Catálogo oficial de 3.484 supermercados geolocalizados com endereço físico completo em Niterói, São Gonçalo, Maricá, Itaboraí, Rio de Janeiro e estados vizinhos (extraído e calibrado via Maps.me `.mwm`, OpenStreetMap e Photon). |
 | **CommunityPriceService** | [`lib/services/community_price_service.dart`](file:///C:/Dev/CARRIN/lib/services/community_price_service.dart) | Conexão com Supabase REST, sincronização em background, purga de dados legados e cálculo de proximidade Haversine. |
+| **SyncIndicator** | [`lib/widgets/sync_indicator.dart`](file:///C:/Dev/CARRIN/lib/widgets/sync_indicator.dart) | Indicador visual de sincronização em tempo real (verde sincronizado, laranja pendente) com modal explicativo limpo e sem parênteses. |
 | **TermsScreen** | [`lib/screens/terms_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/terms_screen.dart) | Termos de serviço, garantias de privacidade e política de transparência de dados. |
 
 ---
@@ -222,15 +231,15 @@ CREATE TABLE community_prices_cache (
 );
 ```
 
-### 4.2 Catálogo Consolidado de 154 Supermercados e Geofencing (`DefaultSupermarketsData`)
+### 4.2 Catálogo Consolidado de 3.484 Supermercados e Geofencing (`DefaultSupermarketsData`)
 
-O CARRIN conta com um catálogo nativo rigorosamente calibrado de **154 supermercados geolocalizados** com endereços físicos completos e coordenadas obtidas via cruzamento cartográfico de alta precisão (OpenStreetMap, Photon e Maps.me):
+O CARRIN conta com um catálogo nativo rigorosamente calibrado de **3.484 supermercados geolocalizados** com endereços físicos completos e coordenadas obtidas via extração direta de alta precisão das bases de dados `.mwm` do Maps.me (Rio de Janeiro, Espírito Santo e São Paulo) e cruzamento cartográfico (OpenStreetMap e Photon):
 
 * **Distribuição Geográfica Regional:**
-  - **Niterói (45+ lojas):** Supermercados Guanabara (Centro/Fonseca), Mundial (Jardim Icaraí), Pão de Açúcar (Icaraí e Ingá), Prezunic (Fonseca), Supermarket, Grand Marché (Itaipu, Piratininga, Fonseca, Barreto), Real Supermercados (Icaraí, Santa Rosa, São Francisco, Pendotiba, Piratininga, Maravista, Itaipu), Princesa (Icaraí, Fonseca), Super Prix (Icaraí Praia e Otávio Carneiro), Pomar (Icaraí e Santa Rosa), Multi Market (Santa Rosa), Mercado Extra (Centro), Mercado Fruto da Terra, Rede Economia (Ingá e Centro), Garritano (Centro), Hortifruti e Mercado Municipal de Niterói.
-  - **São Gonçalo (40+ lojas):** Assaí Atacadista (Tribobó - Rodovia RJ-104/RJ-106, Alcântara e Porto Velho), Atacadão (Alcântara), Carrefour, Extra, Guanabara São Gonçalo, Rede Economia (Tribobó, Rio do Ouro, Trindade, Rocha, Zé Garoto, Porto Novo, Mutondo, Jardim Catarina), Supermarket (Arsenal, Rio do Ouro, Alcântara, Rocha, Santa Catarina, Neves), Mercado Varsilva (Rio do Ouro / Engenho do Roçado) e Super Rede (Trindade).
-  - **Maricá (25+ lojas):** Cobertura total de todos os eixos comerciais: Centro (*Supermarket, Princesa, Rede Economia, Super Rede*), Inoã (*Dom Atacadista, Supermarket, Super Lagos, Litoral, Costazul*), Itaipuaçu / Barroco (*Grand Marché Barroco, Grand Marché Recanto, Rio Sul, Rede Economia*), São José do Imbassaí (*Supermarket, Mercado Joana*) e Itapeba (*Atacadão Maricá, Assaí Atacadista Maricá*).
-  - **Itaboraí & Rio de Janeiro (40+ lojas):** Principais polos atacadistas e redes de varejo da Região Metropolitana.
+  - **Niterói & São Gonçalo (120+ lojas):** Supermercados Guanabara (Centro/Fonseca), Mundial (Jardim Icaraí), Pão de Açúcar (Icaraí e Ingá), Prezunic (Fonseca), Supermarket, Grand Marché (Itaipu, Piratininga, Fonseca, Barreto), Real Supermercados (Icaraí, Santa Rosa, São Francisco, Pendotiba, Piratininga, Maravista, Itaipu), Princesa (Icaraí, Fonseca), Super Prix (Icaraí Praia e Otávio Carneiro), Pomar (Icaraí e Santa Rosa), Multi Market (Santa Rosa), Mercado Extra (Centro), Mercado Fruto da Terra, Rede Economia (Ingá, Centro, Tribobó, Rio do Ouro, Trindade, Rocha, Zé Garoto, Porto Novo, Mutondo, Jardim Catarina), Assaí Atacadista (Tribobó - Rodovia RJ-104/RJ-106, Alcântara e Porto Velho), Atacadão (Alcântara), Carrefour, Mercado Varsilva e Super Rede.
+  - **Maricá & Região dos Lagos (150+ lojas):** Cobertura total de todos os eixos comerciais de Maricá: Centro (*Supermarket, Princesa, Rede Economia, Super Rede*), Inoã (*Dom Atacadista, Supermarket, Super Lagos, Litoral, Costazul*), Itaipuaçu / Barroco (*Grand Marché Barroco, Grand Marché Recanto, Rio Sul, Rede Economia*), São José do Imbassaí (*Supermarket, Mercado Joana*), Itapeba (*Atacadão Maricá, Assaí Atacadista Maricá*), além de ampla cobertura em Saquarema, Araruama, Cabo Frio, São Pedro da Aldeia e Búzios.
+  - **Rio de Janeiro Capital & Baixada Fluminense (1.500+ lojas):** Polos atacadistas e redes de varejo de todas as zonas (Centro, Zona Sul, Zona Norte, Zona Oeste e Baixada: Duque de Caxias, Nova Iguaçu, São João de Meriti, Nilópolis, Belford Roxo).
+  - **Espírito Santo & São Paulo (1.600+ lojas):** Cobertura das regiões metropolitanas de Vitória (Vila Velha, Serra, Cariacica) e Grande São Paulo, litoral e interior paulista.
 
 * **Unificação Canônica do Supermercado de Referência:**
   - **Estabelecimento:** `Supermercados Guanabara`
@@ -262,12 +271,27 @@ O CARRIN conta com um catálogo nativo rigorosamente calibrado de **154 supermer
 
 ### 4.4 Mapa Geográfico dos Mercados & Rotas GPS (`MarketMapScreen`)
 
-* **Mapeamento OpenStreetMap Livre e Ilimitado:** Renderização vetorial fluida com `flutter_map: ^8.3.2` e `latlong2: ^0.10.1`, sem dependência de chaves pagas do Google Maps SDK, alternando dinamicamente entre Modo Claro (OSM Standard) e Modo Escuro (CartoDB Dark Matter).
-* **Localização GPS do Usuário:** Marcador com anel pulsante azul e círculo semitransparente do raio de busca selecionado (5 km, 10 km, 15 km, 25 km, 30 km e 50 km) com botão flutuante de recentralização rápida.
+* **Seletor de 6 Camadas de Mapa Estilo Google Maps (`MapTileStyle`):**
+  Renderização vetorial e rasterizada fluida com `flutter_map: ^8.3.2` e `latlong2: ^0.10.1`, com seletor interativo de estilos e persistência em `SharedPreferences` (`market_map_tile_style`):
+  1. **Google Padrão Desenhado (`googleStandard`):** Estilo clássico Google Maps com malha viária, nomes de vias, pontos de interesse e contraste ideal para navegação diurna.
+  2. **Google Limpo (`googleClean`):** Visual minimalista e desobstruído com paleta suave, destacando os pinos dos supermercados.
+  3. **Google Satélite + Ruas (`googleHybrid`):** Ortofotos de satélite de alta resolução combinadas com sobreposição vetorial de ruas, avenidas e contornos urbanos.
+  4. **Google Relevo (`googleTerrain`):** Mapa físico com sombreamento de relevo, topografia e curvas de nível geográficas.
+  5. **OpenStreetMap (`osmStandard`):** Cartografia colaborativa mundial livre e ilimitada baseada no OSM Standard.
+  6. **Modo Noturno / Dark Matter (`darkNight`):** Cartografia escura de alto contraste da CartoDB, perfeita para uso noturno e economia de bateria em telas OLED.
+* **Localização GPS do Usuário & Raio Dinâmico:** Marcador com anel pulsante azul e círculo semitransparente com seletor de raio (5 km, 10 km, 15 km, 25 km, 30 km e 50 km) com botão flutuante de recentralização rápida e alternador para ligar/desligar o círculo visual.
+* **Modo Selecionar Ponto no Mapa (`_pickOnMapMode` & Toque / Long-Press):**
+  - Permite ao usuário tocar ou manter pressionado qualquer local no mapa para definir um ponto arbitrário sem interferir nos pinos dos mercados.
+  - Exibe marcador dinâmico animado e painel inferior (`BottomSheet`) com coordenadas exatas, endereço aproximado e botão *"Ir até aqui"* para iniciar navegação de rota imediata.
+* **Barra de Busca com Sugestões Inteligentes em Tempo Real:**
+  - Campo de pesquisa superior com overlay de sugestões dinâmicas que filtra estabelecimentos por nome da loja, nome da rede, endereço ou município (com busca insensível a acentos, ex: *"Tribobó"*, *"Inoã"*, *"Guanabara"*).
+  - Fechamento automático do teclado virtual ao submeter a busca ou rolar os resultados, com deslocamento suave da câmera do mapa para o local selecionado.
+* **Filtro Rápido de Redes Principais (`mainChains`):**
+  - Carrossel horizontal de chips com as maiores redes de varejo e atacado (*Guanabara, Supermarket, Rede Economia, Assaí, Mundial, Real, Atacadão, Grand Marché, Prezunic, Princesa, Super Rede, Dom Atacadista, Pão de Açúcar, Zona Sul, etc.*) para filtragem instantânea dos marcadores visíveis.
 * **Pinos Inteligentes com Destaque de Economia:**
   - O supermercado com o menor preço médio da região recebe destaque supremo com uma **Coroa de Ouro** (`👑`) e gradiente âmbar (`#FFA000` a `#FF6F00`).
   - Os demais supermercados exibem pinos estilizados com ícone da loja e indicador de preço médio apurado.
-* **Barra de Busca Rápida de Lojas (`_openSearchDialog`):** Modal com campo de pesquisa em tempo real que filtra estabelecimentos por nome, bairro ou cidade (ex: *"Tribobó"*, *"Inoã"*, *"Guanabara"*), com normalização de acentos e deslocamento suave da câmera do mapa para o local selecionado.
+  - Alternador rápido para ocultar/exibir todos os pinos de mercados na tela.
 * **Carrossel Inferior Sincronizado (`PageView`):** Cards deslizantes translúcidos que exibem o nome do mercado, distância calculada, badge de menor preço e botão para focalizar o pino no mapa com transição suave.
 * **Modal Completo de Detalhes do Mercado (`_showMarketBottomSheet`):** Exibe endereço físico completo, preço médio da cesta, contagem de produtos com menor preço, lista das melhores ofertas do mercado, atalho direto para o Comparador de Preços e botão *"Como Chegar"*.
 * **Traçado de Rotas Externas (`_openNavigation`):** Acionamento nativo de aplicativos de navegação GPS (Google Maps e Waze) através de esquemas `geo:latitude,longitude?q=...` com fallback automático para rotas web HTTPS via `url_launcher`.
