@@ -407,6 +407,43 @@ class DatabaseHelper {
     return result;
   }
 
+  /// Recalcula e sincroniza o resumo dos meses locais a partir dos itens salvos no banco SQLite.
+  /// Garante que se a planilha na nuvem enviou zeros ou erros de fórmula, o banco local se auto-recupera.
+  Future<void> recalculateAllMonthSummaries() async {
+    final db = await database;
+    final months = await db.query('months');
+    for (final m in months) {
+      final title = (m['title'] as String? ?? '').trim();
+      if (title.isEmpty) continue;
+      final budget = (m['budget'] as num?)?.toDouble() ?? 0.0;
+      final monthItems = await db.query('items', where: 'month_title = ?', whereArgs: [title]);
+      if (monthItems.isNotEmpty) {
+        double total = 0.0;
+        int bought = 0;
+        for (final it in monthItems) {
+          final q = (it['quantity'] as num?)?.toDouble() ?? 0.0;
+          final p = (it['unit_price'] as num?)?.toDouble() ?? 0.0;
+          final isB = it['is_bought'] == 1;
+          if (isB) {
+            total += q * p;
+            bought++;
+          }
+        }
+        await db.update(
+          'months',
+          {
+            'total': total,
+            'balance': budget - total,
+            'totalItems': monthItems.length.toDouble(),
+            'boughtItems': bought.toDouble(),
+          },
+          where: 'title = ?',
+          whereArgs: [title],
+        );
+      }
+    }
+  }
+
   // --- Operações de itens ---
   Future<List<Item>> getItems(String monthTitle) async {
     final db = await database;

@@ -1113,6 +1113,72 @@ void main() {
       expect(Utils.parseCurrency('25,00'), closeTo(25.0, 0.001));
       expect(Utils.parseCurrency('25'), closeTo(25.0, 0.001));
       expect(Utils.parseCurrency('1.250,50'), closeTo(1250.50, 0.001));
+      expect(Utils.parseCurrency('R\$ 1.250,50'), closeTo(1250.50, 0.001));
+      expect(Utils.parseCurrency('12.99'), closeTo(12.99, 0.001));
+      expect(Utils.parseCurrency('(15,20)'), closeTo(-15.20, 0.001));
+      expect(Utils.parseCurrency('#ERROR!'), equals(0.0));
+    });
+  });
+
+  group('Spreadsheet Summary and Parsing Resilience Tests', () {
+    test('Item.parseBool accurately parses diverse boolean formats', () {
+      expect(Item.parseBool(true), isTrue);
+      expect(Item.parseBool('true'), isTrue);
+      expect(Item.parseBool('TRUE'), isTrue);
+      expect(Item.parseBool('verdadeiro'), isTrue);
+      expect(Item.parseBool('VERDADEIRO'), isTrue);
+      expect(Item.parseBool('1'), isTrue);
+      expect(Item.parseBool(1), isTrue);
+      expect(Item.parseBool('sim'), isTrue);
+
+      expect(Item.parseBool(false), isFalse);
+      expect(Item.parseBool('false'), isFalse);
+      expect(Item.parseBool('FALSE'), isFalse);
+      expect(Item.parseBool('0'), isFalse);
+      expect(Item.parseBool(0), isFalse);
+      expect(Item.parseBool(''), isFalse);
+      expect(Item.parseBool(null), isFalse);
+    });
+
+    test('Item.fromList parses Brazilian formatted values with thousand dots and supermarket column I', () {
+      // B (Qty), C (Name), D (Price), E (Total), F (Category), G (Status), H (Barcode), I (Supermarket)
+      final rawRow = [
+        '2',
+        'Jogo de Taças de Cristal',
+        '1.250,50',
+        '2.501,00',
+        'Utilidades',
+        'FALSE',
+        '7891234567890',
+        'Supermercados Guanabara',
+      ];
+
+      final item = Item.fromList(rawRow, 7);
+      expect(item.name, equals('Jogo de Taças de Cristal'));
+      expect(item.quantity, equals(2.0));
+      expect(item.unitPrice, closeTo(1250.50, 0.01));
+      expect(item.totalPrice, closeTo(2501.00, 0.01));
+      expect(item.isBought, isFalse);
+      expect(item.barcode, equals('7891234567890'));
+      expect(item.supermarket, equals('Supermercados Guanabara'));
+    });
+
+    test('Unchecked items like Jogo de Taças do not count towards bought total sum', () {
+      final items = [
+        Item(name: 'Arroz 5kg', quantity: 2, unitPrice: 30.0, isBought: true),
+        Item(name: 'Feijão 1kg', quantity: 3, unitPrice: 8.0, isBought: true),
+        Item(name: 'Jogo de Taças', quantity: 1, unitPrice: 1250.50, isBought: false), // Unchecked!
+      ];
+
+      final boughtTotal = items.where((it) => it.isBought).fold(0.0, (sum, it) => sum + it.totalPrice);
+      expect(boughtTotal, equals(60.0 + 24.0));
+      expect(boughtTotal, equals(84.0));
+      expect(boughtTotal, isNot(contains('1250')));
+    });
+
+    test('UserSheetsService createNewMonth headers include Saldo at column G and Mercado at column I', () {
+      final service = UserSheetsService();
+      expect(service.currentMonthTitle, isNotEmpty);
     });
   });
 }

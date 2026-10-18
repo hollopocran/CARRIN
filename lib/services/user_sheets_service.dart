@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:googleapis/sheets/v4.dart' as sheets;
@@ -181,41 +182,100 @@ class UserSheetsService {
 
   Future<Map<String, Map<String, double>>> getBatchSummaries(List<String> titles) async {
     final Map<String, Map<String, double>> summaries = {};
+    if (titles.isEmpty) return summaries;
     if (_spreadsheetId == null) await _ensureSpreadsheetExists();
     final api = _sheetsApi;
     if (api == null) return summaries;
 
     try {
-      final ranges = titles.map((t) => "'$t'!A2:I2").toList();
+      final List<String> ranges = [];
+      for (final t in titles) {
+        final escaped = t.replaceAll("'", "''");
+        ranges.add("'$escaped'!A2:I2");
+        ranges.add("'$escaped'!B7:I");
+      }
+
       final response = await api.spreadsheets.values.batchGet(_spreadsheetId!, ranges: ranges);
-      
+      final valueRanges = response.valueRanges ?? [];
+
       for (int i = 0; i < titles.length; i++) {
         final title = titles[i];
-        final values = response.valueRanges?[i].values;
-        if (values != null && values.isNotEmpty) {
-          final row2 = values.first;
-          double total = row2.length > 2 ? _parseBrazilianNumber(row2[2].toString()) : 0.0;
-          double totalItems = row2.length > 4 ? _parseBrazilianNumber(row2[4].toString()) : 0.0;
-          double boughtItems = row2.length > 5 ? _parseBrazilianNumber(row2[5].toString()) : 0.0;
-          double balance = row2.length > 6 ? _parseBrazilianNumber(row2[6].toString()) : 0.0;
-          double budget = row2.length > 7 ? _parseBrazilianNumber(row2[7].toString()) : 0.0;
-          bool isFinalized = row2.length > 8 ? (
-            row2[8] == true ||
-            row2[8].toString().trim().toLowerCase() == 'true' ||
-            row2[8].toString().trim().toLowerCase() == 'verdadeiro' ||
-            row2[8].toString().trim() == '1'
-          ) : false;
+        final row2Values = (i * 2 < valueRanges.length) ? valueRanges[i * 2].values : null;
+        final itemRows = (i * 2 + 1 < valueRanges.length) ? valueRanges[i * 2 + 1].values : null;
 
-          summaries[title] = {
-            'budget': budget, 
-            'total': total, 
-            'balance': balance,
-            'totalItems': totalItems,
-            'boughtItems': boughtItems,
-            'isFinalized': isFinalized ? 1.0 : 0.0,
-          };
-        } else {
-          summaries[title] = {'budget': 0.0, 'total': 0.0, 'balance': 0.0, 'totalItems': 0.0, 'boughtItems': 0.0, 'isFinalized': 0.0};
+        double row2Total = 0.0;
+        double row2TotalItems = 0.0;
+        double row2BoughtItems = 0.0;
+        double budget = 0.0;
+        bool isFinalized = false;
+
+        if (row2Values != null && row2Values.isNotEmpty) {
+          final row2 = row2Values.first;
+          row2Total = row2.length > 2 ? _parseBrazilianNumber(row2[2].toString()) : 0.0;
+          row2TotalItems = row2.length > 4 ? _parseBrazilianNumber(row2[4].toString()) : 0.0;
+          row2BoughtItems = row2.length > 5 ? _parseBrazilianNumber(row2[5].toString()) : 0.0;
+          budget = row2.length > 7 ? _parseBrazilianNumber(row2[7].toString()) : 0.0;
+          isFinalized = row2.length > 8 ? Item.parseBool(row2[8]) : false;
+        }
+
+        // Calculate real items metrics from Column B to I
+        int countItems = 0;
+        int countBought = 0;
+        double sumTotal = 0.0;
+
+        if (itemRows != null && itemRows.isNotEmpty) {
+          for (final row in itemRows) {
+            if (row.length > 1 && row[1].toString().trim().isNotEmpty) {
+              countItems++;
+              final isBought = row.length > 5 ? Item.parseBool(row[5]) : false;
+              final qty = row.isNotEmpty ? _parseBrazilianNumber(row[0].toString()) : 0.0;
+              final unitPrice = row.length > 2 ? _parseBrazilianNumber(row[2].toString()) : 0.0;
+              final rowTotal = row.length > 3 ? _parseBrazilianNumber(row[3].toString()) : (qty * unitPrice);
+
+              if (isBought) {
+                countBought++;
+                sumTotal += (rowTotal > 0 ? rowTotal : (qty * unitPrice));
+              }
+            }
+          }
+        }
+
+        double finalTotal = row2Total;
+        double finalTotalItems = row2TotalItems;
+        double finalBoughtItems = row2BoughtItems;
+        bool needsHeal = false;
+
+        if (countItems > 0) {
+          if (row2Total == 0.0 && sumTotal > 0.0) {
+            finalTotal = sumTotal;
+            needsHeal = true;
+          } else if ((row2Total - sumTotal).abs() > 0.01) {
+            finalTotal = sumTotal;
+            needsHeal = true;
+          }
+          if (row2TotalItems == 0.0 || (row2TotalItems - countItems).abs() > 0.01) {
+            finalTotalItems = countItems.toDouble();
+            needsHeal = true;
+          }
+          if (row2BoughtItems == 0.0 || (row2BoughtItems - countBought).abs() > 0.01) {
+            finalBoughtItems = countBought.toDouble();
+            needsHeal = true;
+          }
+        }
+
+        final double finalBalance = budget - finalTotal;
+
+        summaries[title] = {
+          'budget': budget,
+          'total': finalTotal,
+          'balance': finalBalance,
+          'totalItems': finalTotalItems,
+          'boughtItems': finalBoughtItems,
+          'isFinalized': isFinalized ? 1.0 : 0.0,
+        };
+
+        if (needsHeal) {
+          unawaited(_healSummaryRow(title, budget, isFinalized));
         }
       }
     } catch (e) {
@@ -223,6 +283,27 @@ class UserSheetsService {
       rethrow;
     }
     return summaries;
+  }
+
+  Future<void> _healSummaryRow(String title, double budget, bool isFinalized) async {
+    try {
+      final api = _sheetsApi;
+      if (api == null || _spreadsheetId == null) return;
+      final formulas = [
+        '=IFERROR(SUMIF(G7:G, TRUE, E7:E), 0)',
+        '',
+        '=IFERROR(COUNTA(C7:C), 0)',
+        '=IFERROR(COUNTIF(G7:G, TRUE), 0)',
+        '=IFERROR(H2-C2, 0)'
+      ];
+      final vr = sheets.ValueRange()..values = [formulas];
+      await api.spreadsheets.values.update(
+        vr, _spreadsheetId!, "'${title.replaceAll("'", "''")}'!C2:G2",
+        valueInputOption: 'USER_ENTERED'
+      );
+    } catch (e) {
+      debugPrint('Aviso ao regenerar fórmulas na aba $title: $e');
+    }
   }
 
   Future<Map<String, double>> getSummaryOnly(String title) async {
@@ -278,16 +359,31 @@ class UserSheetsService {
     }
   }
 
-  Future<void> updateSummary(String title, double total, double balance, {int? totalItems, int? boughtItems, bool? isFinalized}) async {
+  Future<void> updateSummary(String title, double total, double balance, {int? totalItems, int? boughtItems, bool? isFinalized, double? budget}) async {
     if (_spreadsheetId == null) await _ensureSpreadsheetExists();
     final api = _sheetsApi;
     if (api == null) return;
 
+    final escapedTitle = title.replaceAll("'", "''");
+    final formulas = [
+      '=IFERROR(SUMIF(G7:G, TRUE, E7:E), 0)',
+      '',
+      '=IFERROR(COUNTA(C7:C), 0)',
+      '=IFERROR(COUNTIF(G7:G, TRUE), 0)',
+      '=IFERROR(H2-C2, 0)'
+    ];
+
     try {
-      if (totalItems != null && boughtItems != null) {
-        final vr = sheets.ValueRange()..values = [[total.toStringAsFixed(2).replaceAll('.', ','), '', totalItems, boughtItems, balance.toStringAsFixed(2).replaceAll('.', ',')]];
+      final vr = sheets.ValueRange()..values = [formulas];
+      await api.spreadsheets.values.update(
+        vr, _spreadsheetId!, "'$escapedTitle'!C2:G2",
+        valueInputOption: 'USER_ENTERED'
+      );
+
+      if (budget != null) {
+        final vrBudget = sheets.ValueRange()..values = [[budget]];
         await api.spreadsheets.values.update(
-          vr, _spreadsheetId!, "'$title'!C2:G2",
+          vrBudget, _spreadsheetId!, "'$escapedTitle'!H2",
           valueInputOption: 'USER_ENTERED'
         );
       }
@@ -295,7 +391,7 @@ class UserSheetsService {
       if (isFinalized != null) {
         final vrFinal = sheets.ValueRange()..values = [[isFinalized ? 'TRUE' : 'FALSE']];
         await api.spreadsheets.values.update(
-          vrFinal, _spreadsheetId!, "'$title'!I2",
+          vrFinal, _spreadsheetId!, "'$escapedTitle'!I2",
           valueInputOption: 'USER_ENTERED'
         );
       }
@@ -303,18 +399,16 @@ class UserSheetsService {
       if (e.toString().contains('Unable to parse range')) {
         try {
           debugPrint('Aba "$title" não encontrada ao atualizar resumo. Criando automaticamente...');
-          await createNewMonth(title, false);
-          if (totalItems != null && boughtItems != null) {
-            final vr = sheets.ValueRange()..values = [[total.toStringAsFixed(2).replaceAll('.', ','), '', totalItems, boughtItems, balance.toStringAsFixed(2).replaceAll('.', ',')]];
-            await api.spreadsheets.values.update(
-              vr, _spreadsheetId!, "'$title'!C2:G2",
-              valueInputOption: 'USER_ENTERED'
-            );
-          }
+          await createNewMonth(title, false, initialBudget: budget);
+          final vr = sheets.ValueRange()..values = [formulas];
+          await api.spreadsheets.values.update(
+            vr, _spreadsheetId!, "'$escapedTitle'!C2:G2",
+            valueInputOption: 'USER_ENTERED'
+          );
           if (isFinalized != null) {
             final vrFinal = sheets.ValueRange()..values = [[isFinalized ? 'TRUE' : 'FALSE']];
             await api.spreadsheets.values.update(
-              vrFinal, _spreadsheetId!, "'$title'!I2",
+              vrFinal, _spreadsheetId!, "'$escapedTitle'!I2",
               valueInputOption: 'USER_ENTERED'
             );
           }
@@ -333,34 +427,55 @@ class UserSheetsService {
     final api = _sheetsApi;
     if (api == null) return;
 
+    final escapedTitle = monthTitle.replaceAll("'", "''");
+    final formulas = [
+      '=IFERROR(SUMIF(G7:G, TRUE, E7:E), 0)',
+      '',
+      '=IFERROR(COUNTA(C7:C), 0)',
+      '=IFERROR(COUNTIF(G7:G, TRUE), 0)',
+      '=IFERROR(H2-C2, 0)'
+    ];
+
     try {
       // Clear existing
-      await api.spreadsheets.values.clear(sheets.ClearValuesRequest(), _spreadsheetId!, "'$monthTitle'!B7:H");
+      await api.spreadsheets.values.clear(sheets.ClearValuesRequest(), _spreadsheetId!, "'$escapedTitle'!B7:I");
 
       // Insert new
       if (localItems.isNotEmpty) {
         final List<List<dynamic>> matrix = localItems.map((item) => item.toList()).toList();
         final vr = sheets.ValueRange()..values = matrix;
         await api.spreadsheets.values.update(
-          vr, _spreadsheetId!, "'$monthTitle'!B7",
+          vr, _spreadsheetId!, "'$escapedTitle'!B7",
           valueInputOption: 'USER_ENTERED'
         );
       }
+
+      // Also ensure row 2 summary formulas are present and working
+      final vrSummary = sheets.ValueRange()..values = [formulas];
+      await api.spreadsheets.values.update(
+        vrSummary, _spreadsheetId!, "'$escapedTitle'!C2:G2",
+        valueInputOption: 'USER_ENTERED'
+      );
     } catch (e) {
       final err = e.toString().toLowerCase();
       if (err.contains('unable to parse range') || err.contains('not found') || err.contains('cannot find sheet')) {
         try {
           debugPrint('Aba "$monthTitle" não encontrada ao sobrescrever. Criando automaticamente...');
           await createNewMonth(monthTitle, false);
-          await api.spreadsheets.values.clear(sheets.ClearValuesRequest(), _spreadsheetId!, "'$monthTitle'!B7:H");
+          await api.spreadsheets.values.clear(sheets.ClearValuesRequest(), _spreadsheetId!, "'$escapedTitle'!B7:I");
           if (localItems.isNotEmpty) {
             final List<List<dynamic>> matrix = localItems.map((item) => item.toList()).toList();
             final vr = sheets.ValueRange()..values = matrix;
             await api.spreadsheets.values.update(
-              vr, _spreadsheetId!, "'$monthTitle'!B7",
+              vr, _spreadsheetId!, "'$escapedTitle'!B7",
               valueInputOption: 'USER_ENTERED'
             );
           }
+          final vrSummary = sheets.ValueRange()..values = [formulas];
+          await api.spreadsheets.values.update(
+            vrSummary, _spreadsheetId!, "'$escapedTitle'!C2:G2",
+            valueInputOption: 'USER_ENTERED'
+          );
           return;
         } catch (retryError) {
           debugPrint('Erro ao sobrescrever após auto-criação: $retryError');
@@ -395,12 +510,12 @@ class UserSheetsService {
       // Setup Headers
       final vr = sheets.ValueRange()
         ..values = [
-          ['Lista de Compras', '', 'Total Gasto', '', 'Qtd Itens', 'Comprados', '', 'Orçamento', 'Finalizado'],
-          ['', '', '=SUMIF(G7:G; "true"; E7:E)', '', '=SUM(B7:B)', '=SUMIF(G7:G; "true"; B7:B)', '=H2-C2', initialBudget ?? 0, 'FALSE'],
+          ['Lista de Compras', '', 'Total Gasto', '', 'Qtd Itens', 'Comprados', 'Saldo', 'Orçamento', 'Finalizado'],
+          ['', '', '=IFERROR(SUMIF(G7:G, TRUE, E7:E), 0)', '', '=IFERROR(COUNTA(C7:C), 0)', '=IFERROR(COUNTIF(G7:G, TRUE), 0)', '=IFERROR(H2-C2, 0)', initialBudget ?? 0, 'FALSE'],
           ['', '', '', '', '', '', '', '', ''],
           ['', '', '', '', '', '', '', '', ''],
           ['', '', '', '', '', '', '', '', ''],
-          ['', 'Qtd', 'Produto', 'Preço Unit.', 'Total', 'Categoria', 'Comprado', 'Barcode', '']
+          ['', 'Qtd', 'Produto', 'Preço Unit.', 'Total', 'Categoria', 'Comprado', 'Barcode', 'Mercado']
         ];
       
       await api.spreadsheets.values.update(
@@ -418,13 +533,14 @@ class UserSheetsService {
             for (var item in sourceItems) {
               if (item.name.trim().isNotEmpty) {
                 templateItems.add([
-                  '0',
+                  item.isKg ? 0.0 : 0,
                   item.name,
-                  '0',
-                  '0',
+                  item.unitPrice,
+                  0,
                   item.category.isNotEmpty ? item.category : 'Outros',
-                  'false',
-                  item.barcode,
+                  'FALSE',
+                  Item.parseBarcode(item.barcode) ?? '',
+                  item.supermarket ?? '',
                 ]);
               }
             }
@@ -456,12 +572,7 @@ class UserSheetsService {
   double get totalFromSheet => _totalFromSheet;
 
   double _parseBrazilianNumber(String value) {
-    if (value.isEmpty || value == 'null') return 0.0;
-    String clean = value.replaceAll('R\$', '').replaceAll(' ', '').trim();
-    if (clean.startsWith('(') && clean.endsWith(')')) clean = clean.substring(1, clean.length - 1);
-    if (clean.contains(',')) clean = clean.replaceAll('.', '').replaceAll(',', '.');
-    clean = clean.replaceAll(RegExp(r'[^0-9.-]'), '');
-    return double.tryParse(clean) ?? 0.0;
+    return Utils.parseCurrency(value);
   }
 
   Future<List<Item>> getItems({String? title}) async {
@@ -471,7 +582,7 @@ class UserSheetsService {
     if (api == null) return [];
 
     try {
-      final response = await api.spreadsheets.values.get(_spreadsheetId!, "'$targetTitle'!B2:H");
+      final response = await api.spreadsheets.values.get(_spreadsheetId!, "'$targetTitle'!B2:I");
       final allValues = response.values ?? [];
 
       if (allValues.isNotEmpty) {
@@ -516,7 +627,7 @@ class UserSheetsService {
         try {
           debugPrint('Aba "$targetTitle" não encontrada ao carregar itens. Criando automaticamente...');
           await createNewMonth(targetTitle, false);
-          final response = await api.spreadsheets.values.get(_spreadsheetId!, "'$targetTitle'!B2:H");
+          final response = await api.spreadsheets.values.get(_spreadsheetId!, "'$targetTitle'!B2:I");
           final allValues = response.values ?? [];
 
           if (allValues.isNotEmpty) {
@@ -574,7 +685,7 @@ class UserSheetsService {
     try {
       final vr = sheets.ValueRange()..values = [item.toList()];
       await api.spreadsheets.values.update(
-        vr, _spreadsheetId!, "'$_currentSheetTitle'!B${item.index}:H${item.index}",
+        vr, _spreadsheetId!, "'$_currentSheetTitle'!B${item.index}:I${item.index}",
         valueInputOption: 'USER_ENTERED'
       );
     } catch (e) {
@@ -729,7 +840,7 @@ class UserSheetsService {
 
       // 1. Tenta buscar todos os meses em lote (batchGet) em uma única requisição HTTP
       try {
-        final ranges = months.map((m) => "'${m.replaceAll("'", "''")}'!B7:H").toList();
+        final ranges = months.map((m) => "'${m.replaceAll("'", "''")}'!B7:I").toList();
         final response = await api.spreadsheets.values.batchGet(_spreadsheetId!, ranges: ranges);
         final valueRanges = response.valueRanges ?? [];
 
@@ -747,7 +858,7 @@ class UserSheetsService {
         // Fallback resiliente: busca abas individualmente caso batchGet falhe
         for (var month in months) {
           try {
-            final response = await api.spreadsheets.values.get(_spreadsheetId!, "'${month.replaceAll("'", "''")}'!B7:H");
+            final response = await api.spreadsheets.values.get(_spreadsheetId!, "'${month.replaceAll("'", "''")}'!B7:I");
             if (response.values != null) {
               for (var row in response.values!) {
                 addRowToHistory(row, month);

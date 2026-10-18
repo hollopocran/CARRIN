@@ -26,7 +26,15 @@ class Utils {
   /// Converte texto digitado com máscara ou vírgula em double (ex: "1.250,50" -> 1250.5, "12,99" -> 12.99, "25" -> 25.0)
   static double parseCurrency(String text) {
     if (text.trim().isEmpty) return 0.0;
-    final clean = text.trim().replaceAll('.', '').replaceAll(',', '.');
+    String clean = text.replaceAll('R\$', '').replaceAll(' ', '').trim();
+    if (clean.isEmpty) return 0.0;
+    if (clean.startsWith('(') && clean.endsWith(')')) {
+      clean = '-${clean.substring(1, clean.length - 1)}';
+    }
+    if (clean.contains(',')) {
+      clean = clean.replaceAll('.', '').replaceAll(',', '.');
+    }
+    clean = clean.replaceAll(RegExp(r'[^0-9.-]'), '');
     return double.tryParse(clean) ?? 0.0;
   }
 

@@ -1,3 +1,5 @@
+import '../services/utils.dart';
+
 /// Represents a single shopping list item.
 /// 
 /// Contains data about the product, its quantity, price, category, and
@@ -61,7 +63,7 @@ class Item {
   }
 
   /// Parses boolean values in various formats (bool, TRUE, VERDADEIRO, 1, etc.)
-  static bool _parseBool(dynamic val) {
+  static bool parseBool(dynamic val) {
     if (val == null) return false;
     if (val is bool) return val;
     if (val is num) return val == 1;
@@ -69,12 +71,13 @@ class Item {
     return s == 'true' || s == 'verdadeiro' || s == '1' || s == 'sim' || s == 'v';
   }
 
+  static bool _parseBool(dynamic val) => parseBool(val);
+
   /// Parses various numerical formats (including Brazilian R$) into a double.
   static double _parseNum(dynamic val) {
     if (val == null) return 0.0;
     if (val is num) return val.toDouble();
-    String s = val.toString().replaceAll('R\$', '').replaceAll(' ', '').replaceAll(',', '.').trim();
-    return double.tryParse(s) ?? 0.0;
+    return Utils.parseCurrency(val.toString());
   }
 
   /// Converts the item into a list format suitable for Google Sheets insertion.

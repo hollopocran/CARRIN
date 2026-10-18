@@ -1,6 +1,6 @@
 # Documentação Técnica e Arquitetural: CARRIN
 
-> **Versão Atual:** `1.3.555` (Build `555`) — Outubro de 2026  
+> **Versão Atual:** `1.3.556` (Build `556`) — Outubro de 2026  
 > **Status:** Produção Estável  
 > **Slogan:** *"Sua lista, sem complicação."*
 
@@ -315,6 +315,21 @@ O [`BarcodeLookupService`](file:///C:/Dev/CARRIN/lib/services/barcode_lookup_ser
 ---
 
 ## 5. Histórico Cronológico de Atualizações e Versões
+
+### v1.3.556 (18 de Outubro de 2026)
+- **Correção Geral dos Resumos e Valores das Planilhas ("Meus Carrinhos" & Google Sheets):**
+  - **Identificação da Causa Raiz:** Carrinhos anteriores exibiam R$ 0,00 ou erros de cálculo porque o template gravava fórmulas em inglês com ponto e vírgula `;` (que gerava `#ERROR!` na API do Google Sheets), comparava strings com booleano (`"true"` vs `TRUE`) e a sincronização de itens (`overwriteAllItems`) não atualizava o cabeçalho de resumo na linha 2.
+  - **Fórmulas Resilientes e Padronizadas no Google Sheets:** Fórmulas corrigidas para sintaxe padrão da API com vírgula e tratamento de erro:
+    - *Total Gasto (C2):* `=IFERROR(SUMIF(G7:G, TRUE, E7:E), 0)`
+    - *Qtd Itens (E2):* `=IFERROR(COUNTA(C7:C), 0)`
+    - *Comprados (F2):* `=IFERROR(COUNTIF(G7:G, TRUE), 0)`
+    - *Saldo (G2):* `=IFERROR(H2-C2, 0)`
+    - Cabeçalho da coluna G atualizado para `'Saldo'`.
+  - **Cálculo Dinâmico a partir dos Itens em Lote (`UserSheetsService.getBatchSummaries`):** O `getBatchSummaries` agora consulta simultaneamente o resumo (`A2:I2`) e todos os itens (`B7:I`) de cada mês em uma única requisição HTTP. Caso a linha 2 contenha erros de fórmula ou valores zerados, o serviço calcula automaticamente os valores reais com base nos itens cadastrados (somando apenas os itens marcados como comprados, `isBought == true`) e regenera em background as fórmulas corretas na planilha do usuário (`_healSummaryRow`).
+  - **Auto-Recuperação no SQLite Local (`DatabaseHelper.recalculateAllMonthSummaries`):** Na inicialização e no carregamento dos meses, o SQLite recalcula o resumo de todos os carrinhos locais diretamente a partir dos itens salvos, garantindo exibição instantânea dos valores corretos em *"Meus Carrinhos"*.
+  - **Suporte Robusto a Pontos de Milhar em Valores Numéricos (`Utils.parseCurrency` & `Item._parseNum`):** Tratamento universal de números brasileiros com separador de milhar (ex: `1.250,50` $\rightarrow$ `1250.50`), decimais com vírgula ou ponto, valores entre parênteses para negativos e símbolos monetários.
+  - **Preservação Integral da Coluna de Supermercado (Coluna I):** Intervalos do Google Sheets expandidos de `B:H` para `B:I` em `getItems`, `updateItem`, `overwriteAllItems` e `getFullPriceHistory`, impedindo a perda do estabelecimento associado a cada produto.
+- **Validação Automatizada:** 54/54 testes unitários e de widgets aprovados (100% de sucesso), 0 erros no `flutter analyze`.
 
 ### v1.3.555 (17 de Outubro de 2026)
 - **Vírgula Automática em Tempo Real nos Diálogos e Caixas de Entrada (`CurrencyInputFormatter`):**

@@ -1760,6 +1760,7 @@ class ItemProvider with ChangeNotifier {
   Future<void> _loadMonths() async {
     List<String> localMonths = [];
     try {
+      await _dbHelper.recalculateAllMonthSummaries();
       localMonths = await _dbHelper.getMonthsByWorkspace(_currentWorkspace);
       debugPrint('🔍 _loadMonths: SQLite retornou ${localMonths.length} meses para workspace "$_currentWorkspace": $localMonths');
       _months = List.from(localMonths);
