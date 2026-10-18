@@ -203,7 +203,7 @@ class _ThemeColorPickerSheetState extends State<ThemeColorPickerSheet> {
         top: 14,
         left: 20,
         right: 20,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+        bottom: MediaQuery.of(context).viewInsets.bottom + MediaQuery.of(context).padding.bottom + 16,
       ),
       child: ConstrainedBox(
         constraints: BoxConstraints(

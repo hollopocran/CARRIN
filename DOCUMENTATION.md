@@ -1,6 +1,6 @@
 # Documentação Técnica e Arquitetural: CARRIN
 
-> **Versão Atual:** `1.3.565` (Build `565`) — Outubro de 2026  
+> **Versão Atual:** `1.3.566` (Build `566`) — Outubro de 2026  
 > **Status:** Produção Estável  
 > **Slogan:** *"Sua lista, sem complicação."*
 
@@ -340,6 +340,16 @@ O [`BarcodeLookupService`](file:///C:/Dev/CARRIN/lib/services/barcode_lookup_ser
 ---
 
 ## 5. Histórico Cronológico de Atualizações e Versões
+
+### v1.3.566 (18 de Outubro de 2026)
+- **Correção da Sobreposição da Barra de Navegação do Android (Botões Voltar, Home e Janelas):**
+  - **Margem Segura Dinâmica (`SafeArea` & `padding.bottom`):** Solucionado o problema em celulares com a barra de navegação de 3 botões físicos/virtuais no rodapé (Back, Home, Recents/Janelas). O app anteriormente transpassava e desenhava elementos por baixo dos botões do sistema.
+  - **Menu Inferior Principal (`MainScreen`):** O `BottomNavigationBar` agora é encapsulado em `SafeArea(top: false, bottom: true)` e `AnnotatedRegion<SystemUiOverlayStyle>`, garantindo que as 5 abas (*Início*, *Carrinhos*, *Análises*, *Comunidade*, *Ajustes*) fiquem elevadas com conforto acima da barra do sistema, enquanto a cor de fundo (`cardColor`) preenche o rodapé do Android de forma limpa e nativa.
+  - **Rodapé Curvo e Botão de Escanear (`ShoppingListScreen`):** Altura do footer recalculada dinamicamente (`100.0 + bottomPadding`). A onda personalizada (`_WavyFooterPainter`) estende sua pintura até a base da tela, os botões *"Novo Item"* e *"Filtros"* apoiam-se acima da barra, e o botão flutuante de escaneamento de código de barras (`FloatingActionButton`) repousa em `bottom: 12 + bottomPadding`, exatamente encaixado na cavidade da onda e livre de qualquer sobreposição com o botão Home do Android.
+  - **Barra de Ações em Lote (`_isSelectionMode`):** A barra de seleção múltipla de itens agora conta com `SafeArea(top: false)` para não colidir com os botões de navegação.
+  - **Carrossel e Botões Flutuantes do Mapa (`MarketMapScreen`):** Os botões de camadas/GPS e o carrossel de supermercados foram elevados por `bottomPadding`, impedindo toques acidentais nos botões do sistema operacional.
+  - **Modais e Telas Auxiliares (`ReceiptScannerScreen` & `ShoppingFilterBottomSheet`):** Ajustados para respeitar `MediaQuery.of(context).padding.bottom`.
+- **Validação Automatizada:** 60/60 testes unitários e de widgets aprovados (100% de sucesso), 0 erros no `flutter analyze`.
 
 ### v1.3.565 (18 de Outubro de 2026)
 - **Ícone Nativo de Carrinho para Notificações Android (`ic_notification_cart`):**

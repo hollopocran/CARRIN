@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'dashboard_screen.dart';
 import 'month_selection_screen.dart';
@@ -137,79 +138,96 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final itemProvider = Provider.of<ItemProvider>(context);
     final isChartInteracting = itemProvider.isInteractingWithChart;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = Theme.of(context).cardColor;
 
-    return PopScope(
-      canPop: _currentIndex == 0,
-      onPopInvokedWithResult: (didPop, result) {
-        if (didPop) {
-          NotificationService().cancelAll();
-          return;
-        }
-        _onItemTapped(0);
-      },
-      child: Scaffold(
-        body: PageView(
-          controller: _pageController,
-          onPageChanged: _onPageChanged,
-          physics: isChartInteracting
-              ? const NeverScrollableScrollPhysics()
-              : const BouncingScrollPhysics(),
-          children: const [
-            DashboardScreen(),
-            MonthSelectionScreen(),
-            StatisticsScreen(),
-            CommunityRadarScreen(),
-            SettingsScreen(),
-          ],
-        ),
-        bottomNavigationBar: Container(
-          decoration: BoxDecoration(
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 10,
-                offset: const Offset(0, -2),
-              ),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        systemNavigationBarColor: cardColor,
+        systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        systemNavigationBarDividerColor: Colors.transparent,
+      ),
+      child: PopScope(
+        canPop: _currentIndex == 0,
+        onPopInvokedWithResult: (didPop, result) {
+          if (didPop) {
+            NotificationService().cancelAll();
+            return;
+          }
+          _onItemTapped(0);
+        },
+        child: Scaffold(
+          body: PageView(
+            controller: _pageController,
+            onPageChanged: _onPageChanged,
+            physics: isChartInteracting
+                ? const NeverScrollableScrollPhysics()
+                : const BouncingScrollPhysics(),
+            children: const [
+              DashboardScreen(),
+              MonthSelectionScreen(),
+              StatisticsScreen(),
+              CommunityRadarScreen(),
+              SettingsScreen(),
             ],
           ),
-          child: BottomNavigationBar(
-            currentIndex: _currentIndex,
-            onTap: _onItemTapped,
-            type: BottomNavigationBarType.fixed,
-            backgroundColor: Theme.of(context).cardColor,
-            selectedItemColor: Theme.of(context).primaryColor,
-            unselectedItemColor: Theme.of(context).brightness == Brightness.dark ? Colors.grey : Colors.grey.shade600,
-            showSelectedLabels: true,
-            showUnselectedLabels: true,
-            selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-            unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 11),
-            items: const [
-              BottomNavigationBarItem(
-                icon: Icon(Icons.home_outlined),
-                activeIcon: Icon(Icons.home),
-                label: 'Início',
+          bottomNavigationBar: Container(
+            decoration: BoxDecoration(
+              color: cardColor,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, -2),
+                ),
+              ],
+            ),
+            child: SafeArea(
+              top: false,
+              left: false,
+              right: false,
+              bottom: true,
+              child: BottomNavigationBar(
+                currentIndex: _currentIndex,
+                elevation: 0,
+                onTap: _onItemTapped,
+                type: BottomNavigationBarType.fixed,
+                backgroundColor: cardColor,
+                selectedItemColor: Theme.of(context).primaryColor,
+                unselectedItemColor: isDark ? Colors.grey : Colors.grey.shade600,
+                showSelectedLabels: true,
+                showUnselectedLabels: true,
+                selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 11),
+                items: const [
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.home_outlined),
+                    activeIcon: Icon(Icons.home),
+                    label: 'Início',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.shopping_cart_outlined),
+                    activeIcon: Icon(Icons.shopping_cart),
+                    label: 'Carrinhos',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.bar_chart_outlined),
+                    activeIcon: Icon(Icons.bar_chart),
+                    label: 'Análises',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.radar_outlined),
+                    activeIcon: Icon(Icons.radar_rounded),
+                    label: 'Comunidade',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.settings_outlined),
+                    activeIcon: Icon(Icons.settings),
+                    label: 'Ajustes',
+                  ),
+                ],
               ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.shopping_cart_outlined),
-                activeIcon: Icon(Icons.shopping_cart),
-                label: 'Carrinhos',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.bar_chart_outlined),
-                activeIcon: Icon(Icons.bar_chart),
-                label: 'Análises',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.radar_outlined),
-                activeIcon: Icon(Icons.radar_rounded),
-                label: 'Comunidade',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.settings_outlined),
-                activeIcon: Icon(Icons.settings),
-                label: 'Ajustes',
-              ),
-            ],
+            ),
           ),
         ),
       ),

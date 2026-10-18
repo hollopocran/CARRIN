@@ -1,15 +1,15 @@
 {
-  "version": "1.3.565",
-  "build_number": 565,
+  "version": "1.3.566",
+  "build_number": 566,
   "release_date": "2026-10-18",
-  "title": "CARRIN v1.3.565",
+  "title": "CARRIN v1.3.566",
   "release_notes": [
-    "Ícone nativo de carrinho para as notificações do Android",
-    "Notificações agora podem ser deslizadas e dispensadas livremente",
-    "Limpeza automática de notificações ao fechar o app",
-    "Redução de mais de 5 MB no tamanho do aplicativo"
+    "Correção da barra de navegação no rodapé (botões voltar, home e janelas não sobrepõem mais o app)",
+    "Margem segura dinâmica (SafeArea) no menu inferior e rodapé curvo",
+    "Botão de escaneamento e filtros perfeitamente elevados acima dos botões do sistema",
+    "Carrossel e botões de mapa ajustados para telas com botões de navegação"
   ],
-  "apk_url": "https://github.com/hollopocran/CARRIN/releases/download/v1.3.565/carrin_v1.3.565.apk",
+  "apk_url": "https://github.com/hollopocran/CARRIN/releases/download/v1.3.566/carrin_v1.3.566.apk",
   "is_active": true,
   "force_update": false
 }

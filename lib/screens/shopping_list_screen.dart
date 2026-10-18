@@ -382,14 +382,23 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
       flatList.addAll(filteredItems);
     }
 
-    return Listener(
-      behavior: HitTestBehavior.translucent,
-      onPointerDown: (_) => _onUserInteraction(),
-      onPointerMove: (_) => _onUserInteraction(),
-      child: Stack(
-        children: [
-          Scaffold(
-            extendBody: true,
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = Theme.of(context).cardColor;
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        systemNavigationBarColor: cardColor,
+        systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        systemNavigationBarDividerColor: Colors.transparent,
+      ),
+      child: Listener(
+        behavior: HitTestBehavior.translucent,
+        onPointerDown: (_) => _onUserInteraction(),
+        onPointerMove: (_) => _onUserInteraction(),
+        child: Stack(
+          children: [
+            Scaffold(
+              extendBody: true,
             body: SafeArea(
               bottom: false,
               child: Center(
@@ -758,37 +767,42 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                     left: 0,
                     right: 0,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                       decoration: BoxDecoration(
                         color: Theme.of(context).primaryColor,
                         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
                         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, -2))],
                       ),
-                      child: Row(
-                        children: [
-                          Text('${_selectedItemIndexes.length} selecionados', style: TextStyle(color: Theme.of(context).colorScheme.onPrimary, fontWeight: FontWeight.bold)),
-                          const Spacer(),
-                          IconButton(
-                            icon: const Icon(Icons.check_circle_outline, color: Colors.greenAccent),
-                            onPressed: () => _handleBatchAction('bought'),
-                            tooltip: 'Marcar Comprados',
+                      child: SafeArea(
+                        top: false,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                          child: Row(
+                            children: [
+                              Text('${_selectedItemIndexes.length} selecionados', style: TextStyle(color: Theme.of(context).colorScheme.onPrimary, fontWeight: FontWeight.bold)),
+                              const Spacer(),
+                              IconButton(
+                                icon: const Icon(Icons.check_circle_outline, color: Colors.greenAccent),
+                                onPressed: () => _handleBatchAction('bought'),
+                                tooltip: 'Marcar Comprados',
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.remove_circle_outline, color: Colors.orangeAccent),
+                                onPressed: () => _handleBatchAction('not_bought'),
+                                tooltip: 'Desmarcar Comprados',
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                                onPressed: () => _handleBatchAction('delete'),
+                                tooltip: 'Excluir Selecionados',
+                              ),
+                              const SizedBox(width: 8),
+                              TextButton(
+                                onPressed: _toggleSelectionMode,
+                                child: Text('CANCELAR', style: TextStyle(color: Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.8), fontSize: 12)),
+                              ),
+                            ],
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.remove_circle_outline, color: Colors.orangeAccent),
-                            onPressed: () => _handleBatchAction('not_bought'),
-                            tooltip: 'Desmarcar Comprados',
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                            onPressed: () => _handleBatchAction('delete'),
-                            tooltip: 'Excluir Selecionados',
-                          ),
-                          const SizedBox(width: 8),
-                          TextButton(
-                            onPressed: _toggleSelectionMode,
-                            child: Text('CANCELAR', style: TextStyle(color: Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.8), fontSize: 12)),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                   ),
@@ -797,49 +811,57 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
           ),
         ),
       ),
-      bottomNavigationBar: _isSelectionMode ? null : SizedBox(
-        height: 100,
-        child: Stack(
-          alignment: Alignment.bottomCenter,
-          children: [
-            CustomPaint(
-              size: Size(MediaQuery.of(context).size.width, 100),
-              painter: _WavyFooterPainter(Theme.of(context).cardColor),
-            ),
-            SafeArea(
-              child: Container(
-                height: 75,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                alignment: Alignment.center,
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _buildFooterButton(
-                        context, 
-                        icon: Icons.edit_note_rounded, 
-                        label: 'Novo Item', 
-                        onTap: showLoader || itemProvider.isCurrentMonthFinalized ? null : () => _showEditDialog(context, null)
-                      ),
-                    ),
-                    const SizedBox(width: 80), 
-                    Expanded(
-                      child: _buildFooterButton(
-                        context, 
-                        icon: Icons.filter_list_rounded, 
-                        label: 'Filtros', 
-                        iconColor: (_hideZeroQuantity || _selectedCategories.isNotEmpty) ? Colors.orangeAccent : null,
-                        onTap: showLoader ? null : () => _showFilterBottomSheet(context)
-                      ),
-                    ),
-                  ],
+      bottomNavigationBar: _isSelectionMode ? null : Builder(
+        builder: (context) {
+          final double bottomPadding = MediaQuery.of(context).padding.bottom;
+          final double totalHeight = 100.0 + bottomPadding;
+
+          return SizedBox(
+            height: totalHeight,
+            child: Stack(
+              alignment: Alignment.bottomCenter,
+              children: [
+                CustomPaint(
+                  size: Size(MediaQuery.of(context).size.width, totalHeight),
+                  painter: _WavyFooterPainter(Theme.of(context).cardColor),
                 ),
-              ),
-            ),
-            Positioned(
-              bottom: 12, 
-              child: FloatingActionButton(
-                heroTag: 'scan_fab_wavy',
-                onPressed: showLoader || itemProvider.isCurrentMonthFinalized ? null : () async {
+                Positioned(
+                  bottom: bottomPadding,
+                  left: 0,
+                  right: 0,
+                  child: Container(
+                    height: 75,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    alignment: Alignment.center,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _buildFooterButton(
+                            context, 
+                            icon: Icons.edit_note_rounded, 
+                            label: 'Novo Item', 
+                            onTap: showLoader || itemProvider.isCurrentMonthFinalized ? null : () => _showEditDialog(context, null)
+                          ),
+                        ),
+                        const SizedBox(width: 80), 
+                        Expanded(
+                          child: _buildFooterButton(
+                            context, 
+                            icon: Icons.filter_list_rounded, 
+                            label: 'Filtros', 
+                            iconColor: (_hideZeroQuantity || _selectedCategories.isNotEmpty) ? Colors.orangeAccent : null,
+                            onTap: showLoader ? null : () => _showFilterBottomSheet(context)
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Positioned(
+                  bottom: 12 + bottomPadding, 
+                  child: FloatingActionButton(
+                    heroTag: 'scan_fab_wavy',
+                    onPressed: showLoader || itemProvider.isCurrentMonthFinalized ? null : () async {
                   if (itemProvider.priceHistoryCache.isEmpty) {
                     itemProvider.loadFullPriceHistory();
                   }
@@ -912,19 +934,22 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
             ),
           ],
         ),
-      ),
-    ),
-    if (!_isSelectionMode)
-      const AssistiveCalculatorButton(),
-    if (_isMarketLocked)
-      MarketLockOverlay(
-        onUnlock: _unlockMarketMode,
-        totalCost: itemProvider.totalCost,
-        boughtItemsCount: itemProvider.items.where((it) => it.isBought).length,
-        totalItemsCount: itemProvider.items.length,
-        budget: itemProvider.budget,
-      ),
-  ],
+      );
+    },
+  ),
+),
+if (!_isSelectionMode)
+  const AssistiveCalculatorButton(),
+if (_isMarketLocked)
+  MarketLockOverlay(
+    onUnlock: _unlockMarketMode,
+    totalCost: itemProvider.totalCost,
+    boughtItemsCount: itemProvider.items.where((it) => it.isBought).length,
+    totalItemsCount: itemProvider.items.length,
+    budget: itemProvider.budget,
+  ),
+],
+),
 ),
 );
   }
@@ -2426,5 +2451,5 @@ class _WavyFooterPainter extends CustomPainter {
     canvas.drawPath(path, paint);
   }
 
-  @override bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  @override bool shouldRepaint(covariant _WavyFooterPainter oldDelegate) => color != oldDelegate.color;
 }

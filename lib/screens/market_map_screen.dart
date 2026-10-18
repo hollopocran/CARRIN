@@ -1744,6 +1744,7 @@ class _MarketMapScreenState extends State<MarketMapScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final primary = Theme.of(context).primaryColor;
     final cardColor = Theme.of(context).cardColor;
+    final double bottomPadding = MediaQuery.of(context).padding.bottom;
 
     final markers = <Marker>[];
 
@@ -2165,7 +2166,7 @@ class _MarketMapScreenState extends State<MarketMapScreen> {
           // 🔘 BOTÕES FLUTUANTES LATERAIS (CAMADAS GOOGLE MAPS, ESCOLHER NO MAPA, ENQUADRAR & GPS)
           Positioned(
             right: 16,
-            bottom: _filteredMarkets.isNotEmpty ? 136 : 30,
+            bottom: (_filteredMarkets.isNotEmpty ? 136 : 30) + bottomPadding,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -2215,7 +2216,7 @@ class _MarketMapScreenState extends State<MarketMapScreen> {
             Positioned(
               left: 0,
               right: 0,
-              bottom: 14,
+              bottom: 14 + bottomPadding,
               height: 112,
               child: PageView.builder(
                 controller: _cardsPageController,

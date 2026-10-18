@@ -356,7 +356,8 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
             ),
         ],
       ),
-      body: Column(
+      body: SafeArea(
+        child: Column(
         children: [
           if (_isProcessing)
             const Expanded(
@@ -616,6 +617,7 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
             )
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 }
