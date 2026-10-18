@@ -365,54 +365,6 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
         ),
         const SizedBox(height: 32),
         _buildGauge(total, percent, provider),
-        if (provider.months.isEmpty) ...[
-          const SizedBox(height: 24),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 28),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(20),
-              onTap: () => InteractiveTabTutorial.show(
-                context,
-                TutorialSection.dashboard,
-                userEmail: provider.activeUserEmail,
-              ),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.blueAccent.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.blueAccent.withValues(alpha: 0.2)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.touch_app_rounded, color: Colors.blueAccent, size: 26),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Comece por aqui! (Toque para Demo Interativa)',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Colors.blueAccent),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Você ainda não criou nenhum carrinho. Toque aqui para testar o painel interativo ou vá na aba "Carrinhos" no rodapé!',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.black87,
-                              height: 1.3,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
         const SizedBox(height: 40),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),

@@ -6,7 +6,6 @@ import '../widgets/cart_loading_indicator.dart';
 import '../widgets/skeleton_loader.dart';
 import '../widgets/counting_text.dart';
 import '../services/utils.dart';
-import '../widgets/interactive_tab_tutorial.dart';
 import 'shopping_list_screen.dart';
 import 'receipt_scanner_screen.dart';
 
@@ -87,15 +86,6 @@ class _MonthSelectionScreenState extends State<MonthSelectionScreen> with Automa
             backgroundColor: Colors.transparent,
             elevation: 0,
             actions: [
-              IconButton(
-                icon: const Icon(Icons.help_outline_rounded),
-                tooltip: 'Tutorial Interativo desta Aba',
-                onPressed: () => InteractiveTabTutorial.show(
-                  context,
-                  TutorialSection.carts,
-                  userEmail: provider.activeUserEmail,
-                ),
-              ),
               IconButton(icon: const Icon(Icons.refresh), onPressed: () => _loadData())
             ],
             bottom: showLoader ? PreferredSize(
@@ -113,22 +103,30 @@ class _MonthSelectionScreenState extends State<MonthSelectionScreen> with Automa
                 ? const Center(child: CartLoadingIndicator(key: ValueKey('carrinhos_loader'), message: 'Buscando seus carrinhos...'))
                 : provider.months.isEmpty
                     ? SingleChildScrollView(
-                        padding: EdgeInsets.fromLTRB(padding, 12, padding, 110),
+                        padding: EdgeInsets.fromLTRB(padding, 40, padding, 110),
                         child: Center(
                           child: ConstrainedBox(
                             constraints: const BoxConstraints(maxWidth: 500),
                             child: Column(
                               children: [
-                                const Text(
-                                  'Nenhum carrinho ainda. Experimente o card interativo abaixo ou crie seu primeiro carrinho!',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(color: Colors.grey, fontSize: 14, fontWeight: FontWeight.w600),
-                                ),
+                                const Icon(Icons.shopping_cart_outlined, size: 64, color: Colors.grey),
                                 const SizedBox(height: 16),
-                                InteractiveSectionTutorialCard(
-                                  section: TutorialSection.carts,
-                                  primaryActionLabel: 'Criar Meu Primeiro Carrinho',
-                                  onPrimaryAction: () => _showCreateMonthDialog(context),
+                                const Text(
+                                  'Nenhum carrinho criado',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 8),
+                                const Text(
+                                  'Crie seu primeiro carrinho para começar a organizar suas compras.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(color: Colors.grey, fontSize: 13.5),
+                                ),
+                                const SizedBox(height: 20),
+                                ElevatedButton.icon(
+                                  onPressed: () => _showCreateMonthDialog(context),
+                                  icon: const Icon(Icons.add),
+                                  label: const Text('Criar Primeiro Carrinho'),
                                 ),
                               ],
                             ),

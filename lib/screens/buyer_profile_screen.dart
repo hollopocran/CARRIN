@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import '../providers/item_provider.dart';
 import '../services/utils.dart';
 import '../widgets/supermarket_avatar.dart';
-import '../widgets/interactive_tab_tutorial.dart';
 
 /// Screen displaying the intelligent "Perfil de Comprador" (Buyer Profile)
 /// analyzing shopping habits, archetype, metrics, top categories, and personalized insights.
@@ -15,19 +14,6 @@ class BuyerProfileScreen extends StatefulWidget {
 }
 
 class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final provider = Provider.of<ItemProvider>(context, listen: false);
-      InteractiveTabTutorial.checkAndShowIfFirstTime(
-        context,
-        TutorialSection.buyerProfile,
-        userEmail: provider.activeUserEmail,
-      );
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -135,17 +121,6 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.help_outline_rounded),
-            tooltip: 'Tutorial Interativo do Perfil',
-            onPressed: () => InteractiveTabTutorial.show(
-              context,
-              TutorialSection.buyerProfile,
-              userEmail: provider.activeUserEmail,
-            ),
-          ),
-        ],
       ),
       body: Center(
         child: ConstrainedBox(
@@ -154,12 +129,6 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             physics: const BouncingScrollPhysics(),
             children: [
-              if (listsCount < 2) ...[
-                const InteractiveSectionTutorialCard(
-                  section: TutorialSection.buyerProfile,
-                ),
-                const SizedBox(height: 20),
-              ],
               // User Card with Archetype
               Container(
                 padding: const EdgeInsets.all(22),

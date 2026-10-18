@@ -7,7 +7,6 @@ import 'dart:math' as math;
 import '../providers/item_provider.dart';
 import '../theme/app_themes.dart';
 import '../widgets/cart_loading_indicator.dart';
-import '../widgets/interactive_tab_tutorial.dart';
 import '../services/utils.dart';
 import 'shopping_list_screen.dart';
 import 'buyer_profile_screen.dart';
@@ -91,15 +90,6 @@ class _StatisticsScreenState extends State<StatisticsScreen> with AutomaticKeepA
         centerTitle: true,
         actions: [
           IconButton(
-            icon: const Icon(Icons.help_outline_rounded),
-            tooltip: 'Tutorial Interativo desta Aba',
-            onPressed: () => InteractiveTabTutorial.show(
-              context,
-              TutorialSection.statistics,
-              userEmail: provider.activeUserEmail,
-            ),
-          ),
-          IconButton(
             icon: const Icon(Icons.psychology_alt_rounded),
             tooltip: 'Perfil de Comprador',
             onPressed: () => Navigator.push(
@@ -127,15 +117,19 @@ class _StatisticsScreenState extends State<StatisticsScreen> with AutomaticKeepA
                         child: Column(
                           children: [
                             _buildBuyerProfileBanner(isDarkMode, cardColor, textColor),
+                            const SizedBox(height: 32),
+                            const Icon(Icons.bar_chart_rounded, size: 64, color: Colors.grey),
                             const SizedBox(height: 16),
                             const Text(
-                              'Ainda não há carrinhos suficientes para gerar gráficos reais. Experimente o simulador interativo abaixo:',
+                              'Sem dados para exibir',
                               textAlign: TextAlign.center,
-                              style: TextStyle(color: Colors.grey, fontSize: 13.5, fontWeight: FontWeight.w600),
+                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                             ),
-                            const SizedBox(height: 14),
-                            const InteractiveSectionTutorialCard(
-                              section: TutorialSection.statistics,
+                            const SizedBox(height: 8),
+                            const Text(
+                              'Crie e finalize carrinhos para acompanhar o histórico de gastos e gráficos da sua família.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: Colors.grey, fontSize: 13.5),
                             ),
                           ],
                         ),

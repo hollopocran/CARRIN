@@ -40,6 +40,8 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   void _scheduleTabTutorial(int index, {Duration delay = const Duration(milliseconds: 240)}) {
+    // Mantém o tutorial automático apenas no Início (0) e nas Configurações (4)
+    if (index != 0 && index != 4) return;
     _tutorialSettleTimer?.cancel();
     _tutorialSettleTimer = Timer(delay, () {
       if (!mounted || _currentIndex != index) return;

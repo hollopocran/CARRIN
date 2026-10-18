@@ -21,7 +21,6 @@ import '../widgets/pdf_export_dialog.dart';
 import '../widgets/assistive_calculator_button.dart';
 import '../widgets/market_lock_overlay.dart';
 import '../widgets/market_and_purpose_widgets.dart';
-import '../widgets/interactive_tab_tutorial.dart';
 
 import 'barcode_scanner_screen.dart';
 import 'receipt_scanner_screen.dart';
@@ -69,11 +68,6 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
       if (provider.items.isEmpty) {
         provider.loadItems();
       }
-      InteractiveTabTutorial.checkAndShowIfFirstTime(
-        context,
-        TutorialSection.shoppingList,
-        userEmail: provider.activeUserEmail,
-      );
     });
   }
 
@@ -460,15 +454,6 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                             actions: [
                               const SyncIndicator(),
                               IconButton(
-                                icon: const Icon(Icons.help_outline_rounded),
-                                tooltip: 'Tutorial Interativo da Lista',
-                                onPressed: () => InteractiveTabTutorial.show(
-                                  context,
-                                  TutorialSection.shoppingList,
-                                  userEmail: itemProvider.activeUserEmail,
-                                ),
-                              ),
-                              IconButton(
                                 icon: const Icon(Icons.search),
                                 onPressed: showLoader ? null : () {
                                   showSearch(
@@ -525,13 +510,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                                 icon: const Icon(Icons.more_vert),
                                 tooltip: 'Mais opções',
                                 onSelected: (value) async {
-                                  if (value == 'tutorial') {
-                                    InteractiveTabTutorial.show(
-                                      context,
-                                      TutorialSection.shoppingList,
-                                      userEmail: itemProvider.activeUserEmail,
-                                    );
-                                  } else if (value == 'receipt') {
+                                  if (value == 'receipt') {
                                     if (context.mounted) {
                                       Navigator.push(context, MaterialPageRoute(builder: (_) => const ReceiptScannerScreen()));
                                     }
@@ -560,15 +539,6 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                                   }
                                 },
                                 itemBuilder: (context) => [
-                                  const PopupMenuItem(
-                                    value: 'tutorial',
-                                    child: ListTile(
-                                      leading: Icon(Icons.help_outline_rounded, color: Colors.indigoAccent),
-                                      title: Text('Tutorial Interativo da Lista'),
-                                      dense: true,
-                                      contentPadding: EdgeInsets.zero,
-                                    ),
-                                  ),
                                   const PopupMenuItem(
                                     value: 'purpose_caps',
                                     child: ListTile(

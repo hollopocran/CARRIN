@@ -316,6 +316,16 @@ O [`BarcodeLookupService`](file:///C:/Dev/CARRIN/lib/services/barcode_lookup_ser
 
 ## 5. Histórico Cronológico de Atualizações e Versões
 
+### v1.3.561 (18 de Outubro de 2026)
+- **Consolidação e Limpeza de Tutoriais (Exclusivos para Início e Configurações):**
+  - **Eliminação de Poluição Visual nas Telas Internas:** Removidos todos os botões de interrogação `?` e cards de demonstração interativa de todas as telas secundárias do aplicativo (*Meus Carrinhos*, *Lista de Compras*, *Estatísticas*, *Perfil de Comprador*, *Radar da Comunidade* e *Mapa de Mercados*).
+  - **Limpeza do Card de Demo na Tela Inicial:** Remoção do card azul de demo interativa que continuava sendo exibido na Home após o usuário passar pelo tutorial caso a lista de carrinhos estivesse vazia.
+  - **Centralização dos Tutoriais:** O tutorial foi preservado exclusivamente onde realmente agrega valor:
+    - **Início (`DashboardScreen`):** Acessível de forma limpa pelo botão de ajuda no topo e na primeira abertura do app.
+    - **Configurações (`SettingsScreen`):** Acessível sob demanda no topo e pela opção *"Resetar Tutoriais das Abas"*.
+  - **Otimização do Agendador no `MainScreen`:** O `_scheduleTabTutorial` agora atua estritamente nas abas 0 (Início) e 4 (Configurações), eliminando qualquer pop-up indesejado nas abas intermediárias.
+- **Validação Automatizada:** 58/58 testes unitários e de widgets aprovados (100% de sucesso), 0 erros no `flutter analyze`.
+
 ### v1.3.560 (18 de Outubro de 2026)
 - **Navegação Horizontal Livre e Suave Para Fora da Aba Comunidade (`CommunityRadarScreen` & `MainScreen`):**
   - **Desbloqueio de Gestos e Remoção de Captura Conflitante:** O `TabBarView` interno das 3 sub-abas da Comunidade (*Lista*, *Comparador*, *Mercados*) foi configurado com `physics: const NeverScrollableScrollPhysics()`, impedindo que os gestos horizontais fiquem aprisionados no carrossel de abas filhas e liberando o arraste horizontal 100% direto e contínuo para o `PageView` do `MainScreen`.

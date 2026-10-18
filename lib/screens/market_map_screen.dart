@@ -10,7 +10,6 @@ import '../services/community_price_service.dart';
 import '../services/location_service.dart';
 import '../services/utils.dart';
 import '../services/default_supermarkets.dart';
-import '../widgets/interactive_tab_tutorial.dart';
 
 /// Estilos visuais de mapa disponíveis para escolha do usuário (estilo Google Maps)
 enum MapTileStyle {
@@ -98,13 +97,6 @@ class _MarketMapScreenState extends State<MarketMapScreen> {
 
     _loadSavedMapStyle();
     _initMapAndLoadData();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      InteractiveTabTutorial.checkAndShowIfFirstTime(
-        context,
-        TutorialSection.marketMap,
-      );
-    });
   }
 
   Future<void> _loadSavedMapStyle() async {
@@ -2029,15 +2021,6 @@ class _MarketMapScreenState extends State<MarketMapScreen> {
                           tooltip: 'Ver lista de mercados e redes',
                           visualDensity: VisualDensity.compact,
                           onPressed: _openFullListModal,
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.help_outline_rounded, size: 20),
-                          tooltip: 'Tutorial Interativo do Mapa',
-                          visualDensity: VisualDensity.compact,
-                          onPressed: () => InteractiveTabTutorial.show(
-                            context,
-                            TutorialSection.marketMap,
-                          ),
                         ),
                       ],
                     ),

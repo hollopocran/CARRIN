@@ -6,7 +6,6 @@ import '../services/community_price_service.dart';
 import '../services/default_supermarkets.dart';
 import '../services/location_service.dart';
 import '../services/utils.dart';
-import '../widgets/interactive_tab_tutorial.dart';
 import 'market_map_screen.dart';
 
 class CommunityRadarScreen extends StatefulWidget {
@@ -266,15 +265,6 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen>
         ),
         centerTitle: false,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.help_outline_rounded),
-            tooltip: 'Tutorial Interativo do Radar',
-            onPressed: () => InteractiveTabTutorial.show(
-              context,
-              TutorialSection.community,
-              userEmail: itemProvider.activeUserEmail,
-            ),
-          ),
           IconButton(
             icon: const Icon(Icons.map_outlined),
             tooltip: 'Mapa dos Mercados',
