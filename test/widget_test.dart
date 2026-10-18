@@ -26,6 +26,7 @@ import 'package:lista_compras/services/default_supermarkets.dart';
 import 'package:lista_compras/services/barcode_lookup_service.dart';
 import 'package:lista_compras/services/database_helper.dart';
 import 'package:lista_compras/widgets/interactive_tab_tutorial.dart';
+import 'package:lista_compras/widgets/interactive_animated_logo.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 void main() {
@@ -1179,6 +1180,36 @@ void main() {
     test('UserSheetsService createNewMonth headers include Saldo at column G and Mercado at column I', () {
       final service = UserSheetsService();
       expect(service.currentMonthTitle, isNotEmpty);
+    });
+  });
+
+  group('InteractiveAnimatedLogo Widget Tests', () {
+    testWidgets('renders InteractiveAnimatedLogo with aura and handles tap interaction', (WidgetTester tester) async {
+      bool tapped = false;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: InteractiveAnimatedLogo(
+                imagePath: '1.png',
+                size: 150,
+                onTap: () {
+                  tapped = true;
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.byType(InteractiveAnimatedLogo), findsOneWidget);
+
+      await tester.tap(find.byType(InteractiveAnimatedLogo));
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(tapped, isTrue);
+      await tester.pump(const Duration(milliseconds: 500));
     });
   });
 }

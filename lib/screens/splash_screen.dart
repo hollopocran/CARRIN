@@ -8,6 +8,7 @@ import '../theme/app_themes.dart';
 import '../services/auth_service.dart';
 import '../providers/item_provider.dart';
 import '../widgets/supermarket_avatar.dart';
+import '../widgets/interactive_animated_logo.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -46,8 +47,8 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   }
 
   Future<void> _checkLoginStatus() async {
-    // Wait for animation
-    await Future.delayed(const Duration(milliseconds: 2000));
+    // Wait for cinematic animation sequence
+    await Future.delayed(const Duration(milliseconds: 2600));
     if (!mounted) return;
 
     final authService = context.read<AuthService>();
@@ -201,7 +202,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       backgroundColor: isDarkMode ? const Color(0xFF121212) : Colors.white,
       body: Stack(
         children: [
-          // Logo centralizado com animação
+          // Logo centralizado com animação cinematográfica e interatividade por toque
           Center(
             child: AnimatedBuilder(
               animation: _controller,
@@ -210,15 +211,9 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                   opacity: _opacityAnimation.value,
                   child: Transform.scale(
                     scale: _scaleAnimation.value,
-                    child: Container(
-                      width: 200,
-                      height: 200,
-                      alignment: Alignment.center,
-                      child: Image.asset(
-                        themeProvider.appIcon,
-                        fit: BoxFit.contain,
-                        errorBuilder: (context, error, stackTrace) => const Icon(Icons.shopping_cart, size: 100, color: Colors.blueAccent),
-                      ),
+                    child: InteractiveAnimatedLogo(
+                      imagePath: themeProvider.appIcon,
+                      size: 210,
                     ),
                   ),
                 );

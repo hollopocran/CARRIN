@@ -1,6 +1,6 @@
 # Documentação Técnica e Arquitetural: CARRIN
 
-> **Versão Atual:** `1.3.556` (Build `556`) — Outubro de 2026  
+> **Versão Atual:** `1.3.557` (Build `557`) — Outubro de 2026  
 > **Status:** Produção Estável  
 > **Slogan:** *"Sua lista, sem complicação."*
 
@@ -315,6 +315,17 @@ O [`BarcodeLookupService`](file:///C:/Dev/CARRIN/lib/services/barcode_lookup_ser
 ---
 
 ## 5. Histórico Cronológico de Atualizações e Versões
+
+### v1.3.557 (18 de Outubro de 2026)
+- **Logo Animada, Cinematográfica e Interativa na Abertura (`InteractiveAnimatedLogo`):**
+  - Substituição da imagem estática da splash screen por um componente de animação vetorial com física de fluidos e motion design profissional:
+    - **Aura de Neon e Anéis de Energia:** Gradiente radial pulsante nas cores oficiais (`#10B981` Verde Esmeralda e `#0179F3` Azul Royal) com anéis concêntricos que expandem como ondas de radar no fundo.
+    - **Flutuação Contínua (Levitação Senoidal):** Movimento suave de elevação vertical tipo onda senoidal e pulso de respiração contínuo.
+    - **Varredura Especular de Alto Brilho (Shimmer / Glossy Sweep):** Feixe diagonal de luz que varre a logo ciclicamente via `ShaderMask` e `LinearGradient`, transmitindo sensação de vinheta de estúdio cinematográfico em 60/120 FPS sem peso extra de vídeo.
+    - **Interatividade por Toque (Física de Impacto):** Reação instantânea a toques com efeito elástico de compressão e extensão (*squash & stretch*), salto para o alto e explosão de partículas físicas (moedas douradas `🪙`, estrelas esmeralda `✨`, raios `⚡` e orbes de luz).
+    - **Inclinação 3D Parallax ao Arrastar:** Ao deslizar o dedo sobre a logo, ela se inclina tridimensionalmente no espaço via `Matrix4` em perspectiva e retorna com amortecimento elástico ao soltar.
+    - **Modo Turbo (Toque Duplo ou Múltiplos Toques Rápidos):** Dispara um giro 360° com feedback tátil pesado (`HapticFeedback.heavyImpact()`) e tempestade de confetes e moedas.
+- **Validação Automatizada:** 55/55 testes unitários e de widgets aprovados (100% de sucesso), 0 erros no `flutter analyze`.
 
 ### v1.3.556 (18 de Outubro de 2026)
 - **Correção Geral dos Resumos e Valores das Planilhas ("Meus Carrinhos" & Google Sheets):**
