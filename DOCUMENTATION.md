@@ -139,6 +139,7 @@ flowchart TD
 | **BarcodeLookupService** | [`lib/services/barcode_lookup_service.dart`](file:///C:/Dev/CARRIN/lib/services/barcode_lookup_service.dart) | Motor de resolução em camadas (SQLite local + Open Food Facts Brasil REST + IA de categorias) com fluxo zero-fricção direto para edição. |
 | **DefaultSupermarketsData** | [`lib/services/default_supermarkets.dart`](file:///C:/Dev/CARRIN/lib/services/default_supermarkets.dart) | Catálogo oficial de 3.484 supermercados geolocalizados com endereço físico completo em Niterói, São Gonçalo, Maricá, Itaboraí, Rio de Janeiro e estados vizinhos (extraído e calibrado via Maps.me `.mwm`, OpenStreetMap e Photon). |
 | **CommunityPriceService** | [`lib/services/community_price_service.dart`](file:///C:/Dev/CARRIN/lib/services/community_price_service.dart) | Conexão com Supabase REST, sincronização em background, purga de dados legados e cálculo de proximidade Haversine. |
+| **AppUpdateService** | [`lib/services/app_update_service.dart`](file:///C:/Dev/CARRIN/lib/services/app_update_service.dart) | Sistema OTA de checagem automática de versão, download com barra de progresso, disparo nativo do instalador do Android via `FileProvider` e painel de publicação para o desenvolvedor. |
 | **SyncIndicator** | [`lib/widgets/sync_indicator.dart`](file:///C:/Dev/CARRIN/lib/widgets/sync_indicator.dart) | Indicador visual de sincronização em tempo real (verde sincronizado, laranja pendente) com modal explicativo limpo e sem parênteses. |
 | **TermsScreen** | [`lib/screens/terms_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/terms_screen.dart) | Termos de serviço, garantias de privacidade e política de transparência de dados. |
 
@@ -351,8 +352,11 @@ O [`BarcodeLookupService`](file:///C:/Dev/CARRIN/lib/services/barcode_lookup_ser
   - **Hook Nativo `MainActivity.onDestroy()`:** Garante o expurgo síncrono das notificações quando a atividade principal for destruída.
   - **Ciclo Flutter (`MyApp.dispose` & `detached`):** Cancelamento de segurança adicional via Dart.
   - **Finalização de Carrinho (`finalizeMonth`):** O fechamento do carrinho ativo remove automaticamente a barra de progresso do painel de notificações.
-- **Otimização do APK:**
-  - Remoção de arquivo legado de 7,1 MB em `res/drawable/`, reduzindo o peso final do instalador em mais de 5 MB.
+- **Sistema de Atualizações Sem Play Store (OTA / In-App Updater):**
+  - **Identificação Automática e Instalação em 1 Toque:** Ao abrir o app, uma checagem assíncrona identifica se há novas versões lançadas. Se houver, um modal amigável com a lista de novidades é exibido; ao tocar em *"Instalar Atualização"*, o APK é baixado com barra de progresso em tempo real e o instalador nativo do Android é acionado via `FileProvider` mantendo todos os dados, listas e configurações intactos.
+  - **Botão do Usuário em Configurações (`_handleCheckUpdate`):** Opção *"Verificar Atualizações"* com status da versão instalada e feedback visual em tempo real.
+  - **Painel de Lançamento do Desenvolvedor (`AppUpdatePublisherDialog`):** Opção *"Lançar Atualização"* no painel de Ajustes que permite ao criador definir nova versão, número de build, URL do APK, notas de lançamento (changelog), gerar o `version.json` e testar a instalação no próprio dispositivo.
+  - **Integração Nativa Android:** Permissão `REQUEST_INSTALL_PACKAGES`, `FileProvider` seguro (`file_paths.xml`) e `MethodChannel` (`com.wmartins.carrin/installer`) para checagem e disparo do instalador sem dependências pesadas externas.
 - **Validação Automatizada:** 60/60 testes unitários e de widgets aprovados (100% de sucesso), 0 erros no `flutter analyze`.
 
 ### v1.3.564 (18 de Outubro de 2026)

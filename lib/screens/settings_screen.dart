@@ -10,6 +10,8 @@ import '../widgets/supermarket_avatar.dart';
 import '../widgets/theme_color_picker_sheet.dart';
 import '../widgets/interactive_tab_tutorial.dart';
 import '../services/utils.dart';
+import '../services/app_update_service.dart';
+import '../widgets/app_update_dialog.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -193,16 +195,61 @@ class SettingsScreen extends StatelessWidget {
           ),
 
           const SizedBox(height: 24),
-          const Text('SOBRE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.1)),
+          const Text('ATUALIZAÇÕES & SOBRE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.1)),
           const SizedBox(height: 12),
-          const ListTile(
-            leading: Icon(Icons.info_outline),
-            title: Text('Versão', style: TextStyle(fontWeight: FontWeight.w500)),
-            trailing: Text('1.3.564', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+          _buildSettingItem(
+            context,
+            title: 'Verificar Atualizações',
+            subtitle: 'Versão instalada: v${AppUpdateService.currentAppVersion} (Build ${AppUpdateService.currentBuildNumber})',
+            icon: Icons.system_update_rounded,
+            onTap: () => _handleCheckUpdate(context),
+          ),
+          _buildSettingItem(
+            context,
+            title: 'Lançar Atualização',
+            subtitle: 'Painel do desenvolvedor para publicar nova versão OTA',
+            icon: Icons.campaign_rounded,
+            onTap: () => AppUpdatePublisherDialog.show(context),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _handleCheckUpdate(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+      const SnackBar(
+        content: Row(
+          children: [
+            SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+            ),
+            SizedBox(width: 12),
+            Text('Verificando se há novas atualizações...'),
+          ],
+        ),
+        duration: Duration(seconds: 2),
+      ),
+    );
+
+    final info = await AppUpdateService.instance.checkForUpdate(ignoreDismissed: true);
+    if (!context.mounted) return;
+    messenger.hideCurrentSnackBar();
+
+    if (info != null) {
+      AppUpdateDialog.show(context, info);
+    } else {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('🎉 Você já está usando a versão mais recente! (v${AppUpdateService.currentAppVersion})'),
+          duration: Duration(seconds: 3),
+          backgroundColor: Color(0xFF10B981),
+        ),
+      );
+    }
   }
 
   void _showAnimatedDialog(BuildContext context, Widget dialog) {

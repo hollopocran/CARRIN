@@ -9,6 +9,8 @@ import 'settings_screen.dart';
 import '../services/notification_service.dart';
 import '../providers/item_provider.dart';
 import '../widgets/interactive_tab_tutorial.dart';
+import '../services/app_update_service.dart';
+import '../widgets/app_update_dialog.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -68,6 +70,16 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         notify: false,
       );
       _scheduleTabTutorial(_currentIndex, delay: const Duration(milliseconds: 220));
+
+      // Checagem automática e não-intrusiva de nova versão lançada
+      Future.delayed(const Duration(milliseconds: 1600), () {
+        if (!mounted) return;
+        AppUpdateService.instance.checkForUpdate().then((info) {
+          if (info != null && mounted) {
+            AppUpdateDialog.show(context, info);
+          }
+        });
+      });
     });
   }
 
