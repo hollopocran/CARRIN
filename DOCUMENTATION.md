@@ -1,6 +1,6 @@
 # Documentação Técnica e Arquitetural: CARRIN
 
-> **Versão Atual:** `1.3.567` (Build `567`) — Outubro de 2026  
+> **Versão Atual:** `1.3.568` (Build `568`) — Outubro de 2026  
 > **Status:** Produção Estável  
 > **Slogan:** *"Sua lista, sem complicação."*
 
@@ -340,6 +340,14 @@ O [`BarcodeLookupService`](file:///C:/Dev/CARRIN/lib/services/barcode_lookup_ser
 ---
 
 ## 5. Histórico Cronológico de Atualizações e Versões
+
+### v1.3.568 (18 de Outubro de 2026)
+- **Bloqueio de Orientação em Modo Retrato Vertical (`AndroidManifest.xml` & `main.dart`):**
+  - **Prevenção de Quebra de Telas em Modo Paisagem:** Configurado `android:screenOrientation="portrait"` na atividade principal do Android (`MainActivity`) e `SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp, DeviceOrientation.portraitDown])` no `main()`.
+  - Impede que o aplicativo gire horizontalmente ao inclinar o celular no supermercado, mantendo a ergonomia de uso vertical de todas as janelas, calculadoras, rodapés curvos, scanners e modais sem cortes ou quebras de layout.
+- **Sanitização de Segurança para Repositório Público (`android_release_info.md`):**
+  - Remoção de anotações de senhas em texto puro do guia interno de publicação. As credenciais privadas locais da keystore permanecem 100% protegidas no arquivo `key.properties` e no arquivo binário `.jks`, ambos blindados no `.gitignore`.
+- **Validação Automatizada:** 61/61 testes unitários e de widgets aprovados (100% de sucesso), 0 erros no `flutter analyze`.
 
 ### v1.3.567 (18 de Outubro de 2026)
 - **Persistência Garantida da Escala de Fontes (`ThemeProvider` & `SettingsScreen`):**

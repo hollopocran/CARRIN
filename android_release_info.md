@@ -14,11 +14,10 @@ Este arquivo contém todas as informações de release, credenciais de assinatur
 O arquivo da keystore está localizado em: `android/app/upload-keystore.jks`
 
 * **Alias**: `upload`
-* **Senha da Keystore**: `carrin2026`
-* **Senha da Chave**: `carrin2026`
+* **Senhas**: Configuradas no arquivo local privado `android/key.properties` (ignorado no git)
 
-> [!WARNING]
-> Nunca compartilhe publicamente o arquivo `upload-keystore.jks` ou o arquivo `key.properties`. Eles já estão adicionados ao seu `.gitignore` para evitar envio acidental ao GitHub.
+> [!IMPORTANT]
+> O arquivo binário `upload-keystore.jks` e o arquivo `key.properties` contêm as credenciais privadas locais e estão protegidos pelo `.gitignore`.
 
 ---
 

@@ -1,6 +1,6 @@
 name: lista_compras
 description: Um aplicativo de lista de compras integrado ao Google Sheets.
-version: 1.3.567+567
+version: 1.3.568+568
 
 environment:
   sdk: '>=3.0.0 <4.0.0'

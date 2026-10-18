@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'providers/item_provider.dart';
@@ -13,6 +14,12 @@ import 'services/auth_service.dart';
 /// the global state providers.
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Trava a orientação sempre em modo retrato (vertical)
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
   
   final themeProvider = ThemeProvider();
 
