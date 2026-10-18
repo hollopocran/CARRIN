@@ -8,7 +8,6 @@ import 'package:share_plus/share_plus.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../models/item.dart';
 import '../providers/item_provider.dart';
-import '../theme/app_themes.dart';
 import '../services/utils.dart';
 import '../widgets/item_search_delegate.dart';
 import '../widgets/cart_loading_indicator.dart';
@@ -216,7 +215,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppThemes.primaryNavy,
+                backgroundColor: Theme.of(context).colorScheme.primary,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
@@ -1708,7 +1707,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                       margin: const EdgeInsets.only(bottom: 12),
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
-                        color: AppThemes.primaryNavy.withValues(alpha: 0.1),
+                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Row(
@@ -1812,7 +1811,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                       floatingLabelBehavior: FloatingLabelBehavior.always,
                       border: const UnderlineInputBorder(),
                       suffixIcon: IconButton(
-                        icon: Icon(Icons.qr_code_scanner, size: 20, color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFFAEB2FF) : AppThemes.primaryNavy),
+                        icon: Icon(Icons.qr_code_scanner, size: 20, color: Theme.of(context).colorScheme.primary),
                         onPressed: () async {
                           final prov = Provider.of<ItemProvider>(context, listen: false);
                           if (prov.priceHistoryCache.isEmpty) prov.loadFullPriceHistory();
@@ -1928,10 +1927,10 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                     const SizedBox(height: 8),
                     TextButton.icon(
                       onPressed: () => _showWeightCalculator(context, priceController, qtyController),
-                      icon: Icon(Icons.calculate_outlined, size: 18, color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFFAEB2FF) : AppThemes.primaryNavy),
+                      icon: Icon(Icons.calculate_outlined, size: 18, color: Theme.of(context).colorScheme.primary),
                       label: Text(
                         'Calcular peso pelo preço total',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFFAEB2FF) : AppThemes.primaryNavy),
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary),
                       ),
                       style: TextButton.styleFrom(padding: EdgeInsets.zero),
                     ),

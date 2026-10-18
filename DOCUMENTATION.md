@@ -1,6 +1,6 @@
 # Documentação Técnica e Arquitetural: CARRIN
 
-> **Versão Atual:** `1.3.551` (Build `551`) — Outubro de 2026  
+> **Versão Atual:** `1.3.553` (Build `553`) — Outubro de 2026  
 > **Status:** Produção Estável  
 > **Slogan:** *"Sua lista, sem complicação."*
 
@@ -315,6 +315,22 @@ O [`BarcodeLookupService`](file:///C:/Dev/CARRIN/lib/services/barcode_lookup_ser
 ---
 
 ## 5. Histórico Cronológico de Atualizações e Versões
+
+### v1.3.553 (17 de Outubro de 2026)
+- **Tema Padrão Oficial & Restauração com Cores do Ícone:**
+  - Correção da ação "Restaurar" (`_restoreDefault`) no seletor de temas: retorna fielmente às cores oficiais do ícone principal do CARRIN (`#10B981` Verde Esmeralda e `#0179F3` Azul Royal) em vez do tom navy/preto escuro legado (`#1A1C2C`).
+  - O tema padrão inicial (`ThemeProvider._seedColor`) agora é oficialmente `AppColors.iconGreen` (`#10B981`) com `colorScheme.secondary` configurado automaticamente para `AppColors.iconBlue` (`#0179F3`).
+- **Migração Automática do Legado (`ThemeProvider.init`):**
+  - Checagem automática no carregamento das preferências: se o usuário possuir o valor legado `#1A1C2C` gravado em `SharedPreferences`, o app migra automaticamente para `AppColors.iconGreen`, garantindo que os usuários não permaneçam na cor escura por herança de dados antigos.
+- **Seletor de Cores com Banner das Cores Oficiais do Ícone (`ThemeColorPickerSheet`):**
+  - Adicionado banner interativo no seletor de temas com atalho em 1 toque para alternar entre as cores oficiais do ícone: *Verde Ícone* (`#10B981`) e *Azul Ícone* (`#0179F3`).
+  - Nova categoria "Ícone" nas cores com curadoria rápida.
+- **Harmonização do Tutorial Interativo (`InteractiveTabTutorial`):**
+  - O distintivo "TUTORIAL INTERATIVO" agora utiliza um gradiente vivo combinando o verde esmeralda e o azul royal do ícone principal (`colors: [accent, secondary]`).
+  - `accentColor` atualizado para `AppColors.iconGreen`.
+- **Eliminação Sistemática de Cores Navy Fixas em Telas e Modais:**
+  - Substituição de referências fixas a `AppThemes.primaryNavy` por `Theme.of(context).colorScheme.primary` em todas as telas: `BuyerProfileScreen`, `MonthSelectionScreen`, `SettingsScreen`, `ShoppingListScreen`, `FloatingCalculatorPopup` e `ShoppingFilterBottomSheet`.
+- **Auditoria de Qualidade:** 0 erros no `flutter analyze`, 44/44 testes aprovados.
 
 ### v1.3.552 (17 de Outubro de 2026)
 - **Ancoragem Geométrica Estável dos Pinos no Mapa (`MarketMapScreen`):**

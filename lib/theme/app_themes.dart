@@ -10,6 +10,10 @@ class NamedColor {
 }
 
 class AppColors {
+  // Cores Oficiais do Ícone CARRIN (Padrão de Fábrica)
+  static const Color iconGreen = Color(0xFF10B981); // Verde Esmeralda Oficial do Ícone
+  static const Color iconBlue = Color(0xFF0179F3);  // Azul Royal Oficial do Ícone
+
   // Clássicas & Neutros
   static const Color navy = Color(0xFF1A1C2C);
   static const Color ocean = Color(0xFF0077B6);
@@ -55,6 +59,10 @@ class AppColors {
   static const Color neonPurple = Color(0xFFA855F7);
 
   static const List<NamedColor> curated = [
+    // Ícone CARRIN (Oficiais)
+    NamedColor('Verde do Ícone (Oficial)', iconGreen, 'Ícone'),
+    NamedColor('Azul do Ícone (Oficial)', iconBlue, 'Ícone'),
+
     // Clássicas
     NamedColor('Azul Marinho', navy, 'Clássicas'),
     NamedColor('Azul Oceano', ocean, 'Clássicas'),
@@ -100,7 +108,7 @@ class AppColors {
     NamedColor('Cyber Neon', neonPurple, 'Criativas'),
   ];
 
-  static List<String> get categories => ['Todas', 'Clássicas', 'Natureza', 'Quentes', 'Elegantes', 'Criativas'];
+  static List<String> get categories => ['Todas', 'Ícone', 'Natureza', 'Clássicas', 'Quentes', 'Elegantes', 'Criativas'];
 
   static List<Color> get selection => curated.map((nc) => nc.color).toList();
 
@@ -169,9 +177,9 @@ extension ColorBlindModeExtension on ColorBlindMode {
 }
 
 class ThemeProvider with ChangeNotifier {
-  ThemeData _currentTheme = AppThemes.getTheme(AppColors.navy, false);
+  ThemeData _currentTheme = AppThemes.getTheme(AppColors.iconGreen, false);
   bool _isDarkMode = false;
-  Color _seedColor = AppColors.navy;
+  Color _seedColor = AppColors.iconGreen;
   bool _isInitialized = false;
   String _appIcon = '1.png'; // Ícone padrão
   double _fontScale = 1.0;
@@ -239,10 +247,28 @@ class ThemeProvider with ChangeNotifier {
     }
     final colorValue = prefs.getInt('seedColor');
     if (colorValue != null) {
-      _seedColor = Color(colorValue);
+      // Se for o antigo padrão navy/preto (0xFF1A1C2C), migra para as cores vivas oficiais do ícone
+      if (colorValue == AppColors.navy.toARGB32()) {
+        _seedColor = AppColors.iconGreen;
+        await prefs.setInt('seedColor', AppColors.iconGreen.toARGB32());
+      } else {
+        _seedColor = Color(colorValue);
+      }
+    } else {
+      _seedColor = AppColors.iconGreen;
     }
     _currentTheme = AppThemes.getTheme(_seedColor, _isDarkMode, colorBlindMode: _colorBlindMode);
     _isInitialized = true;
+    notifyListeners();
+  }
+
+  Future<void> resetToIconTheme() async {
+    _seedColor = AppColors.iconGreen;
+    _isDarkMode = false;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('seedColor', AppColors.iconGreen.toARGB32());
+    await prefs.setBool('isDarkMode', false);
+    _currentTheme = AppThemes.getTheme(_seedColor, false, colorBlindMode: _colorBlindMode);
     notifyListeners();
   }
 
@@ -315,6 +341,15 @@ class AppThemes {
 
   static ThemeData _buildLightTheme(Color seedColor, {ColorBlindMode colorBlindMode = ColorBlindMode.none}) {
     final isHighContrast = colorBlindMode == ColorBlindMode.highContrast;
+
+    // Harmonização oficial com as cores do ícone: Verde e Azul atuam em conjunto
+    Color secondaryColor = seedColor;
+    if (seedColor.toARGB32() == AppColors.iconGreen.toARGB32() || seedColor.toARGB32() == AppColors.emerald.toARGB32()) {
+      secondaryColor = AppColors.iconBlue;
+    } else if (seedColor.toARGB32() == AppColors.iconBlue.toARGB32() || seedColor.toARGB32() == AppColors.ocean.toARGB32()) {
+      secondaryColor = AppColors.iconGreen;
+    }
+
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
@@ -333,9 +368,15 @@ class AppThemes {
       ),
       colorScheme: ColorScheme.light(
         primary: seedColor,
-        secondary: seedColor,
+        secondary: secondaryColor,
         surface: Colors.white,
         onPrimary: Colors.white,
+      ),
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: secondaryColor,
+        foregroundColor: Colors.white,
+        elevation: 3,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
       appBarTheme: AppBarTheme(
         backgroundColor: isHighContrast ? Colors.white : const Color(0xFFF5F7FA),
@@ -389,6 +430,13 @@ class AppThemes {
       primaryColor = HSLColor.fromColor(seedColor).withLightness(0.55).toColor();
     }
 
+    Color secondaryColor = primaryColor;
+    if (seedColor.toARGB32() == AppColors.iconGreen.toARGB32() || seedColor.toARGB32() == AppColors.emerald.toARGB32()) {
+      secondaryColor = AppColors.iconBlue;
+    } else if (seedColor.toARGB32() == AppColors.iconBlue.toARGB32() || seedColor.toARGB32() == AppColors.ocean.toARGB32()) {
+      secondaryColor = AppColors.iconGreen;
+    }
+
     final bool isLightPrimary = primaryColor.computeLuminance() > 0.55;
     final Color onPrimaryColor = isLightPrimary ? Colors.black87 : Colors.white;
 
@@ -410,10 +458,16 @@ class AppThemes {
       ),
       colorScheme: ColorScheme.dark(
         primary: primaryColor,
-        secondary: primaryColor,
+        secondary: secondaryColor,
         surface: const Color(0xFF181A26),
         onPrimary: onPrimaryColor,
         onSurface: Colors.white,
+      ),
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: secondaryColor,
+        foregroundColor: Colors.white,
+        elevation: 3,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
       appBarTheme: const AppBarTheme(
         backgroundColor: Color(0xFF0F1017),

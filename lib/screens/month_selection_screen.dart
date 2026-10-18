@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import '../providers/item_provider.dart';
-import '../theme/app_themes.dart';
 import '../widgets/cart_loading_indicator.dart';
 import '../widgets/skeleton_loader.dart';
 import '../widgets/counting_text.dart';
@@ -103,7 +102,7 @@ class _MonthSelectionScreenState extends State<MonthSelectionScreen> with Automa
               preferredSize: const Size.fromHeight(2),
               child: LinearProgressIndicator(
                 backgroundColor: Colors.transparent,
-                valueColor: AlwaysStoppedAnimation<Color>(AppThemes.primaryNavy.withValues(alpha: 0.5)),
+                valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.primary.withValues(alpha: 0.5)),
                 minHeight: 2,
               ),
             ) : null,
@@ -186,7 +185,7 @@ class _MonthSelectionScreenState extends State<MonthSelectionScreen> with Automa
             onPressed: () => _showCreateMonthDialog(context),
             label: const Text('Novo Carrinho', style: TextStyle(fontWeight: FontWeight.bold)),
             icon: const Icon(Icons.add_shopping_cart),
-            backgroundColor: AppThemes.primaryNavy,
+            backgroundColor: Theme.of(context).colorScheme.primary,
             foregroundColor: Colors.white,
           ),
         );
@@ -395,7 +394,7 @@ class _MonthSelectionScreenState extends State<MonthSelectionScreen> with Automa
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              backgroundColor: AppThemes.primaryNavy,
+              backgroundColor: Theme.of(context).colorScheme.primary,
               foregroundColor: Colors.white,
             ),
             onPressed: () async {
@@ -617,7 +616,7 @@ class _MonthSelectionScreenState extends State<MonthSelectionScreen> with Automa
               ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppThemes.primaryNavy,
+                  backgroundColor: Theme.of(context).colorScheme.primary,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),

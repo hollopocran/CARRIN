@@ -79,7 +79,7 @@ extension TutorialSectionMeta on TutorialSection {
     }
   }
 
-  Color get accentColor => AppColors.navy;
+  Color get accentColor => AppColors.iconGreen;
 }
 
 /// Gerenciador e modal de tutoriais interativos contextuais por aba/tela.
@@ -333,6 +333,7 @@ class _InteractiveSectionTutorialCardState extends State<InteractiveSectionTutor
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final accent = Theme.of(context).colorScheme.primary;
+    final secondary = Theme.of(context).colorScheme.secondary;
     final bgColor = isDark ? const Color(0xFF1A1D2D) : Colors.white;
     final labels = _stepLabels;
 
@@ -391,7 +392,11 @@ class _InteractiveSectionTutorialCardState extends State<InteractiveSectionTutor
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                                     decoration: BoxDecoration(
-                                      color: accent,
+                                      gradient: LinearGradient(
+                                        colors: [accent, secondary],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      ),
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: const Text(
@@ -813,7 +818,7 @@ class _InteractiveSectionTutorialCardState extends State<InteractiveSectionTutor
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 10),
                       decoration: BoxDecoration(
-                        color: !_demoIsFamily ? AppThemes.primaryNavy : Colors.transparent,
+                        color: !_demoIsFamily ? Theme.of(context).colorScheme.primary : Colors.transparent,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(
@@ -1196,7 +1201,7 @@ class _InteractiveSectionTutorialCardState extends State<InteractiveSectionTutor
             Center(
               child: ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppThemes.primaryNavy,
+                  backgroundColor: Theme.of(context).colorScheme.primary,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
@@ -1515,7 +1520,7 @@ class _InteractiveSectionTutorialCardState extends State<InteractiveSectionTutor
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: AppThemes.primaryNavy,
+                    color: Theme.of(context).colorScheme.primary,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
@@ -1849,7 +1854,7 @@ class _InteractiveSectionTutorialCardState extends State<InteractiveSectionTutor
                 child: ChoiceChip(
                   label: Text(c, style: const TextStyle(fontSize: 11.5)),
                   selected: active,
-                  selectedColor: AppThemes.primaryNavy,
+                  selectedColor: Theme.of(context).colorScheme.primary,
                   labelStyle: TextStyle(
                     color: active ? Colors.white : (isDark ? Colors.white : Colors.black87),
                     fontWeight: FontWeight.bold,
@@ -1961,7 +1966,7 @@ class _InteractiveSectionTutorialCardState extends State<InteractiveSectionTutor
                               margin: const EdgeInsets.only(bottom: 4),
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
-                                color: AppThemes.primaryNavy,
+                                color: Theme.of(context).colorScheme.primary,
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(

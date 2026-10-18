@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../providers/item_provider.dart';
-import '../theme/app_themes.dart';
 
 enum SortOption { name, quantity, price, category }
 
@@ -99,7 +98,7 @@ class _ShoppingFilterBottomSheetState extends State<ShoppingFilterBottomSheet> {
                 IconButton(
                   icon: Icon(
                     _isAscending ? Icons.arrow_upward : Icons.arrow_downward,
-                    color: isDark ? Colors.white70 : AppThemes.primaryNavy,
+                    color: isDark ? Colors.white70 : Theme.of(context).colorScheme.primary,
                   ),
                   onPressed: () {
                     setState(() {

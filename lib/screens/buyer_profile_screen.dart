@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/item_provider.dart';
 import '../services/utils.dart';
-import '../theme/app_themes.dart';
 import '../widgets/supermarket_avatar.dart';
 import '../widgets/interactive_tab_tutorial.dart';
 
@@ -36,7 +35,7 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cardColor = Theme.of(context).cardColor;
     final textColor = isDark ? Colors.white : Colors.black87;
-    final primaryColor = isDark ? const Color(0xFFAEB2FF) : AppThemes.primaryNavy;
+    final primaryColor = Theme.of(context).colorScheme.primary;
 
     // Financial summaries across all months
     final months = provider.months;
@@ -95,7 +94,7 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
         archetypeTitle = 'Planejador Rigoroso';
         archetypeSubtitle = 'Você equilibra perfeitamente suas necessidades ao orçamento estipulado, atingindo alta eficiência financeira.';
         archetypeIcon = Icons.track_changes_rounded;
-        archetypeColor = isDark ? const Color(0xFFAEB2FF) : AppThemes.primaryNavy;
+        archetypeColor = Theme.of(context).colorScheme.primary;
       } else {
         archetypeTitle = 'Comprador Entusiasta';
         archetypeSubtitle = 'Você valoriza a despensa cheia e costuma aproveitar oportunidades no supermercado, mesmo acima do teto inicial.';

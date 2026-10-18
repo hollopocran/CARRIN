@@ -197,7 +197,7 @@ class SettingsScreen extends StatelessWidget {
           const ListTile(
             leading: Icon(Icons.info_outline),
             title: Text('Versão', style: TextStyle(fontWeight: FontWeight.w500)),
-            trailing: Text('1.3.552', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+            trailing: Text('1.3.553', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -651,11 +651,11 @@ class SettingsScreen extends StatelessWidget {
         builder: (ctx, setDialogState) {
           return AlertDialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-            title: const Row(
+            title: Row(
               children: [
-                Icon(Icons.visibility_outlined, color: AppThemes.primaryNavy),
-                SizedBox(width: 10),
-                Expanded(child: Text('Modo Daltônico', style: TextStyle(fontWeight: FontWeight.bold))),
+                Icon(Icons.visibility_outlined, color: Theme.of(context).colorScheme.primary),
+                const SizedBox(width: 10),
+                const Expanded(child: Text('Modo Daltônico', style: TextStyle(fontWeight: FontWeight.bold))),
               ],
             ),
             content: SingleChildScrollView(
@@ -759,11 +759,11 @@ class SettingsScreen extends StatelessWidget {
           final scale = themeProvider.fontScale;
           return AlertDialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-            title: const Row(
+            title: Row(
               children: [
-                Icon(Icons.format_size_rounded, color: AppThemes.primaryNavy),
-                SizedBox(width: 10),
-                Expanded(child: Text('Tamanho das Letras', style: TextStyle(fontWeight: FontWeight.bold))),
+                Icon(Icons.format_size_rounded, color: Theme.of(context).colorScheme.primary),
+                const SizedBox(width: 10),
+                const Expanded(child: Text('Tamanho das Letras', style: TextStyle(fontWeight: FontWeight.bold))),
               ],
             ),
             content: SingleChildScrollView(

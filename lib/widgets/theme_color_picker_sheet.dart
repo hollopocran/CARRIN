@@ -72,8 +72,8 @@ class _ThemeColorPickerSheetState extends State<ThemeColorPickerSheet> {
   void _restoreDefault() {
     HapticFeedback.mediumImpact();
     setState(() {
-      _tempColor = AppColors.navy;
-      final hsl = HSLColor.fromColor(AppColors.navy);
+      _tempColor = AppColors.iconGreen;
+      final hsl = HSLColor.fromColor(AppColors.iconGreen);
       _currentHue = hsl.hue;
     });
   }
@@ -228,9 +228,9 @@ class _ThemeColorPickerSheetState extends State<ThemeColorPickerSheet> {
                   TextButton.icon(
                     onPressed: _restoreDefault,
                     icon: const Icon(Icons.restart_alt, size: 16),
-                    label: const Text('Restaurar', style: TextStyle(fontSize: 12)),
+                    label: const Text('Restaurar Ícone', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                     style: TextButton.styleFrom(
-                      foregroundColor: Colors.grey,
+                      foregroundColor: AppColors.iconGreen,
                     ),
                   ),
                 ],
@@ -239,6 +239,10 @@ class _ThemeColorPickerSheetState extends State<ThemeColorPickerSheet> {
 
               // Prévia Interativa em Tempo Real
               _buildLivePreviewCard(_tempColor, _tempDarkMode),
+              const SizedBox(height: 16),
+
+              // Banner com Cores Oficiais do Ícone CARRIN (Verde e Azul)
+              _buildOfficialIconThemeBanner(),
               const SizedBox(height: 20),
 
               // Alternador de Modo: Claro / Escuro
@@ -452,6 +456,172 @@ class _ThemeColorPickerSheetState extends State<ThemeColorPickerSheet> {
               backgroundColor: isDark ? Colors.white12 : Colors.black12,
               valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOfficialIconThemeBanner() {
+    final isGreenSelected = _tempColor.toARGB32() == AppColors.iconGreen.toARGB32();
+    final isBlueSelected = _tempColor.toARGB32() == AppColors.iconBlue.toARGB32();
+    final isDark = _tempDarkMode;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E2132) : const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: (isGreenSelected || isBlueSelected)
+              ? (isGreenSelected ? AppColors.iconGreen : AppColors.iconBlue)
+              : Colors.grey.withValues(alpha: 0.2),
+          width: 1.5,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.verified_rounded, size: 16, color: AppColors.iconGreen),
+                  SizedBox(width: 6),
+                  Text(
+                    'Cores Oficiais do Ícone CARRIN',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                ],
+              ),
+              if (isGreenSelected || isBlueSelected)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: (isGreenSelected ? AppColors.iconGreen : AppColors.iconBlue).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    'Ativo',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: isGreenSelected ? AppColors.iconGreen : AppColors.iconBlue,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: InkWell(
+                  onTap: () => _selectCuratedColor(AppColors.iconGreen),
+                  borderRadius: BorderRadius.circular(12),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 10),
+                    decoration: BoxDecoration(
+                      color: isGreenSelected
+                          ? AppColors.iconGreen
+                          : (isDark ? const Color(0xFF272A3E) : Colors.white),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppColors.iconGreen,
+                        width: isGreenSelected ? 2.0 : 1.0,
+                      ),
+                      boxShadow: isGreenSelected
+                          ? [
+                              BoxShadow(
+                                color: AppColors.iconGreen.withValues(alpha: 0.35),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              )
+                            ]
+                          : null,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 14,
+                          height: 14,
+                          decoration: BoxDecoration(
+                            color: AppColors.iconGreen,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 2),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Verde Ícone',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: isGreenSelected ? Colors.white : (isDark ? Colors.white : Colors.black87),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: InkWell(
+                  onTap: () => _selectCuratedColor(AppColors.iconBlue),
+                  borderRadius: BorderRadius.circular(12),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 10),
+                    decoration: BoxDecoration(
+                      color: isBlueSelected
+                          ? AppColors.iconBlue
+                          : (isDark ? const Color(0xFF272A3E) : Colors.white),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppColors.iconBlue,
+                        width: isBlueSelected ? 2.0 : 1.0,
+                      ),
+                      boxShadow: isBlueSelected
+                          ? [
+                              BoxShadow(
+                                color: AppColors.iconBlue.withValues(alpha: 0.35),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              )
+                            ]
+                          : null,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 14,
+                          height: 14,
+                          decoration: BoxDecoration(
+                            color: AppColors.iconBlue,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 2),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Azul Ícone',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: isBlueSelected ? Colors.white : (isDark ? Colors.white : Colors.black87),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
