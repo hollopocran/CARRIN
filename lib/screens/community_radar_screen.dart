@@ -327,6 +327,8 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen>
             ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddPriceDialog(context, itemProvider),
+        backgroundColor: primaryColor,
+        foregroundColor: Theme.of(context).colorScheme.onPrimary,
         icon: const Icon(Icons.add_shopping_cart_rounded),
         label: const Text('Colaborar Preço', style: TextStyle(fontWeight: FontWeight.bold)),
       ),

@@ -373,7 +373,7 @@ class AppThemes {
         onPrimary: Colors.white,
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: secondaryColor,
+        backgroundColor: seedColor,
         foregroundColor: Colors.white,
         elevation: 3,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -464,8 +464,8 @@ class AppThemes {
         onSurface: Colors.white,
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: secondaryColor,
-        foregroundColor: Colors.white,
+        backgroundColor: primaryColor,
+        foregroundColor: onPrimaryColor,
         elevation: 3,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),

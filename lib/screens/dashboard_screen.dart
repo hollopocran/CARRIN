@@ -12,7 +12,6 @@ import 'statistics_screen.dart';
 import 'shopping_list_screen.dart';
 import 'accounts_screen.dart';
 import '../widgets/supermarket_avatar.dart';
-import '../widgets/interactive_tab_tutorial.dart';
 import 'package:reorderable_grid_view/reorderable_grid_view.dart';
 
 /// The primary landing screen of the application.
@@ -168,15 +167,6 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
                     actions: [
                       const SyncIndicator(),
                       IconButton(
-                        icon: const Icon(Icons.help_outline_rounded),
-                        tooltip: 'Tutorial desta aba',
-                        onPressed: () => InteractiveTabTutorial.show(
-                          context,
-                          TutorialSection.dashboard,
-                          userEmail: provider.activeUserEmail,
-                        ),
-                      ),
-                      IconButton(
                         icon: Icon(themeProvider.isDarkMode ? Icons.wb_sunny : Icons.nightlight_round),
                         tooltip: 'Alternar Tema',
                         onPressed: () => themeProvider.toggleTheme(),
@@ -234,6 +224,8 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
     final double total = hasMonth ? (data['total'] ?? 0.0) : 0.0;
     final double percent = budget > 0 ? total / budget : 0.0;
     final bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).primaryColor;
+    final onPrimary = Theme.of(context).colorScheme.onPrimary;
 
     return Column(
       children: [
@@ -243,7 +235,7 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
           child: Container(
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
-              color: isDarkMode ? Colors.grey[850] : Colors.grey[200],
+              color: isDarkMode ? Colors.white.withValues(alpha: 0.08) : Colors.grey[200],
               borderRadius: BorderRadius.circular(20),
             ),
             child: Row(
@@ -256,7 +248,7 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       decoration: BoxDecoration(
                         color: !provider.isFamilyWorkspace
-                            ? (isDarkMode ? const Color(0xFFAEB2FF) : Theme.of(context).primaryColor)
+                            ? primaryColor
                             : Colors.transparent,
                         borderRadius: BorderRadius.circular(16),
                       ),
@@ -267,8 +259,8 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
                             Icons.person_rounded,
                             size: 16,
                             color: !provider.isFamilyWorkspace
-                                ? (isDarkMode ? Colors.black87 : Colors.white)
-                                : Colors.grey,
+                                ? onPrimary
+                                : (isDarkMode ? Colors.white60 : Colors.grey[700]),
                           ),
                           const SizedBox(width: 6),
                           Text(
@@ -277,8 +269,8 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
                               color: !provider.isFamilyWorkspace
-                                  ? (isDarkMode ? Colors.black87 : Colors.white)
-                                  : Colors.grey,
+                                  ? onPrimary
+                                  : (isDarkMode ? Colors.white60 : Colors.grey[700]),
                             ),
                           ),
                         ],
@@ -294,7 +286,7 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       decoration: BoxDecoration(
                         color: provider.isFamilyWorkspace
-                            ? Colors.deepOrange
+                            ? primaryColor
                             : Colors.transparent,
                         borderRadius: BorderRadius.circular(16),
                       ),
@@ -304,7 +296,9 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
                           Icon(
                             Icons.family_restroom_rounded,
                             size: 16,
-                            color: provider.isFamilyWorkspace ? Colors.white : Colors.grey,
+                            color: provider.isFamilyWorkspace
+                                ? onPrimary
+                                : (isDarkMode ? Colors.white60 : Colors.grey[700]),
                           ),
                           const SizedBox(width: 6),
                           Text(
@@ -312,7 +306,9 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
-                              color: provider.isFamilyWorkspace ? Colors.white : Colors.grey,
+                              color: provider.isFamilyWorkspace
+                                  ? onPrimary
+                                  : (isDarkMode ? Colors.white60 : Colors.grey[700]),
                             ),
                           ),
                         ],

@@ -316,6 +316,16 @@ O [`BarcodeLookupService`](file:///C:/Dev/CARRIN/lib/services/barcode_lookup_ser
 
 ## 5. Histórico Cronológico de Atualizações e Versões
 
+### v1.3.562 (18 de Outubro de 2026)
+- **Remoção da Interrogação da Tela Inicial (`DashboardScreen`):**
+  - O botão de interrogação `?` foi totalmente retirado da AppBar da Home, mantendo a tela inicial limpa e focada exclusivamente no status de sincronização, alternador de tema e perfil. O suporte e reset de tutoriais permanecem organizados na aba de *Ajustes*.
+- **Correção da Cor do Botão "Colaborar Preço" e FABs (`AppThemes` & `CommunityRadarScreen`):**
+  - Ajustado o `floatingActionButtonTheme` no `_buildLightTheme` e `_buildDarkTheme` para utilizar a cor primária ativa (`seedColor` / `primaryColor`) com contraste dinâmico de texto/ícone, em vez de forçar a cor secundária azul quando o usuário seleciona temas verdes (`iconGreen` / `emerald`).
+  - O botão *"Colaborar Preço"* em `CommunityRadarScreen` agora herda e exibe com fidelidade a cor verde do tema.
+- **Fidelidade de Tema nos Botões da Home no Modo Escuro (`DashboardScreen`):**
+  - Os botões seletores de workspace (*"Meu Carrinho"* e *"Família"*) foram refatorados para utilizar a cor primária (`primaryColor`) e cor de contraste (`onPrimary`) do tema ativo tanto no modo claro quanto no modo noturno, eliminando as cores fixas legadas (roxo pastel `#AEB2FF` e `Colors.deepOrange`).
+- **Validação Automatizada:** 58/58 testes unitários e de widgets aprovados (100% de sucesso), 0 erros no `flutter analyze`.
+
 ### v1.3.561 (18 de Outubro de 2026)
 - **Consolidação e Limpeza de Tutoriais (Exclusivos para Início e Configurações):**
   - **Eliminação de Poluição Visual nas Telas Internas:** Removidos todos os botões de interrogação `?` e cards de demonstração interativa de todas as telas secundárias do aplicativo (*Meus Carrinhos*, *Lista de Compras*, *Estatísticas*, *Perfil de Comprador*, *Radar da Comunidade* e *Mapa de Mercados*).
