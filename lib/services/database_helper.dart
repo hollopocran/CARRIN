@@ -543,8 +543,6 @@ class DatabaseHelper {
       if (it.isBought) {
         calcTotal += it.totalPrice;
         calcBought++;
-      } else if (it.unitPrice > 0 && it.quantity > 0) {
-        calcTotal += it.totalPrice;
       }
     }
     await db.transaction((txn) async {
@@ -1507,7 +1505,7 @@ class DatabaseHelper {
                 unitPrice: price,
                 isKg: false,
                 category: (itData['category'] as String?) ?? 'Outros',
-                isBought: price > 0,
+                isBought: false,
                 barcode: itData['barcode'] as String?,
                 supermarket: itData['supermarket'] as String?,
               ));
@@ -1552,7 +1550,7 @@ class DatabaseHelper {
                   unitPrice: price,
                   isKg: (r['unit'] as String? ?? '') == 'kg',
                   category: (r['category'] as String?) ?? 'Outros',
-                  isBought: price > 0,
+                  isBought: false,
                   supermarket: r['supermarket_name'] as String?,
                 ));
               }
@@ -1585,8 +1583,6 @@ class DatabaseHelper {
             if (isB) {
               total += q * p;
               bought++;
-            } else if (p > 0 && q > 0) {
-              total += q * p;
             }
           }
           await db.update(

@@ -232,7 +232,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
         ),
       );
     } else {
-      final double total = provider.totalFromSheet;
+      final double total = provider.totalCost;
       final double budget = provider.budget;
       final int totalItems = provider.items.length;
       final int boughtItems = provider.items.where((it) => it.isBought).length;
@@ -548,7 +548,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                                     showDialog(
                                       context: context,
                                       builder: (_) => RateioDialog(
-                                        totalSpent: itemProvider.totalFromSheet,
+                                        totalSpent: itemProvider.totalCost,
                                         listTitle: itemProvider.currentMonth,
                                       ),
                                     );
@@ -2295,7 +2295,7 @@ class _StickyHealthHeaderDelegate extends SliverPersistentHeaderDelegate {
   @override
   Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
     final double percent = (shrinkOffset / (maxExtent - minExtent)).clamp(0.0, 1.0);
-    final total = totalCost > 0 ? totalCost : provider.totalFromSheet;
+    final total = provider.items.isNotEmpty ? totalCost : provider.totalFromSheet;
     final budget = provider.budget;
     final healthPercent = budget > 0 ? total / budget : 0.0;
     

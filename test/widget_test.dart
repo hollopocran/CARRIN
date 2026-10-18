@@ -993,5 +993,45 @@ void main() {
       expect(DatabaseHelper.isDummySheetName('Churrasco'), isFalse);
     });
   });
+
+  group('Item Total Calculation & Unchecked Item Protection Tests', () {
+    test('Unchecked items (isBought: false) with price and quantity do not count towards totalCost', () {
+      final items = [
+        Item(name: 'Arroz 5kg', quantity: 1.0, unitPrice: 25.0, isBought: true),
+        Item(name: 'Feijão 1kg', quantity: 2.0, unitPrice: 8.0, isBought: true),
+        Item(name: 'Jogo de Taças', quantity: 1.0, unitPrice: 89.90, isBought: false),
+        Item(name: 'Vinho Tinto', quantity: 1.0, unitPrice: 45.0, isBought: false),
+      ];
+
+      final totalBought = items.where((it) => it.isBought).fold(0.0, (s, it) => s + it.totalPrice);
+      expect(totalBought, equals(41.0)); // 25 + 16 = 41.0. Jogo de Taças (89.90) and Vinho (45.0) are NOT counted!
+
+      double calcTotal = 0.0;
+      int calcBought = 0;
+      for (final it in items) {
+        if (it.isBought) {
+          calcTotal += it.totalPrice;
+          calcBought++;
+        }
+      }
+
+      expect(calcTotal, equals(41.0));
+      expect(calcBought, equals(2));
+    });
+
+    test('Item.fromList correctly parses isBought as false for empty, false or zero status', () {
+      final item1 = Item.fromList([1, 'Jogo de Taças', 89.9, 89.9, 'Utilidades', '', ''], 7);
+      expect(item1.isBought, isFalse);
+
+      final item2 = Item.fromList([1, 'Jogo de Taças', 89.9, 89.9, 'Utilidades', 'FALSE', ''], 8);
+      expect(item2.isBought, isFalse);
+
+      final item3 = Item.fromList([1, 'Jogo de Taças', 89.9, 89.9, 'Utilidades', false, ''], 9);
+      expect(item3.isBought, isFalse);
+
+      final item4 = Item.fromList([1, 'Jogo de Taças', 89.9, 89.9, 'Utilidades', 'TRUE', ''], 10);
+      expect(item4.isBought, isTrue);
+    });
+  });
 }
 

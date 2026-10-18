@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/community_price.dart';
+import '../models/item.dart';
 import 'database_helper.dart';
 import 'default_supermarkets.dart';
 import 'location_service.dart';
@@ -166,6 +167,9 @@ class CommunityPriceService {
     try {
       final List<CommunityPrice> toPublish = [];
       for (var it in items) {
+        final bool isBought = it is Item ? it.isBought : (it.isBought == true);
+        if (!isBought) continue;
+
         final name = (it.name as String? ?? '').trim();
         final price = (it.unitPrice as num?)?.toDouble() ?? 0.0;
         if (name.isEmpty || price <= 0) continue;

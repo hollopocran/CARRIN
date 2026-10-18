@@ -1,6 +1,6 @@
 # Documentação Técnica e Arquitetural: CARRIN
 
-> **Versão Atual:** `1.3.553` (Build `553`) — Outubro de 2026  
+> **Versão Atual:** `1.3.554` (Build `554`) — Outubro de 2026  
 > **Status:** Produção Estável  
 > **Slogan:** *"Sua lista, sem complicação."*
 
@@ -315,6 +315,17 @@ O [`BarcodeLookupService`](file:///C:/Dev/CARRIN/lib/services/barcode_lookup_ser
 ---
 
 ## 5. Histórico Cronológico de Atualizações e Versões
+
+### v1.3.554 (17 de Outubro de 2026)
+- **Correção da Contagem de Itens Não Checados no Preço Final / Total:**
+  - Identificada e eliminada a causa raiz pela qual itens não checados (`isBought == false`), como "jogo de taças", tinham seu valor somado indevidamente no total do mês e nos cards financeiros.
+  - No `DatabaseHelper` (`saveItems` e `recoverAndConsolidateUserData`), remoção da condição espúria `else if (it.unitPrice > 0 && it.quantity > 0) calcTotal += it.totalPrice;`, garantindo que apenas itens marcados no carrinho (`it.isBought == true`) componham o `total` e abatam o `balance`.
+  - Reconstrução e consolidação automática na inicialização: o app recalcula imediatamente o resumo de todos os meses locais, expurgando valores indevidos de itens não checados e corrigindo a lista de Outubro.
+  - Cabeçalho dinâmico (`_StickyHealthHeaderDelegate`): o valor principal exibe estritamente `provider.totalCost` sempre que a lista contiver itens, mantendo itens não checados apenas no campo de estimativa *"Previsão"*.
+  - Diálogo de *Finalizar Compra* e calculadora de *Rateio* padronizados para utilizar `provider.totalCost`.
+  - Exportação em PDF (`PdfExportService`): cálculo de *Gasto Atual* restrito a itens comprados (`it.isBought`).
+  - Sincronização de compras finalizadas (`syncMonthPurchases`): proteção contra publicação de itens pendentes no feed comunitário.
+  - Testes unitários dedicados adicionados validando a exclusão de itens não checados do total.
 
 ### v1.3.553 (17 de Outubro de 2026)
 - **Tema Padrão Oficial & Restauração com Cores do Ícone:**

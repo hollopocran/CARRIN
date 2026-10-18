@@ -18,14 +18,14 @@ class PdfExportService {
     required bool showFinancials,
   }) async {
     final pdf = pw.Document();
-    final total = items.fold(0.0, (sum, it) => sum + it.totalPrice);
+    final total = items.where((it) => it.isBought).fold(0.0, (sum, it) => sum + it.totalPrice);
     final balance = budget - total;
     final healthPercent = budget > 0 ? total / budget : 0.0;
 
     final font = await PdfGoogleFonts.nunitoRegular();
     final fontBold = await PdfGoogleFonts.nunitoBold();
     final emojiFont = await PdfGoogleFonts.notoEmojiRegular();
-    const primaryColor = PdfColor.fromInt(0xFF1A1C2C);
+    const primaryColor = PdfColor.fromInt(0xFF10B981);
 
     pdf.addPage(
       pw.MultiPage(
