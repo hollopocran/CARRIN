@@ -1,6 +1,6 @@
 # Documentação Técnica e Arquitetural: CARRIN
 
-> **Versão Atual:** `1.3.566` (Build `566`) — Outubro de 2026  
+> **Versão Atual:** `1.3.567` (Build `567`) — Outubro de 2026  
 > **Status:** Produção Estável  
 > **Slogan:** *"Sua lista, sem complicação."*
 
@@ -340,6 +340,19 @@ O [`BarcodeLookupService`](file:///C:/Dev/CARRIN/lib/services/barcode_lookup_ser
 ---
 
 ## 5. Histórico Cronológico de Atualizações e Versões
+
+### v1.3.567 (18 de Outubro de 2026)
+- **Persistência Garantida da Escala de Fontes (`ThemeProvider` & `SettingsScreen`):**
+  - **Identificação da Causa Raiz:** O ajuste de tamanho de texto (85% e outros) voltava para 100% ao fechar o app porque a inicialização no `main.dart` agrupava múltiplos serviços em um único bloco `try/catch`. Caso a inicialização de notificações encontrasse qualquer advertência ou se o SharedPreferences deserializasse o número como tipo `int`, o carregamento do `_fontScale` era abortado e o valor padrão de 1.0 era assumido.
+  - **Leitura Resiliente Numérica:** O `ThemeProvider.init()` agora realiza leitura polimórfica (`prefs.get('fontScale') as num?`) convertendo com segurança tanto inteiros quanto decimais sem gerar `TypeError`.
+  - **Gravação Segura e Arredondamento:** O método `setFontScale` arredonda o valor para 2 casas decimais (`(scale * 100).round() / 100.0`) e executa `prefs.remove('fontScale')` antes de `setDouble` para evitar conflito de tipagem nativa no XML de preferências do Android.
+  - **Isolamento de Serviços no Boot (`main.dart`):** Cada subsistema (`initializeDateFormatting`, `NotificationService().init()`, `themeProvider.init()`, `AuthService().init()`) agora possui seu próprio bloco de proteção isolado, garantindo que o tema e escala de fonte sempre carreguem mesmo se outros serviços falharem.
+  - **Correção da Prévia em Tempo Real:** Ajustada a caixa de visualização do diálogo para utilizar `TextScaler.linear(scale)` direto via `MediaQuery`, eliminando multiplicação duplicada de escala.
+- **Correção do Identificador do Ícone de Notificações (`NotificationService`):**
+  - O `AndroidInitializationSettings` foi corrigido para utilizar o nome de recurso nativo `'ic_notification_cart'` (sem o prefixo de caminho `'@drawable/'`), assegurando resolução imediata pelo Android OS sem exceções de inicialização.
+- **Diagnóstico Inteligente para Atualizações OTA (`AppUpdateService` & `SettingsScreen`):**
+  - Adicionado rastreamento de falhas na checagem de atualizações (`lastFetchError`). Quando a URL do `version.json` retorna erro 404 (típico de repositórios mantidos como **Privados** no GitHub), o app agora informa explicitamente ao usuário através de um aviso explicativo na tela em vez de indicar falsamente que ele já está na versão mais recente.
+- **Validação Automatizada:** 61/61 testes unitários e de widgets aprovados (100% de sucesso), 0 erros no `flutter analyze`.
 
 ### v1.3.566 (18 de Outubro de 2026)
 - **Correção da Sobreposição da Barra de Navegação do Android (Botões Voltar, Home e Janelas):**

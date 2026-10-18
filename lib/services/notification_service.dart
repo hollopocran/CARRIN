@@ -22,46 +22,50 @@ class NotificationService {
   static const String budgetChannelId = 'budget_alerts_v2';
   static const String budgetChannelName = 'Alertas de Orçamento';
 
-  /// Ícone oficial de carrinho para todas as notificações
-  static const String cartNotificationIcon = '@drawable/ic_notification_cart';
+  /// Ícone oficial de carrinho para todas as notificações (sem prefixo @drawable/)
+  static const String cartNotificationIcon = 'ic_notification_cart';
 
   /// Initializes notification plugins and creates necessary Android channels.
   Future<void> init() async {
-    const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings(cartNotificationIcon); 
+    try {
+      const AndroidInitializationSettings initializationSettingsAndroid =
+          AndroidInitializationSettings(cartNotificationIcon); 
 
-    const InitializationSettings initializationSettings = InitializationSettings(
-      android: initializationSettingsAndroid,
-    );
+      const InitializationSettings initializationSettings = InitializationSettings(
+        android: initializationSettingsAndroid,
+      );
 
-    await _notificationsPlugin.initialize(
-      initializationSettings,
-    );
+      await _notificationsPlugin.initialize(
+        initializationSettings,
+      );
 
-    // Progress Channel (Discreto, com barra de progresso, sem som repetitivo a cada item)
-    const AndroidNotificationChannel progressChannel = AndroidNotificationChannel(
-      channelId,
-      channelName,
-      description: channelDescription,
-      importance: Importance.low, // Discreto, sem som a cada item, exibe na tela de bloqueio e barra
-      enableVibration: false,
-      playSound: false,
-      showBadge: false,
-    );
+      // Progress Channel (Discreto, com barra de progresso, sem som repetitivo a cada item)
+      const AndroidNotificationChannel progressChannel = AndroidNotificationChannel(
+        channelId,
+        channelName,
+        description: channelDescription,
+        importance: Importance.low, // Discreto, sem som a cada item, exibe na tela de bloqueio e barra
+        enableVibration: false,
+        playSound: false,
+        showBadge: false,
+      );
 
-    // Alert Channel (High Importance para estouro de orçamento)
-    const AndroidNotificationChannel budgetChannel = AndroidNotificationChannel(
-      budgetChannelId,
-      budgetChannelName,
-      description: 'Notifica quando o orçamento limite for ultrapassado',
-      importance: Importance.high,
-      enableVibration: true,
-      playSound: true,
-    );
+      // Alert Channel (High Importance para estouro de orçamento)
+      const AndroidNotificationChannel budgetChannel = AndroidNotificationChannel(
+        budgetChannelId,
+        budgetChannelName,
+        description: 'Notifica quando o orçamento limite for ultrapassado',
+        importance: Importance.high,
+        enableVibration: true,
+        playSound: true,
+      );
 
-    final androidImpl = _notificationsPlugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
-    await androidImpl?.createNotificationChannel(progressChannel);
-    await androidImpl?.createNotificationChannel(budgetChannel);
+      final androidImpl = _notificationsPlugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+      await androidImpl?.createNotificationChannel(progressChannel);
+      await androidImpl?.createNotificationChannel(budgetChannel);
+    } catch (e) {
+      debugPrint('Aviso ao inicializar NotificationService: $e');
+    }
   }
 
   /// Triggers a high-priority budget alert notification.

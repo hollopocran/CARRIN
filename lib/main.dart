@@ -16,20 +16,32 @@ void main() async {
   
   final themeProvider = ThemeProvider();
 
+  // Initialize pt_BR locale for currency and date formatting
   try {
-    // Initialize pt_BR locale for currency and date formatting
     await initializeDateFormatting('pt_BR', null);
-    
-    // Setup local notification channels
-    await NotificationService().init();
-    
-    // Initialize Theme synchronously before rendering
-    await themeProvider.init();
+  } catch (e) {
+    debugPrint("Erro ao inicializar date formatting: $e");
+  }
 
-    // Initialize Google Auth
+  // Setup local notification channels
+  try {
+    await NotificationService().init();
+  } catch (e) {
+    debugPrint("Erro ao inicializar notificações: $e");
+  }
+
+  // Initialize Theme synchronously before rendering (sempre garantido)
+  try {
+    await themeProvider.init();
+  } catch (e) {
+    debugPrint("Erro ao inicializar tema e tamanho de fonte: $e");
+  }
+
+  // Initialize Google Auth
+  try {
     await AuthService().init();
   } catch (e) {
-    debugPrint("Erro durante a inicialização: $e");
+    debugPrint("Erro ao inicializar Google Auth: $e");
   }
 
   runApp(

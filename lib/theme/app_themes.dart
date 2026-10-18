@@ -237,29 +237,40 @@ class ThemeProvider with ChangeNotifier {
   ThemeProvider();
 
   Future<void> init() async {
-    final prefs = await SharedPreferences.getInstance();
-    _isDarkMode = prefs.getBool('isDarkMode') ?? false;
-    _appIcon = prefs.getString('appIcon') ?? '1.png';
-    _fontScale = prefs.getDouble('fontScale') ?? 1.0;
-    final cbIdx = prefs.getInt('colorBlindMode');
-    if (cbIdx != null && cbIdx >= 0 && cbIdx < ColorBlindMode.values.length) {
-      _colorBlindMode = ColorBlindMode.values[cbIdx];
-    }
-    final colorValue = prefs.getInt('seedColor');
-    if (colorValue != null) {
-      // Se for o antigo padrão navy/preto (0xFF1A1C2C), migra para as cores vivas oficiais do ícone
-      if (colorValue == AppColors.navy.toARGB32()) {
-        _seedColor = AppColors.iconGreen;
-        await prefs.setInt('seedColor', AppColors.iconGreen.toARGB32());
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _isDarkMode = prefs.getBool('isDarkMode') ?? false;
+      _appIcon = prefs.getString('appIcon') ?? '1.png';
+      
+      final rawFontScale = prefs.get('fontScale');
+      if (rawFontScale is num) {
+        _fontScale = rawFontScale.toDouble();
       } else {
-        _seedColor = Color(colorValue);
+        _fontScale = 1.0;
       }
-    } else {
-      _seedColor = AppColors.iconGreen;
+
+      final cbIdx = prefs.getInt('colorBlindMode');
+      if (cbIdx != null && cbIdx >= 0 && cbIdx < ColorBlindMode.values.length) {
+        _colorBlindMode = ColorBlindMode.values[cbIdx];
+      }
+      final colorValue = prefs.getInt('seedColor');
+      if (colorValue != null) {
+        // Se for o antigo padrão navy/preto (0xFF1A1C2C), migra para as cores vivas oficiais do ícone
+        if (colorValue == AppColors.navy.toARGB32()) {
+          _seedColor = AppColors.iconGreen;
+          await prefs.setInt('seedColor', AppColors.iconGreen.toARGB32());
+        } else {
+          _seedColor = Color(colorValue);
+        }
+      } else {
+        _seedColor = AppColors.iconGreen;
+      }
+      _currentTheme = AppThemes.getTheme(_seedColor, _isDarkMode, colorBlindMode: _colorBlindMode);
+      _isInitialized = true;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Aviso ao inicializar ThemeProvider: $e');
     }
-    _currentTheme = AppThemes.getTheme(_seedColor, _isDarkMode, colorBlindMode: _colorBlindMode);
-    _isInitialized = true;
-    notifyListeners();
   }
 
   Future<void> resetToIconTheme() async {
@@ -304,10 +315,16 @@ class ThemeProvider with ChangeNotifier {
   }
 
   Future<void> setFontScale(double scale) async {
-    _fontScale = scale;
+    final rounded = ((scale * 100).round() / 100.0).clamp(0.85, 1.45);
+    _fontScale = rounded;
     notifyListeners();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setDouble('fontScale', scale);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('fontScale');
+      await prefs.setDouble('fontScale', rounded);
+    } catch (e) {
+      debugPrint('Erro ao salvar fontScale: $e');
+    }
   }
 
   Future<void> setColorBlindMode(ColorBlindMode mode) async {

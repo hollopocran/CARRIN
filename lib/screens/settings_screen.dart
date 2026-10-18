@@ -241,6 +241,20 @@ class SettingsScreen extends StatelessWidget {
 
     if (info != null) {
       AppUpdateDialog.show(context, info);
+    } else if (AppUpdateService.instance.lastFetchError != null) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 20),
+              const SizedBox(width: 10),
+              Expanded(child: Text(AppUpdateService.instance.lastFetchError!)),
+            ],
+          ),
+          duration: const Duration(seconds: 5),
+          backgroundColor: Colors.orange.shade800,
+        ),
+      );
     } else {
       messenger.showSnackBar(
         const SnackBar(
@@ -836,33 +850,38 @@ class SettingsScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(color: Theme.of(context).primaryColor.withValues(alpha: 0.3)),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.shopping_bag_outlined, size: 20),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Arroz Integral 5kg',
-                                style: TextStyle(
-                                  fontSize: 16 * scale,
-                                  fontWeight: FontWeight.bold,
+                    child: MediaQuery(
+                      data: MediaQuery.of(context).copyWith(
+                        textScaler: TextScaler.linear(scale),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(Icons.shopping_bag_outlined, size: 20),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Arroz Integral 5kg',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          '2 unidades • Total: R\$ 29,90',
-                          style: TextStyle(
-                            fontSize: 13 * scale,
-                            color: Colors.grey.shade700,
+                            ],
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 6),
+                          Text(
+                            '2 unidades • Total: R\$ 29,90',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey.shade700,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 20),

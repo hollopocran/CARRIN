@@ -450,6 +450,15 @@ void main() {
       expect(themeProvider.fontScaleLabel, equals('Pequeno (85%)'));
     });
 
+    test('ThemeProvider loads fontScale 0.85 correctly from SharedPreferences on init', () async {
+      SharedPreferences.setMockInitialValues({'fontScale': 0.85});
+      final themeProvider = ThemeProvider();
+      await themeProvider.init();
+
+      expect(themeProvider.fontScale, equals(0.85));
+      expect(themeProvider.fontScaleLabel, equals('Pequeno (85%)'));
+    });
+
     test('ThemeProvider adapts color palette and danger/success colors based on ColorBlindMode', () async {
       SharedPreferences.setMockInitialValues({});
       final themeProvider = ThemeProvider();

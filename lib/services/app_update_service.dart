@@ -69,8 +69,8 @@ class AppUpdateService {
   AppUpdateService._();
   static final AppUpdateService instance = AppUpdateService._();
 
-  static const String currentAppVersion = '1.3.566';
-  static const int currentBuildNumber = 566;
+  static const String currentAppVersion = '1.3.567';
+  static const int currentBuildNumber = 567;
 
   static const MethodChannel _installerChannel = MethodChannel('com.wmartins.carrin/installer');
 
@@ -82,8 +82,12 @@ class AppUpdateService {
   static const String _prefCustomVersionUrlKey = 'custom_app_version_url';
   static const String _prefDismissedBuildKey = 'dismissed_update_build';
 
+  /// Armazena o último motivo de falha na consulta (ex: 404 por repo privado ou falha de conexão)
+  String? lastFetchError;
+
   /// Consulta a versão mais recente disponível na nuvem
   Future<AppUpdateInfo?> fetchLatestUpdateInfo() async {
+    lastFetchError = null;
     final prefs = await SharedPreferences.getInstance();
     final customUrl = prefs.getString(_prefCustomVersionUrlKey);
     final urlsToTry = [
@@ -91,6 +95,9 @@ class AppUpdateService {
       primaryVersionUrl,
       fallbackVersionUrl,
     ];
+
+    int notFoundCount = 0;
+    int connectionErrorCount = 0;
 
     for (final url in urlsToTry) {
       try {
@@ -100,13 +107,27 @@ class AppUpdateService {
           final decoded = jsonDecode(utf8.decode(response.bodyBytes));
           if (decoded is Map<String, dynamic>) {
             final info = AppUpdateInfo.fromJson(decoded);
-            if (info.isActive) return info;
+            if (info.isActive) {
+              lastFetchError = null;
+              return info;
+            }
           }
+        } else if (response.statusCode == 404) {
+          notFoundCount++;
+          debugPrint('Aviso: $url retornou HTTP 404 (arquivo não encontrado ou repositório privado)');
         }
       } catch (e) {
+        connectionErrorCount++;
         debugPrint('Erro ao consultar versão em $url: $e');
       }
     }
+
+    if (notFoundCount > 0) {
+      lastFetchError = 'Erro 404: Arquivo version.json não encontrado. Verifique se a visibilidade do repositório no GitHub está como "Público".';
+    } else if (connectionErrorCount == urlsToTry.length) {
+      lastFetchError = 'Falha de conexão ao verificar atualizações. Verifique sua internet.';
+    }
+
     return null;
   }
 
