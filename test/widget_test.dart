@@ -1211,7 +1211,31 @@ void main() {
       expect(tapped, isTrue);
       await tester.pump(const Duration(milliseconds: 500));
     });
+
+    testWidgets('triggers autonomous intro animation without user tap when autoPlayIntro is true', (WidgetTester tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: InteractiveAnimatedLogo(
+                imagePath: '1.png',
+                size: 150,
+                autoPlayIntro: true,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.byType(InteractiveAnimatedLogo), findsOneWidget);
+      // Aguarda o disparo autônomo (280ms)
+      await tester.pump(const Duration(milliseconds: 300));
+      // Executa o ciclo de animação e partículas sem requerer toque
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.byType(InteractiveAnimatedLogo), findsOneWidget);
+    });
   });
 }
+
 
 

@@ -15,6 +15,7 @@ class InteractiveAnimatedLogo extends StatefulWidget {
   final double size;
   final VoidCallback? onTap;
   final bool enableInteraction;
+  final bool autoPlayIntro;
 
   const InteractiveAnimatedLogo({
     super.key,
@@ -22,6 +23,7 @@ class InteractiveAnimatedLogo extends StatefulWidget {
     this.size = 200,
     this.onTap,
     this.enableInteraction = true,
+    this.autoPlayIntro = true,
   });
 
   @override
@@ -57,16 +59,16 @@ class _InteractiveAnimatedLogoState extends State<InteractiveAnimatedLogo>
   void initState() {
     super.initState();
 
-    // 1. Loop contínuo de ambiente (3.5 segundos por ciclo)
+    // 1. Loop contínuo de ambiente e varredura de luz (2.2 segundos por ciclo)
     _ambientController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 3500),
+      duration: const Duration(milliseconds: 2200),
     )..repeat();
 
-    // 2. Animação de impacto elástico
+    // 2. Animação de impacto elástico e salto
     _tapController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 600),
+      duration: const Duration(milliseconds: 700),
     );
 
     _squashAnimation = TweenSequence<double>([
@@ -77,9 +79,9 @@ class _InteractiveAnimatedLogoState extends State<InteractiveAnimatedLogo>
     ]).animate(_tapController);
 
     _jumpAnimation = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 0.0, end: 10.0).chain(CurveTween(curve: Curves.easeOut)), weight: 15),
-      TweenSequenceItem(tween: Tween(begin: 10.0, end: -35.0).chain(CurveTween(curve: Curves.easeOutCubic)), weight: 40),
-      TweenSequenceItem(tween: Tween(begin: -35.0, end: 0.0).chain(CurveTween(curve: Curves.bounceOut)), weight: 45),
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: 6.0).chain(CurveTween(curve: Curves.easeOut)), weight: 15),
+      TweenSequenceItem(tween: Tween(begin: 6.0, end: -28.0).chain(CurveTween(curve: Curves.easeOutCubic)), weight: 40),
+      TweenSequenceItem(tween: Tween(begin: -28.0, end: 0.0).chain(CurveTween(curve: Curves.bounceOut)), weight: 45),
     ]).animate(_tapController);
 
     // 3. Giro 360° suave
@@ -90,6 +92,27 @@ class _InteractiveAnimatedLogoState extends State<InteractiveAnimatedLogo>
 
     // Ouvinte para atualizar física de partículas e relaxamento de inclinação
     _ambientController.addListener(_updatePhysics);
+
+    // Disparo autônomo da animação (abre rápido e sem precisar de toques)
+    if (widget.autoPlayIntro) {
+      Future.delayed(const Duration(milliseconds: 280), () {
+        if (!mounted) return;
+        _triggerAutoIntroSequence();
+      });
+    }
+  }
+
+  void _triggerAutoIntroSequence() {
+    if (!mounted) return;
+    try {
+      HapticFeedback.lightImpact();
+    } catch (_) {}
+    _tapController.forward(from: 0.0);
+    _spawnBurstParticles(
+      Offset(widget.size / 2, widget.size / 2),
+      count: 18,
+      turbo: true,
+    );
   }
 
   void _updatePhysics() {

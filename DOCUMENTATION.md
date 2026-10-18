@@ -1,6 +1,6 @@
 # Documentação Técnica e Arquitetural: CARRIN
 
-> **Versão Atual:** `1.3.557` (Build `557`) — Outubro de 2026  
+> **Versão Atual:** `1.3.558` (Build `558`) — Outubro de 2026  
 > **Status:** Produção Estável  
 > **Slogan:** *"Sua lista, sem complicação."*
 
@@ -315,6 +315,13 @@ O [`BarcodeLookupService`](file:///C:/Dev/CARRIN/lib/services/barcode_lookup_ser
 ---
 
 ## 5. Histórico Cronológico de Atualizações e Versões
+
+### v1.3.558 (18 de Outubro de 2026)
+- **Animação da Logo 100% Autônoma e Abertura Rápida na Splash Screen (`InteractiveAnimatedLogo` & `SplashScreen`):**
+  - **Execução Autônoma Sem Toques:** O gatilho de animação cinematográfica agora dispara automaticamente (`autoPlayIntro: true`) aos 280ms após a montagem do widget com vibração háptica suave, compressão elástica com salto (*squash & stretch*) e explosão radial de 18 partículas físicas e moedas douradas (`🪙`, `✨`, `⚡`), dispensando a necessidade de qualquer toque do usuário.
+  - **Sincronia e Abertura Acelerada:** Duração total da Splash Screen reduzida de 2.600ms para 1.600ms, controlador de escala ajustado para 700ms com curva `easeOutBack`, e ciclo do feixe de brilho (*glossy light sweep*) reduzido para 2.200ms para passar com destaque durante a inicialização rápida do aplicativo.
+  - **Transição Rápida e Suave:** Transição de tela `PageRouteBuilder` ajustada para 400ms via `FadeTransition`, garantindo abertura fluida e imediata para a tela principal ou login.
+- **Validação Automatizada:** 56/56 testes unitários e de widgets aprovados (100% de sucesso), 0 erros no `flutter analyze`.
 
 ### v1.3.557 (18 de Outubro de 2026)
 - **Logo Animada, Cinematográfica e Interativa na Abertura (`InteractiveAnimatedLogo`):**
