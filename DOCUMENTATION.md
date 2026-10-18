@@ -316,6 +316,11 @@ O [`BarcodeLookupService`](file:///C:/Dev/CARRIN/lib/services/barcode_lookup_ser
 
 ## 5. Histórico Cronológico de Atualizações e Versões
 
+### v1.3.564 (18 de Outubro de 2026)
+- **Remoção de Parênteses no Diálogo de Sincronização (`SyncIndicator`):**
+  - O texto de sucesso no popup de sincronização foi simplificado de *"Todos os dados estão devidamente sincronizados e salvos na nuvem (Google Sheets)."* para *"Todos os dados estão devidamente sincronizados e salvos na nuvem."*, removendo os parênteses e mantendo a mensagem mais limpa e direta.
+- **Validação Automatizada:** 60/60 testes unitários e de widgets aprovados (100% de sucesso), 0 erros no `flutter analyze`.
+
 ### v1.3.563 (18 de Outubro de 2026)
 - **Inversão e Ordenação Inteligente de Carrinhos / Listas de Compras (`MonthSelectionScreen` & `ItemProvider`):**
   - **Mais Recentes no Topo por Padrão:** As listas de carrinhos agora são exibidas com os meses/carrinhos mais recentes no topo e os mais antigos embaixo ("colocar as mais antigas para baixo"), garantindo acesso imediato ao carrinho ativo sem necessidade de rolar até o final da tela.

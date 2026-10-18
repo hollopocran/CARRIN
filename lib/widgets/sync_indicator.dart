@@ -183,7 +183,7 @@ class _SyncIndicatorState extends State<SyncIndicator> with SingleTickerProvider
                 ),
               ),
             ] else
-              const Text('Todos os dados estão devidamente sincronizados e salvos na nuvem (Google Sheets).'),
+              const Text('Todos os dados estão devidamente sincronizados e salvos na nuvem.'),
           ],
         ),
         actions: [
