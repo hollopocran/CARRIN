@@ -1,6 +1,6 @@
 # CARRIN — Sua lista, sem complicação. 🛒
 
-> **Versão:** `1.3.559` (Build `559`) — Outubro de 2026  
+> **Versão:** `1.3.560` (Build `560`) — Outubro de 2026  
 > **Status:** Produção Estável  
 > **Framework:** Flutter 3.x / Dart 3.x  
 

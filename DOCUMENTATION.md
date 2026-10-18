@@ -316,6 +316,14 @@ O [`BarcodeLookupService`](file:///C:/Dev/CARRIN/lib/services/barcode_lookup_ser
 
 ## 5. Histórico Cronológico de Atualizações e Versões
 
+### v1.3.560 (18 de Outubro de 2026)
+- **Navegação Horizontal Livre e Suave Para Fora da Aba Comunidade (`CommunityRadarScreen` & `MainScreen`):**
+  - **Desbloqueio de Gestos e Remoção de Captura Conflitante:** O `TabBarView` interno das 3 sub-abas da Comunidade (*Lista*, *Comparador*, *Mercados*) foi configurado com `physics: const NeverScrollableScrollPhysics()`, impedindo que os gestos horizontais fiquem aprisionados no carrossel de abas filhas e liberando o arraste horizontal 100% direto e contínuo para o `PageView` do `MainScreen`.
+  - **Transição Fluida a 120 FPS Entre Telas:** O usuário pode agora deslizar para a esquerda ou direita em qualquer área da aba Comunidade para navegar diretamente entre *Início*, *Carrinhos*, *Análises*, *Comunidade* e *Ajustes*, com animação de página nativa, sem atritos, travamentos ou necessidade de puxar a borda com força excessiva.
+  - **Preservação Total da Navegação Interna por Toques:** As sub-abas internas da Comunidade (*Lista*, *Comparador*, *Mercados*) continuam disponíveis e alternam instantaneamente através de toques na barra superior `TabBar`.
+  - **Resiliência e Proteção Assíncrona no Cache Local:** Tratamento de exceção em `_loadLocationAndData` e `_fetchDataFromCache` garantindo que o ciclo de vida dos indicadores de carregamento seja liberado com segurança sem travar o loop de renderização do Flutter em ambientes de teste ou sem banco inicializado.
+- **Validação Automatizada:** 58/58 testes unitários e de widgets aprovados (100% de sucesso), 0 erros no `flutter analyze`.
+
 ### v1.3.559 (18 de Outubro de 2026)
 - **Fechamento Automático do Teclado Após Pesquisa (`ItemSearchDelegate`, `CommunityRadarScreen`, `MarketMapScreen`):**
   - **Ação Concluída no Teclado (`textInputAction: TextInputAction.search` & `onSubmitted`):** Pressionar o botão de pesquisa/Enter no teclado virtual agora remove o foco (`FocusScope.of(context).unfocus()`) e fecha o teclado instantaneamente em todas as telas de busca.

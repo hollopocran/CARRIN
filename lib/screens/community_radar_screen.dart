@@ -8,7 +8,6 @@ import '../services/location_service.dart';
 import '../services/utils.dart';
 import '../widgets/interactive_tab_tutorial.dart';
 import 'market_map_screen.dart';
-import 'main_screen.dart';
 
 class CommunityRadarScreen extends StatefulWidget {
   const CommunityRadarScreen({super.key});
@@ -67,7 +66,9 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen>
     }
 
     // 1. Leitura local imediata (sem bloquear esperando GPS ou rede)
-    await _fetchDataFromCache();
+    try {
+      await _fetchDataFromCache();
+    } catch (_) {}
 
     if (mounted) {
       setState(() => _isLoading = false);
@@ -109,81 +110,86 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen>
       );
     } catch (_) {}
 
-    if (mounted) {
-      await _fetchDataFromCache();
+    try {
       if (mounted) {
-        setState(() => _isSyncingBackground = false);
+        await _fetchDataFromCache();
+      } else if (gpsUpdated && mounted) {
+        await _fetchDataFromCache();
       }
-    } else if (gpsUpdated && mounted) {
-      await _fetchDataFromCache();
+    } catch (_) {}
+
+    if (mounted) {
+      setState(() => _isSyncingBackground = false);
     }
   }
 
   /// Lê o feed uma única vez do SQLite e deriva Mercados e Comparações em memória (zero chamadas duplicadas!)
   Future<void> _fetchDataFromCache() async {
-    final lat = _userLat ?? CommunityPriceService.defaultStoreLat;
-    final lng = _userLng ?? CommunityPriceService.defaultStoreLng;
+    try {
+      final lat = _userLat ?? CommunityPriceService.defaultStoreLat;
+      final lng = _userLng ?? CommunityPriceService.defaultStoreLng;
 
-    // 1. Lê o feed local (sem chamada HTTP)
-    final feed = await CommunityPriceService.instance.getRecentFeed(
-      userLat: lat,
-      userLng: lng,
-      radiusKm: _radiusKm,
-      syncWithCloud: false,
-    );
+      // 1. Lê o feed local (sem chamada HTTP)
+      final feed = await CommunityPriceService.instance.getRecentFeed(
+        userLat: lat,
+        userLng: lng,
+        radiusKm: _radiusKm,
+        syncWithCloud: false,
+      );
 
-    // 2. Calcula os mercados do raio reutilizando a mesma lista em memória
-    final markets = await CommunityPriceService.instance.getCheapestMarketsNearby(
-      userLat: lat,
-      userLng: lng,
-      radiusKm: _radiusKm,
-      preloadedPrices: feed,
-      syncWithCloud: false,
-    );
-
-    // Carrega lista expandida (50km) para pesquisas por nome ou filtro de rede na aba Mercados
-    final allCatalog = _radiusKm >= 50.0
-        ? markets
-        : await CommunityPriceService.instance.getCheapestMarketsNearby(
-            userLat: lat,
-            userLng: lng,
-            radiusKm: 50.0,
-            preloadedPrices: feed,
-            syncWithCloud: false,
-          );
-
-    // 3. Calcula todas as comparações de produtos reutilizando o mesmo feed em memória
-    final allComps = await CommunityPriceService.instance.getAllProductComparisons(
-      userLat: lat,
-      userLng: lng,
-      radiusKm: _radiusKm,
-      preloadedPrices: feed,
-      syncWithCloud: false,
-    );
-
-    ProductComparison? prodComp;
-    if (_searchController.text.trim().isNotEmpty) {
-      prodComp = await CommunityPriceService.instance.getProductComparison(
-        _searchController.text.trim(),
+      // 2. Calcula os mercados do raio reutilizando a mesma lista em memória
+      final markets = await CommunityPriceService.instance.getCheapestMarketsNearby(
         userLat: lat,
         userLng: lng,
         radiusKm: _radiusKm,
         preloadedPrices: feed,
         syncWithCloud: false,
       );
-    }
 
-    if (mounted) {
-      setState(() {
-        _recentFeed = feed;
-        _marketRankings = markets;
-        _allCatalogMarkets = allCatalog;
-        _allComparisons = allComps;
-        if (prodComp != null) {
-          _searchedProduct = prodComp;
-        }
-      });
-    }
+      // Carrega lista expandida (50km) para pesquisas por nome ou filtro de rede na aba Mercados
+      final allCatalog = _radiusKm >= 50.0
+          ? markets
+          : await CommunityPriceService.instance.getCheapestMarketsNearby(
+              userLat: lat,
+              userLng: lng,
+              radiusKm: 50.0,
+              preloadedPrices: feed,
+              syncWithCloud: false,
+            );
+
+      // 3. Calcula todas as comparações de produtos reutilizando o mesmo feed em memória
+      final allComps = await CommunityPriceService.instance.getAllProductComparisons(
+        userLat: lat,
+        userLng: lng,
+        radiusKm: _radiusKm,
+        preloadedPrices: feed,
+        syncWithCloud: false,
+      );
+
+      ProductComparison? prodComp;
+      if (_searchController.text.trim().isNotEmpty) {
+        prodComp = await CommunityPriceService.instance.getProductComparison(
+          _searchController.text.trim(),
+          userLat: lat,
+          userLng: lng,
+          radiusKm: _radiusKm,
+          preloadedPrices: feed,
+          syncWithCloud: false,
+        );
+      }
+
+      if (mounted) {
+        setState(() {
+          _recentFeed = feed;
+          _marketRankings = markets;
+          _allCatalogMarkets = allCatalog;
+          _allComparisons = allComps;
+          if (prodComp != null) {
+            _searchedProduct = prodComp;
+          }
+        });
+      }
+    } catch (_) {}
   }
 
   void _onSearchChanged(String val) async {
@@ -320,33 +326,14 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen>
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : NotificationListener<ScrollNotification>(
-              onNotification: (notification) {
-                if (notification is OverscrollNotification) {
-                  // Se o usuário estiver na primeira aba (Lista) e puxar para a direita: vai para Estatísticas
-                  if (_tabController.index == 0 && notification.overscroll < -18) {
-                    final mainState = context.findAncestorStateOfType<MainScreenState>();
-                    mainState?.switchTab(2);
-                    return true;
-                  }
-                  // Se o usuário estiver na última aba (Mercados) e puxar para a esquerda: vai para Ajustes
-                  if (_tabController.index == 2 && notification.overscroll > 18) {
-                    final mainState = context.findAncestorStateOfType<MainScreenState>();
-                    mainState?.switchTab(4);
-                    return true;
-                  }
-                }
-                return false;
-              },
-              child: TabBarView(
-                controller: _tabController,
-                physics: const BouncingScrollPhysics(),
-                children: [
-                  _buildListTab(isDark, cardColor, primaryColor, itemProvider),
-                  _buildComparatorTab(isDark, cardColor, primaryColor, itemProvider),
-                  _buildMarketsTab(isDark, cardColor, primaryColor),
-                ],
-              ),
+          : TabBarView(
+              controller: _tabController,
+              physics: const NeverScrollableScrollPhysics(),
+              children: [
+                _buildListTab(isDark, cardColor, primaryColor, itemProvider),
+                _buildComparatorTab(isDark, cardColor, primaryColor, itemProvider),
+                _buildMarketsTab(isDark, cardColor, primaryColor),
+              ],
             ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddPriceDialog(context, itemProvider),

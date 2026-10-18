@@ -22,6 +22,9 @@ import 'package:lista_compras/services/google_places_service.dart';
 import 'package:lista_compras/models/community_price.dart';
 import 'package:lista_compras/services/community_price_service.dart';
 import 'package:lista_compras/screens/market_map_screen.dart';
+import 'package:lista_compras/screens/community_radar_screen.dart';
+import 'package:lista_compras/screens/settings_screen.dart';
+import 'package:lista_compras/screens/statistics_screen.dart';
 import 'package:lista_compras/services/default_supermarkets.dart';
 import 'package:lista_compras/services/barcode_lookup_service.dart';
 import 'package:lista_compras/services/database_helper.dart';
@@ -1284,6 +1287,54 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(themeProvider.seedColor, equals(AppColors.green));
+    });
+
+    testWidgets('MainScreen allows swiping horizontally directly out of Community tab into adjacent screens', (WidgetTester tester) async {
+      SharedPreferences.setMockInitialValues({'tutorial_completed_community': true});
+      final itemProvider = ItemProvider();
+      final themeProvider = ThemeProvider();
+
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider.value(value: AuthService()),
+            ChangeNotifierProvider.value(value: itemProvider),
+            ChangeNotifierProvider.value(value: themeProvider),
+          ],
+          child: const MaterialApp(
+            home: MainScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Switch to Community tab (index 3)
+      await tester.tap(find.byIcon(Icons.radar_outlined));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(find.byType(CommunityRadarScreen), findsOneWidget);
+
+      // Drag left on CommunityRadarScreen to transition smoothly to Settings tab (index 4)
+      await tester.drag(find.byType(CommunityRadarScreen), const Offset(-500, 0), warnIfMissed: false);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(find.byType(SettingsScreen), findsOneWidget);
+
+      // Drag right on SettingsScreen back to CommunityRadarScreen (index 3)
+      await tester.drag(find.byType(SettingsScreen), const Offset(500, 0), warnIfMissed: false);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(find.byType(CommunityRadarScreen), findsOneWidget);
+
+      // Drag right on CommunityRadarScreen smoothly to StatisticsScreen (index 2)
+      await tester.drag(find.byType(CommunityRadarScreen), const Offset(500, 0), warnIfMissed: false);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(find.byType(StatisticsScreen), findsOneWidget);
     });
   });
 }
