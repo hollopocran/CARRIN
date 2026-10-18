@@ -13,8 +13,8 @@ class NotificationService {
 
   final FlutterLocalNotificationsPlugin _notificationsPlugin = FlutterLocalNotificationsPlugin();
 
-  /// Channel ID for ongoing shopping progress notifications.
-  static const String channelId = 'shopping_list_progress_v3';
+  /// Channel ID for shopping progress notifications.
+  static const String channelId = 'shopping_list_progress_v4';
   static const String channelName = 'Monitor de Compras';
   static const String channelDescription = 'Mostra o total gasto e progresso com barra de status';
 
@@ -22,10 +22,13 @@ class NotificationService {
   static const String budgetChannelId = 'budget_alerts_v2';
   static const String budgetChannelName = 'Alertas de Orçamento';
 
+  /// Ícone oficial de carrinho para todas as notificações
+  static const String cartNotificationIcon = '@drawable/ic_notification_cart';
+
   /// Initializes notification plugins and creates necessary Android channels.
   Future<void> init() async {
     const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('@mipmap/launcher_icon'); 
+        AndroidInitializationSettings(cartNotificationIcon); 
 
     const InitializationSettings initializationSettings = InitializationSettings(
       android: initializationSettingsAndroid,
@@ -35,7 +38,7 @@ class NotificationService {
       initializationSettings,
     );
 
-    // Progress Channel (Ongoing com barra de progresso)
+    // Progress Channel (Discreto, com barra de progresso, sem som repetitivo a cada item)
     const AndroidNotificationChannel progressChannel = AndroidNotificationChannel(
       channelId,
       channelName,
@@ -75,6 +78,9 @@ class NotificationService {
       ledOffMs: 500,
       playSound: true,
       enableVibration: true,
+      autoCancel: true,
+      icon: cartNotificationIcon,
+      largeIcon: DrawableResourceAndroidBitmap('@mipmap/launcher_icon'),
     );
 
     const NotificationDetails details = NotificationDetails(android: androidDetails);
@@ -91,9 +97,10 @@ class NotificationService {
     }
   }
 
-  /// Shows or updates an ongoing notification with current shopping progress.
+  /// Shows or updates a notification with current shopping progress.
   /// 
   /// Displays a native Android progress bar, item counters, expenditure, and budget metrics.
+  /// Uses ongoing: false and autoCancel: true so it is never trapped/persistent on the device.
   Future<void> showOrUpdateProgress(
     String listName, 
     int bought, 
@@ -130,20 +137,22 @@ class NotificationService {
       importance: Importance.low,
       priority: Priority.low,
       ticker: 'Carrin atualizado',
-      ongoing: true, // Fixo enquanto no app
-      autoCancel: false,
+      ongoing: false, // Não fica presa/travada: usuário pode deslizar para dispensar
+      autoCancel: true, // Cancela ao tocar para abrir o app
       onlyAlertOnce: true, 
       showProgress: true,
       maxProgress: total,
       progress: bought,
       subText: subText,
+      color: const Color(0xFF10B981), // Destaque na cor verde esmeralda do CARRIN
       styleInformation: BigTextStyleInformation(
         bigText,
         contentTitle: title,
         summaryText: subText ?? '$bought/$total itens',
       ),
       visibility: NotificationVisibility.public, 
-      icon: '@mipmap/launcher_icon',
+      icon: cartNotificationIcon,
+      largeIcon: const DrawableResourceAndroidBitmap('@mipmap/launcher_icon'),
     );
 
     final NotificationDetails platformChannelSpecifics = NotificationDetails(
@@ -158,7 +167,7 @@ class NotificationService {
     );
   }
 
-  /// Cancels the ongoing progress notification.
+  /// Cancels the shopping progress notification.
   Future<void> cancelProgress() async {
     await _notificationsPlugin.cancel(0);
   }

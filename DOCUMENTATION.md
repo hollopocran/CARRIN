@@ -1,6 +1,6 @@
 # Documentação Técnica e Arquitetural: CARRIN
 
-> **Versão Atual:** `1.3.564` (Build `564`) — Outubro de 2026  
+> **Versão Atual:** `1.3.565` (Build `565`) — Outubro de 2026  
 > **Status:** Produção Estável  
 > **Slogan:** *"Sua lista, sem complicação."*
 
@@ -339,6 +339,21 @@ O [`BarcodeLookupService`](file:///C:/Dev/CARRIN/lib/services/barcode_lookup_ser
 ---
 
 ## 5. Histórico Cronológico de Atualizações e Versões
+
+### v1.3.565 (18 de Outubro de 2026)
+- **Ícone Nativo de Carrinho para Notificações Android (`ic_notification_cart`):**
+  - Implementação de ícone de carrinho no padrão oficial do Android (silhueta branca com canal alfa/fundo transparente), disponível em vetor XML (`ic_notification_cart.xml` e `ic_stat_cart.xml`) e em todas as densidades de tela (`drawable-mdpi`, `drawable-hdpi`, `drawable-xhdpi`, `drawable-xxhdpi`, `drawable-xxxhdpi`).
+  - Destaque em tom esmeralda oficial (`#10B981`) no cabeçalho e inclusão de `largeIcon` com o emblema colorido do aplicativo na área expandida.
+- **Eliminação da Persistência Travada e Notificações Deslizáveis (`NotificationService`):**
+  - Ajustado `ongoing: false` e `autoCancel: true`: a notificação de progresso das compras não fica mais travada na barra de status; o usuário pode agora deslizá-la lateralmente para dispensá-la quando desejar, e ao tocar nela o app se abre e a notificação é limpa.
+- **Cancelamento Automático Confiável ao Fechar o App:**
+  - **Serviço Nativo `NotificationDismissService`:** Escuta o ciclo `onTaskRemoved` do Android (quando o app é deslizado/encerrado da tela de multitarefas/Recent Apps), cancelando imediatamente todas as notificações do sistema operacional.
+  - **Hook Nativo `MainActivity.onDestroy()`:** Garante o expurgo síncrono das notificações quando a atividade principal for destruída.
+  - **Ciclo Flutter (`MyApp.dispose` & `detached`):** Cancelamento de segurança adicional via Dart.
+  - **Finalização de Carrinho (`finalizeMonth`):** O fechamento do carrinho ativo remove automaticamente a barra de progresso do painel de notificações.
+- **Otimização do APK:**
+  - Remoção de arquivo legado de 7,1 MB em `res/drawable/`, reduzindo o peso final do instalador em mais de 5 MB.
+- **Validação Automatizada:** 60/60 testes unitários e de widgets aprovados (100% de sucesso), 0 erros no `flutter analyze`.
 
 ### v1.3.564 (18 de Outubro de 2026)
 - **Remoção de Parênteses no Diálogo de Sincronização (`SyncIndicator`):**

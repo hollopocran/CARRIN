@@ -2167,6 +2167,9 @@ class ItemProvider with ChangeNotifier {
 
     // Compartilha automaticamente todas as compras do mês finalizado com a comunidade
     if (finalize) {
+      if (month == _service.currentMonthTitle) {
+        _notificationService.cancelProgress();
+      }
       CommunityPriceService.instance.syncMonthPurchases(month, _items).catchError((e) {
         debugPrint('Erro ao sincronizar compras do carrinho finalizado: $e');
       });
