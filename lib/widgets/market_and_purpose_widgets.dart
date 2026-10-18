@@ -567,7 +567,7 @@ class _PurposeAndCapsDialogState extends State<PurposeAndCapsDialog> {
     for (var cat in ItemProvider.categories) {
       final existing = currentCaps[cat];
       _capControllers[cat] = TextEditingController(
-        text: existing != null && existing > 0 ? Utils.formatNumber(existing) : '',
+        text: existing != null && existing > 0 ? Utils.formatCurrencyInput(existing) : '',
       );
     }
   }
@@ -662,7 +662,8 @@ class _PurposeAndCapsDialogState extends State<PurposeAndCapsDialog> {
                         flex: 2,
                         child: TextField(
                           controller: controller,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [CurrencyInputFormatter()],
                           decoration: InputDecoration(
                             hintText: 'Sem limite',
                             prefixText: 'R\$ ',
@@ -693,8 +694,8 @@ class _PurposeAndCapsDialogState extends State<PurposeAndCapsDialog> {
             for (var entry in _capControllers.entries) {
               final cat = entry.key;
               final text = entry.value.text.trim();
-              final amount = double.tryParse(text.replaceAll(',', '.'));
-              if (amount != null && amount > 0) {
+              final amount = Utils.parseCurrency(text);
+              if (amount > 0) {
                 await widget.provider.setCategoryCap(month, cat, amount);
               } else {
                 await widget.provider.removeCategoryCap(month, cat);

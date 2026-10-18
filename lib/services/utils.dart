@@ -1,17 +1,33 @@
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 class Utils {
   static final currencyFormat = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
   static final quantityFormat = NumberFormat.decimalPattern('pt_BR');
+  static final currencyInputFormat = NumberFormat.currency(locale: 'pt_BR', symbol: '', decimalDigits: 2);
 
   static String formatCurrency(double value) {
     return currencyFormat.format(value);
   }
 
+  /// Formata um valor numérico para exibição limpa (ex: 12.5 -> "12,5" ou 10.0 -> "10")
   static String formatNumber(double value) {
     return value == value.toInt() 
         ? value.toInt().toString() 
         : value.toString().replaceAll('.', ',');
+  }
+
+  /// Formata um valor monetário para campos de entrada com máscara automática (ex: 25.0 -> "25,00", 7.99 -> "7,99")
+  static String formatCurrencyInput(double value) {
+    if (value <= 0) return '';
+    return currencyInputFormat.format(value).trim();
+  }
+
+  /// Converte texto digitado com máscara ou vírgula em double (ex: "1.250,50" -> 1250.5, "12,99" -> 12.99, "25" -> 25.0)
+  static double parseCurrency(String text) {
+    if (text.trim().isEmpty) return 0.0;
+    final clean = text.trim().replaceAll('.', '').replaceAll(',', '.');
+    return double.tryParse(clean) ?? 0.0;
   }
 
   static final dateFormat = DateFormat('dd/MM/yyyy', 'pt_BR');
@@ -56,3 +72,43 @@ class Utils {
     return result;
   }
 }
+
+/// Formatador de entrada para valores monetários com máscara dinâmica (centavos da direita para esquerda).
+/// Ex: digita 1 -> "0,01", digita 2 -> "0,12", digita 9 -> "1,29", digita 9 -> "12,99"
+class CurrencyInputFormatter extends TextInputFormatter {
+  final int maxDigits;
+  static final NumberFormat _formatter = NumberFormat.currency(locale: 'pt_BR', symbol: '', decimalDigits: 2);
+
+  CurrencyInputFormatter({this.maxDigits = 10});
+
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    if (newValue.text.isEmpty) {
+      return newValue.copyWith(text: '');
+    }
+
+    // Mantém apenas dígitos numéricos
+    final String clean = newValue.text.replaceAll(RegExp(r'\D'), '');
+    final int intVal = int.tryParse(clean) ?? 0;
+    if (intVal == 0) {
+      return newValue.copyWith(
+        text: '',
+        selection: const TextSelection.collapsed(offset: 0),
+      );
+    }
+
+    String digits = intVal.toString();
+    if (digits.length > maxDigits) {
+      digits = digits.substring(0, maxDigits);
+    }
+
+    final double value = int.parse(digits) / 100.0;
+    final String formatted = _formatter.format(value).trim();
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+}
+

@@ -461,7 +461,7 @@ class _MonthSelectionScreenState extends State<MonthSelectionScreen> with Automa
     final titleController = TextEditingController();
     final provider = Provider.of<ItemProvider>(context, listen: false);
     final budgetController = TextEditingController(
-      text: provider.defaultBudget > 0 ? Utils.formatNumber(provider.defaultBudget) : '',
+      text: provider.defaultBudget > 0 ? Utils.formatCurrencyInput(provider.defaultBudget) : '',
     );
     String selectedPurpose = 'geral';
 
@@ -595,7 +595,8 @@ class _MonthSelectionScreenState extends State<MonthSelectionScreen> with Automa
                     const SizedBox(height: 6),
                     TextField(
                       controller: budgetController,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [CurrencyInputFormatter()],
                       decoration: InputDecoration(
                         hintText: '0,00',
                         prefixText: 'R\$ ',
@@ -623,7 +624,8 @@ class _MonthSelectionScreenState extends State<MonthSelectionScreen> with Automa
                 onPressed: () async {
                   final title = titleController.text.trim();
                   if (title.isEmpty) return;
-                  double? initialBudget = double.tryParse(budgetController.text.replaceAll(',', '.'));
+                  final double b = Utils.parseCurrency(budgetController.text);
+                  double? initialBudget = b > 0 ? b : null;
                   Navigator.pop(ctx);
                   _askTemplateOption(context, title, provider, initialBudget, selectedPurpose);
                 },

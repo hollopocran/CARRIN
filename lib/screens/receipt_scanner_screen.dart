@@ -177,7 +177,8 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
     final item = _extractedItems[index];
     final nameCtrl = TextEditingController(text: item.name);
     final qtyCtrl = TextEditingController(text: Utils.formatNumber(item.quantity));
-    final priceCtrl = TextEditingController(text: item.unitPrice.toStringAsFixed(2).replaceAll('.', ','));
+    final priceCtrl = TextEditingController(text: Utils.formatCurrencyInput(item.unitPrice));
+    if (priceCtrl.text.isNotEmpty) priceCtrl.selection = TextSelection.collapsed(offset: priceCtrl.text.length);
     String selectedCategory = item.category;
 
     showDialog(
@@ -208,8 +209,9 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
                     Expanded(
                       child: TextField(
                         controller: priceCtrl,
-                        decoration: const InputDecoration(labelText: 'Preço (R\$)'),
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(labelText: 'Preço (R\$)', prefixText: 'R\$ ', hintText: '0,00'),
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [CurrencyInputFormatter()],
                       ),
                     ),
                   ],
@@ -240,7 +242,7 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
               onPressed: () {
                 final newName = nameCtrl.text.trim();
                 final newQty = double.tryParse(qtyCtrl.text.replaceAll(',', '.')) ?? 1.0;
-                final newPrice = double.tryParse(priceCtrl.text.replaceAll(',', '.')) ?? item.unitPrice;
+                final newPrice = Utils.parseCurrency(priceCtrl.text);
 
                 if (newName.isNotEmpty) {
                   setState(() {

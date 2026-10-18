@@ -1,6 +1,6 @@
 # CARRIN — Sua lista, sem complicação. 🛒
 
-> **Versão:** `1.3.554` (Build `554`) — Outubro de 2026  
+> **Versão:** `1.3.555` (Build `555`) — Outubro de 2026  
 > **Status:** Produção Estável  
 > **Framework:** Flutter 3.x / Dart 3.x  
 
@@ -12,6 +12,7 @@ O **CARRIN** é um ecossistema mobile inteligente em Flutter para gestão financ
 
 * 📱 **Privacidade Total com Google Sheets:** Sincronização direta com a planilha pessoal do seu Google Drive via OAuth 2.0 ([`UserSheetsService`](file:///C:/Dev/CARRIN/lib/services/user_sheets_service.dart)). Seus dados nunca passam por servidores de terceiros.
 * ⚡ **Arquitetura Offline-First (SQLite):** Todas as operações funcionam instantaneamente mesmo sem sinal no supermercado, com fila resiliente de sincronização em segundo plano.
+* 💵 **Vírgula Automática em Tempo Real (`CurrencyInputFormatter`):** Máscara monetária que caminha os centavos da direita para a esquerda conforme o usuário digita nos teclados numéricos (ex: `1` $\rightarrow$ `0,01`, `12` $\rightarrow$ `0,12`, `1299` $\rightarrow$ `12,99`), presente em todos os diálogos de preço, orçamento, balança e teto financeiro do aplicativo sem precisar caçar a tecla vírgula.
 * 📡 **Radar de Preços Comunitário (Supabase):** 
   - Carregamento instantâneo via cache SQLite com sincronização assíncrona em background.
   - **Comparador Inteligente:** Filtro horizontal de supermercados, cartões consolidados por loja, cálculo de economia percentual (%) e seleção sob demanda por toque.

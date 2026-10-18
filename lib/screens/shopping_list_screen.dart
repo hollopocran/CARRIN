@@ -1010,7 +1010,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
       try {
         final item = itemProvider.items.firstWhere((it) => it.index == _expandedIndex);
         final priceText = _inlinePriceController.text.trim();
-        final newPrice = double.tryParse(priceText.replaceAll(',', '.')) ?? 0.0;
+        final newPrice = Utils.parseCurrency(priceText);
         if (newPrice != item.unitPrice) {
           final updatedItem = item.copyWith(unitPrice: newPrice);
           itemProvider.updateItem(updatedItem);
@@ -1021,7 +1021,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
 
   void _saveInlinePriceAndCollapse(Item item, ItemProvider itemProvider) {
     final priceText = _inlinePriceController.text.trim();
-    final newPrice = double.tryParse(priceText.replaceAll(',', '.')) ?? 0.0;
+    final newPrice = Utils.parseCurrency(priceText);
     if (newPrice != item.unitPrice) {
       final updatedItem = item.copyWith(unitPrice: newPrice);
       itemProvider.updateItem(updatedItem);
@@ -1034,7 +1034,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
   void _updateItemQty(Item item, ItemProvider itemProvider, double newQty) {
     double price = item.unitPrice;
     if (_expandedIndex == item.index && _inlinePriceController.text.trim().isNotEmpty) {
-      price = double.tryParse(_inlinePriceController.text.trim().replaceAll(',', '.')) ?? item.unitPrice;
+      price = Utils.parseCurrency(_inlinePriceController.text);
     }
     final updatedItem = item.copyWith(
       quantity: newQty,
@@ -1046,7 +1046,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
   void _updateItemUnit(Item item, ItemProvider itemProvider, bool isKg) {
     double price = item.unitPrice;
     if (_expandedIndex == item.index && _inlinePriceController.text.trim().isNotEmpty) {
-      price = double.tryParse(_inlinePriceController.text.trim().replaceAll(',', '.')) ?? item.unitPrice;
+      price = Utils.parseCurrency(_inlinePriceController.text);
     }
     final updatedItem = item.copyWith(
       isKg: isKg,
@@ -1076,7 +1076,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
               } else {
                 _saveCurrentExpandedItemPrice(itemProvider);
                 _expandedIndex = item.index;
-                _inlinePriceController.text = item.unitPrice > 0 ? Utils.formatNumber(item.unitPrice) : '';
+                _inlinePriceController.text = item.unitPrice > 0 ? Utils.formatCurrencyInput(item.unitPrice) : '';
                 _inlinePriceController.selection = TextSelection.collapsed(offset: _inlinePriceController.text.length);
               }
             });
@@ -1269,7 +1269,8 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                                   height: 38,
                                   child: TextField(
                                     controller: _inlinePriceController,
-                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                    keyboardType: TextInputType.number,
+                                    inputFormatters: [CurrencyInputFormatter()],
                                     style: const TextStyle(fontSize: 14),
                                     readOnly: itemProvider.isCurrentMonthFinalized,
                                     decoration: InputDecoration(
@@ -1283,7 +1284,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                                         constraints: const BoxConstraints(),
                                         onPressed: () {
                                           final priceText = _inlinePriceController.text.trim();
-                                          final newPrice = double.tryParse(priceText.replaceAll(',', '.')) ?? 0.0;
+                                          final newPrice = Utils.parseCurrency(priceText);
                                           final updatedItem = item.copyWith(unitPrice: newPrice);
                                           itemProvider.updateItem(updatedItem);
                                           FocusScope.of(context).unfocus();
@@ -1292,7 +1293,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                                     ),
                                     onSubmitted: itemProvider.isCurrentMonthFinalized ? null : (_) {
                                       final priceText = _inlinePriceController.text.trim();
-                                      final newPrice = double.tryParse(priceText.replaceAll(',', '.')) ?? 0.0;
+                                      final newPrice = Utils.parseCurrency(priceText);
                                       final updatedItem = item.copyWith(unitPrice: newPrice);
                                       itemProvider.updateItem(updatedItem);
                                     },
@@ -1308,7 +1309,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                                 onPressed: itemProvider.isCurrentMonthFinalized ? null : () {
                                   // Save price first
                                   final priceText = _inlinePriceController.text.trim();
-                                  final newPrice = double.tryParse(priceText.replaceAll(',', '.')) ?? 0.0;
+                                  final newPrice = Utils.parseCurrency(priceText);
                                   final updatedItem = item.copyWith(unitPrice: newPrice);
                                   _showEditDialog(context, updatedItem);
                                 },
@@ -1607,10 +1608,10 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
     
     final initialName = activeItem?.name ?? prefilledName ?? (productFromBc != null ? productFromBc['name'] as String : '');
     final initialPrice = (activeItem != null && activeItem.unitPrice != 0) 
-        ? Utils.formatNumber(activeItem.unitPrice) 
+        ? Utils.formatCurrencyInput(activeItem.unitPrice) 
         : (prefilledPrice != null && prefilledPrice > 0)
-            ? Utils.formatNumber(prefilledPrice)
-            : (productFromBc != null && (productFromBc['price'] as num) > 0 ? Utils.formatNumber((productFromBc['price'] as num).toDouble()) : '');
+            ? Utils.formatCurrencyInput(prefilledPrice)
+            : (productFromBc != null && (productFromBc['price'] as num) > 0 ? Utils.formatCurrencyInput((productFromBc['price'] as num).toDouble()) : '');
     final nameController = TextEditingController(text: initialName);
     final priceController = TextEditingController(text: initialPrice);
     final qtyController = TextEditingController(text: activeItem != null ? ((activeItem.quantity != 0) ? Utils.formatNumber(activeItem.quantity) : '') : '1');
@@ -1665,7 +1666,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                   if (priceController.text.trim().isEmpty &&
                       onlineInfo.lastPrice != null &&
                       onlineInfo.lastPrice! > 0) {
-                    final formatted = Utils.formatNumber(onlineInfo.lastPrice!);
+                    final formatted = Utils.formatCurrencyInput(onlineInfo.lastPrice!);
                     priceController.text = formatted;
                     priceController.selection = TextSelection.collapsed(offset: formatted.length);
                   }
@@ -1675,7 +1676,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                       if (Utils.normalize(it.name) == normName) {
                         activeItem = it;
                         if (priceController.text.trim().isEmpty && it.unitPrice > 0) {
-                          final formatted = Utils.formatNumber(it.unitPrice);
+                          final formatted = Utils.formatCurrencyInput(it.unitPrice);
                           priceController.text = formatted;
                           priceController.selection = TextSelection.collapsed(offset: formatted.length);
                         }
@@ -1830,7 +1831,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                                 nameController.selection = TextSelection.collapsed(offset: cached.name.length);
                                 category = cached.category;
                                 if (cached.lastPrice != null && cached.lastPrice! > 0) {
-                                  priceController.text = Utils.formatNumber(cached.lastPrice!);
+                                  priceController.text = Utils.formatCurrencyInput(cached.lastPrice!);
                                   priceController.selection = TextSelection.collapsed(offset: priceController.text.length);
                                 }
                               } else {
@@ -1848,7 +1849,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                                   nameController.selection = TextSelection.collapsed(offset: onlineInfo.name.length);
                                   category = onlineInfo.category;
                                   if (onlineInfo.lastPrice != null && onlineInfo.lastPrice! > 0) {
-                                    priceController.text = Utils.formatNumber(onlineInfo.lastPrice!);
+                                    priceController.text = Utils.formatCurrencyInput(onlineInfo.lastPrice!);
                                     priceController.selection = TextSelection.collapsed(offset: priceController.text.length);
                                   }
                                 }
@@ -1878,6 +1879,8 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                           focusNode: priceFocusNode,
                           textInputAction: TextInputAction.next,
                           onSubmitted: (_) => qtyFocusNode.requestFocus(),
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [CurrencyInputFormatter()],
                           style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black), 
                           decoration: InputDecoration(
                             labelText: 'Preço Unit.', 
@@ -1891,14 +1894,13 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                               onPressed: () {
                                 FloatingCalculatorPopup.show(context, onUseValue: (val) {
                                   setState(() {
-                                    priceController.text = Utils.formatNumber(val);
+                                    priceController.text = Utils.formatCurrencyInput(val);
                                     priceController.selection = TextSelection.collapsed(offset: priceController.text.length);
                                   });
                                 });
                               },
                             ),
                           ), 
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
                         ),
                       ),
                       const SizedBox(width: 16),
@@ -1971,7 +1973,8 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                                     borderRadius: BorderRadius.circular(12),
                                     onTap: () {
                                       setState(() {
-                                        priceController.text = Utils.formatNumber(price);
+                                        priceController.text = Utils.formatCurrencyInput(price);
+                                        priceController.selection = TextSelection.collapsed(offset: priceController.text.length);
                                       });
                                     },
                                     child: Padding(
@@ -2012,7 +2015,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
                   final String? finalBarcode = (currentBarcode != null && currentBarcode!.trim().isNotEmpty)
                       ? Item.parseBarcode(currentBarcode)
                       : Item.parseBarcode(barcodeController.text);
-                  final double parsedPrice = double.tryParse(priceController.text.replaceAll(',', '.')) ?? 0.0;
+                  final double parsedPrice = Utils.parseCurrency(priceController.text);
 
                   if (activeItem == null) {
                     final normalizedNewName = Utils.normalize(name);
@@ -2122,9 +2125,40 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> with SingleTick
   }
 
   void _showEditBudgetDialog(BuildContext context, ItemProvider provider) {
-    final controller = TextEditingController(text: Utils.formatNumber(provider.budget));
+    final controller = TextEditingController(text: Utils.formatCurrencyInput(provider.budget));
     if (controller.text.isNotEmpty) controller.selection = TextSelection.collapsed(offset: controller.text.length);
-    _showAnimatedDialog(context, AlertDialog(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)), title: const Text('Orçamento Disponível', style: TextStyle(fontWeight: FontWeight.bold)), content: TextField(controller: controller, keyboardType: TextInputType.number, autofocus: true, decoration: const InputDecoration(labelText: 'Novo Valor', hintText: '0,00', prefixText: 'R\$ ', prefixStyle: TextStyle(fontSize: 16), floatingLabelBehavior: FloatingLabelBehavior.always, border: UnderlineInputBorder())), actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar', style: TextStyle(color: Colors.grey))), ElevatedButton(onPressed: () { final newValue = double.tryParse(controller.text.replaceAll(',', '.')) ?? 0.0; provider.updateBudget(newValue); Navigator.pop(context); }, child: const Text('Salvar', style: TextStyle(fontWeight: FontWeight.bold)))]));
+    _showAnimatedDialog(
+      context,
+      AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        title: const Text('Orçamento Disponível', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          inputFormatters: [CurrencyInputFormatter()],
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'Novo Valor',
+            hintText: '0,00',
+            prefixText: 'R\$ ',
+            prefixStyle: TextStyle(fontSize: 16),
+            floatingLabelBehavior: FloatingLabelBehavior.always,
+            border: UnderlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar', style: TextStyle(color: Colors.grey))),
+          ElevatedButton(
+            onPressed: () {
+              final newValue = Utils.parseCurrency(controller.text);
+              provider.updateBudget(newValue);
+              Navigator.pop(context);
+            },
+            child: const Text('Salvar', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
   }
 
   void _shareList(BuildContext context, ItemProvider provider) {

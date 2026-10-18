@@ -1379,8 +1379,9 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen>
             const SizedBox(height: 12),
             TextField(
               controller: priceCtrl,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'Preço (R\$)', prefixText: 'R\$ '),
+              keyboardType: TextInputType.number,
+              inputFormatters: [CurrencyInputFormatter()],
+              decoration: const InputDecoration(labelText: 'Preço (R\$)', prefixText: 'R\$ ', hintText: '0,00'),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -1394,7 +1395,7 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen>
           ElevatedButton(
             onPressed: () async {
               final name = nameCtrl.text.trim();
-              final price = double.tryParse(priceCtrl.text.replaceAll(',', '.')) ?? 0.0;
+              final price = Utils.parseCurrency(priceCtrl.text);
               final market = marketCtrl.text.trim();
 
               if (name.isNotEmpty && price > 0 && market.isNotEmpty) {

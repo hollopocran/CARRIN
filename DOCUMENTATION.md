@@ -1,6 +1,6 @@
 # Documentação Técnica e Arquitetural: CARRIN
 
-> **Versão Atual:** `1.3.554` (Build `554`) — Outubro de 2026  
+> **Versão Atual:** `1.3.555` (Build `555`) — Outubro de 2026  
 > **Status:** Produção Estável  
 > **Slogan:** *"Sua lista, sem complicação."*
 
@@ -315,6 +315,29 @@ O [`BarcodeLookupService`](file:///C:/Dev/CARRIN/lib/services/barcode_lookup_ser
 ---
 
 ## 5. Histórico Cronológico de Atualizações e Versões
+
+### v1.3.555 (17 de Outubro de 2026)
+- **Vírgula Automática em Tempo Real nos Diálogos e Caixas de Entrada (`CurrencyInputFormatter`):**
+  - Implementação do formatador monetário nativo em tempo real (`CurrencyInputFormatter`) em `lib/services/utils.dart`, permitindo que os centavos e a vírgula "andem sozinhos" da direita para a esquerda conforme o usuário digita no teclado numérico:
+    - Digita `1` $\rightarrow$ `0,01`
+    - Digita `2` $\rightarrow$ `0,12`
+    - Digita `9` $\rightarrow$ `1,29`
+    - Digita `9` $\rightarrow$ `12,99`
+    - Digita `5` $\rightarrow$ `129,95`
+    - Digita `0` $\rightarrow$ `1.299,50` (com ponto de milhar automático)
+    - Backspace $\rightarrow$ retrocede os dígitos de forma limpa até limpar a caixa (`""`), exibindo o placeholder `0,00` sem travar o cursor.
+  - O usuário não precisa mais alternar teclado para achar a tecla de vírgula ou ponto: o teclado abre em modo exclusivamente numérico (`TextInputType.number`).
+- **Padronização Universal de Entradas Monetárias em Todas as Telas e Modais:**
+  - **Preço Unitário na Adição e Edição de Item (`ShoppingListScreen._showItemDialog`):** Campo com `CurrencyInputFormatter`, chips de histórico de preços, sugestão de código de barras e retorno da calculadora flutuante formatados via `Utils.formatCurrencyInput`.
+  - **Edição Rápida de Preço Direto na Lista (`ShoppingListScreen._inlinePriceController`):** Edição rápida inline com máscara automática em tempo real e leitura segura com `Utils.parseCurrency`.
+  - **Orçamento Disponível do Mês (`ShoppingListScreen._showEditBudgetDialog`):** Diálogo de meta mensal com máscara de vírgula automática.
+  - **Orçamento Inicial ao Criar Carrinho (`MonthSelectionScreen._showCreateMonthDialog`):** Máscara automática no modal de novo mês/carrinho.
+  - **Calculadora de Peso por Preço Total (`WeightCalculatorDialog`):** Ambos os campos (*Preço por Kg* e *Total Pago*) equipados com `CurrencyInputFormatter`.
+  - **Travas e Metas por Categoria (`PurposeAndCapsDialog`):** Definição de teto máximo em R$ por categoria com máscara dinâmica.
+  - **Preço Comunitário do Radar (`CommunityRadarScreen._showPublishDialog`):** Diálogo de contribuição de preço para a comunidade com máscara monetária.
+  - **Edição de Preço no Scanner de Cupom Fiscal (`ReceiptScannerScreen._editItemDialog`):** Ajuste de itens extraídos de NFC-e com máscara automática.
+  - **Orçamento Padrão das Configurações (`SettingsScreen._showDefaultBudgetDialog`):** Configuração do orçamento padrão com vírgula dinâmica.
+- **Validação Automatizada:** 50/50 testes aprovados, incluindo bateria dedicada para deslocamento de centavos, backspace e parsing de valores.
 
 ### v1.3.554 (17 de Outubro de 2026)
 - **Correção da Contagem de Itens Não Checados no Preço Final / Total:**

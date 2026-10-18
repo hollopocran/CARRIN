@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/utils.dart';
 
 /// Modal dialog for calculating product weight based on price per kg and total paid.
 class WeightCalculatorDialog extends StatefulWidget {
@@ -54,6 +55,9 @@ class _WeightCalculatorDialogState extends State<WeightCalculatorDialog> {
   void initState() {
     super.initState();
     _pricePerKgCtrl = TextEditingController(text: widget.initialPrice);
+    if (_pricePerKgCtrl.text.isNotEmpty) {
+      _pricePerKgCtrl.selection = TextSelection.collapsed(offset: _pricePerKgCtrl.text.length);
+    }
     _totalPaidCtrl = TextEditingController();
   }
 
@@ -65,8 +69,8 @@ class _WeightCalculatorDialogState extends State<WeightCalculatorDialog> {
   }
 
   void _apply() {
-    final double p = double.tryParse(_pricePerKgCtrl.text.replaceAll(',', '.')) ?? 0;
-    final double t = double.tryParse(_totalPaidCtrl.text.replaceAll(',', '.')) ?? 0;
+    final double p = Utils.parseCurrency(_pricePerKgCtrl.text);
+    final double t = Utils.parseCurrency(_totalPaidCtrl.text);
     if (p > 0 && t > 0) {
       final calculatedWeight = (t / p).toStringAsFixed(3).replaceAll('.', ',');
       widget.onApplied(_pricePerKgCtrl.text, calculatedWeight);
@@ -94,6 +98,7 @@ class _WeightCalculatorDialogState extends State<WeightCalculatorDialog> {
               border: UnderlineInputBorder(),
             ),
             keyboardType: TextInputType.number,
+            inputFormatters: [CurrencyInputFormatter()],
             autofocus: true,
           ),
           const SizedBox(height: 12),
@@ -107,6 +112,7 @@ class _WeightCalculatorDialogState extends State<WeightCalculatorDialog> {
               border: UnderlineInputBorder(),
             ),
             keyboardType: TextInputType.number,
+            inputFormatters: [CurrencyInputFormatter()],
             onSubmitted: (_) => _apply(),
           ),
         ],

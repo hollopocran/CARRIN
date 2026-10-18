@@ -9,6 +9,7 @@ import 'terms_screen.dart';
 import '../widgets/supermarket_avatar.dart';
 import '../widgets/theme_color_picker_sheet.dart';
 import '../widgets/interactive_tab_tutorial.dart';
+import '../services/utils.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -197,7 +198,7 @@ class SettingsScreen extends StatelessWidget {
           const ListTile(
             leading: Icon(Icons.info_outline),
             title: Text('Versão', style: TextStyle(fontWeight: FontWeight.w500)),
-            trailing: Text('1.3.554', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+            trailing: Text('1.3.555', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -599,9 +600,10 @@ class SettingsScreen extends StatelessWidget {
   void _showDefaultBudgetDialog(BuildContext context, ItemProvider provider) {
     final controller = TextEditingController(
       text: provider.defaultBudget > 0 
-          ? provider.defaultBudget.toStringAsFixed(2).replaceAll('.', ',')
+          ? Utils.formatCurrencyInput(provider.defaultBudget)
           : '',
     );
+    if (controller.text.isNotEmpty) controller.selection = TextSelection.collapsed(offset: controller.text.length);
     _showAnimatedDialog(
       context,
       AlertDialog(
@@ -615,10 +617,12 @@ class SettingsScreen extends StatelessWidget {
             const SizedBox(height: 16),
             TextField(
               controller: controller,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: TextInputType.number,
+              inputFormatters: [CurrencyInputFormatter()],
               autofocus: true,
               decoration: const InputDecoration(
                 labelText: 'Valor padrão',
+                hintText: '0,00',
                 prefixText: 'R\$ ',
                 border: UnderlineInputBorder(),
               ),
@@ -633,7 +637,7 @@ class SettingsScreen extends StatelessWidget {
           ElevatedButton(
             onPressed: () {
               final text = controller.text.trim();
-              final value = double.tryParse(text.replaceAll(',', '.')) ?? 0.0;
+              final value = Utils.parseCurrency(text);
               provider.updateDefaultBudget(value);
               Navigator.pop(context);
             },

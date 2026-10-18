@@ -1033,5 +1033,88 @@ void main() {
       expect(item4.isBought, isTrue);
     });
   });
+
+  group('CurrencyInputFormatter and Utils currency tests', () {
+    final formatter = CurrencyInputFormatter();
+
+    test('walking comma: formatEditUpdate shifts cents correctly from right to left', () {
+      // User types '1'
+      var res = formatter.formatEditUpdate(
+        const TextEditingValue(text: ''),
+        const TextEditingValue(text: '1'),
+      );
+      expect(res.text, equals('0,01'));
+
+      // User types '2' -> '0,012'
+      res = formatter.formatEditUpdate(
+        const TextEditingValue(text: '0,01'),
+        const TextEditingValue(text: '0,012'),
+      );
+      expect(res.text, equals('0,12'));
+
+      // User types '9' -> '0,129'
+      res = formatter.formatEditUpdate(
+        const TextEditingValue(text: '0,12'),
+        const TextEditingValue(text: '0,129'),
+      );
+      expect(res.text, equals('1,29'));
+
+      // User types '9' -> '1,299'
+      res = formatter.formatEditUpdate(
+        const TextEditingValue(text: '1,29'),
+        const TextEditingValue(text: '1,299'),
+      );
+      expect(res.text, equals('12,99'));
+
+      // User types '0' -> '12,990'
+      res = formatter.formatEditUpdate(
+        const TextEditingValue(text: '12,99'),
+        const TextEditingValue(text: '12,990'),
+      );
+      expect(res.text, equals('129,90'));
+
+      // User types '0' -> '129,900'
+      res = formatter.formatEditUpdate(
+        const TextEditingValue(text: '129,90'),
+        const TextEditingValue(text: '129,900'),
+      );
+      expect(res.text, equals('1.299,00'));
+    });
+
+    test('walking comma: backspacing to zero clears text to empty string', () {
+      // User backspaces '0,01' -> '0,0'
+      var res = formatter.formatEditUpdate(
+        const TextEditingValue(text: '0,01'),
+        const TextEditingValue(text: '0,0'),
+      );
+      expect(res.text, equals(''));
+
+      // User clears entirely
+      res = formatter.formatEditUpdate(
+        const TextEditingValue(text: '12,99'),
+        const TextEditingValue(text: ''),
+      );
+      expect(res.text, equals(''));
+    });
+
+    test('Utils.formatCurrencyInput formats doubles with two decimals for input fields', () {
+      expect(Utils.formatCurrencyInput(0.0), equals(''));
+      expect(Utils.formatCurrencyInput(-5.0), equals(''));
+      expect(Utils.formatCurrencyInput(25.0), equals('25,00'));
+      expect(Utils.formatCurrencyInput(7.99), equals('7,99'));
+      expect(Utils.formatCurrencyInput(1250.50), equals('1.250,50'));
+    });
+
+    test('Utils.parseCurrency safely converts Brazilian formatted string to double', () {
+      expect(Utils.parseCurrency(''), equals(0.0));
+      expect(Utils.parseCurrency('   '), equals(0.0));
+      expect(Utils.parseCurrency('0,01'), closeTo(0.01, 0.001));
+      expect(Utils.parseCurrency('12,99'), closeTo(12.99, 0.001));
+      expect(Utils.parseCurrency('25,00'), closeTo(25.0, 0.001));
+      expect(Utils.parseCurrency('25'), closeTo(25.0, 0.001));
+      expect(Utils.parseCurrency('1.250,50'), closeTo(1250.50, 0.001));
+    });
+  });
 }
+
 
