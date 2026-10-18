@@ -390,38 +390,45 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen>
         ? _marketRankings.firstWhere((m) => m.isCheapest, orElse: () => _marketRankings.first)
         : null;
 
-    return CustomScrollView(
-      slivers: [
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          sliver: SliverToBoxAdapter(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 1. Barra de Pesquisa de Mercados pelo Nome ou Bairro
-                TextField(
-                  controller: _marketSearchController,
-                  onChanged: (_) => setState(() {}),
-                  decoration: InputDecoration(
-                    hintText: 'Pesquisar mercado pelo nome ou bairro...',
-                    prefixIcon: const Icon(Icons.search_rounded),
-                    suffixIcon: _marketSearchController.text.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear_rounded),
-                            onPressed: () {
-                              _marketSearchController.clear();
-                              setState(() {});
-                            },
-                          )
-                        : null,
-                    filled: true,
-                    fillColor: cardColor,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide.none,
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: CustomScrollView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            sliver: SliverToBoxAdapter(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 1. Barra de Pesquisa de Mercados pelo Nome ou Bairro
+                  TextField(
+                    controller: _marketSearchController,
+                    textInputAction: TextInputAction.search,
+                    onSubmitted: (_) => FocusScope.of(context).unfocus(),
+                    onChanged: (_) => setState(() {}),
+                    decoration: InputDecoration(
+                      hintText: 'Pesquisar mercado pelo nome ou bairro...',
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      suffixIcon: _marketSearchController.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear_rounded),
+                              onPressed: () {
+                                _marketSearchController.clear();
+                                FocusScope.of(context).unfocus();
+                                setState(() {});
+                              },
+                            )
+                          : null,
+                      filled: true,
+                      fillColor: cardColor,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide.none,
+                      ),
                     ),
                   ),
-                ),
                 const SizedBox(height: 10),
 
                 // 2. Filtro Horizontal por Redes de Supermercados
@@ -702,8 +709,9 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen>
             ),
           ),
       ],
-    );
-  }
+    ),
+  );
+}
 
   // ==========================================
   // --- ABA 1: LISTA DE PREÇOS (PRODUTOS) ---
@@ -739,57 +747,65 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen>
       return true;
     }).toList();
 
-    return CustomScrollView(
-      slivers: [
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          sliver: SliverToBoxAdapter(
-            child: Column(
-              children: [
-                TextField(
-                  controller: _listSearchController,
-                  onChanged: (val) => setState(() {}),
-                  decoration: InputDecoration(
-                    hintText: 'Pesquise produto ou mercado na lista...',
-                    prefixIcon: const Icon(Icons.search_rounded),
-                    suffixIcon: _listSearchController.text.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear),
-                            onPressed: () {
-                              _listSearchController.clear();
-                              setState(() {});
-                            },
-                          )
-                        : null,
-                    filled: true,
-                    fillColor: cardColor,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide.none,
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: CustomScrollView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            sliver: SliverToBoxAdapter(
+              child: Column(
+                children: [
+                  TextField(
+                    controller: _listSearchController,
+                    textInputAction: TextInputAction.search,
+                    onSubmitted: (_) => FocusScope.of(context).unfocus(),
+                    onChanged: (val) => setState(() {}),
+                    decoration: InputDecoration(
+                      hintText: 'Pesquise produto ou mercado na lista...',
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      suffixIcon: _listSearchController.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                _listSearchController.clear();
+                                FocusScope.of(context).unfocus();
+                                setState(() {});
+                              },
+                            )
+                          : null,
+                      filled: true,
+                      fillColor: cardColor,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide.none,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: categories.map((cat) {
-                      final isSelected = _selectedCategory == cat;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: FilterChip(
-                          label: Text(cat),
-                          selected: isSelected,
-                          onSelected: (selected) {
-                            setState(() {
-                              _selectedCategory = cat;
-                            });
-                          },
-                        ),
-                      );
-                    }).toList(),
+                  const SizedBox(height: 12),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: categories.map((cat) {
+                        final isSelected = _selectedCategory == cat;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: FilterChip(
+                            label: Text(cat),
+                            selected: isSelected,
+                            onSelected: (selected) {
+                              FocusScope.of(context).unfocus();
+                              setState(() {
+                                _selectedCategory = cat;
+                              });
+                            },
+                          ),
+                        );
+                      }).toList(),
+                    ),
                   ),
-                ),
                 const SizedBox(height: 8),
               ],
             ),
@@ -826,6 +842,7 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen>
                   child: ListTile(
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                     onTap: () {
+                      FocusScope.of(context).unfocus();
                       _searchController.text = item.productName;
                       _onSearchChanged(item.productName);
                       _tabController.animateTo(1);
@@ -918,8 +935,9 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen>
             ),
           ),
       ],
-    );
-  }
+    ),
+  );
+}
 
   // ==========================================
   // --- ABA 2: COMPARADOR DE PRODUTOS ---
@@ -959,69 +977,77 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen>
         ? filteredByMarket
         : filteredByMarket.where((c) => c.productName.toLowerCase().contains(query)).toList();
 
-    return CustomScrollView(
-      slivers: [
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          sliver: SliverToBoxAdapter(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextField(
-                  controller: _searchController,
-                  onChanged: _onSearchChanged,
-                  decoration: InputDecoration(
-                    hintText: 'Pesquise um produto (ex: Arroz, Leite, Café)...',
-                    prefixIcon: const Icon(Icons.search_rounded),
-                    suffixIcon: _searchController.text.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear),
-                            onPressed: () {
-                              _searchController.clear();
-                              _onSearchChanged('');
-                            },
-                          )
-                        : null,
-                    filled: true,
-                    fillColor: cardColor,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide.none,
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: CustomScrollView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            sliver: SliverToBoxAdapter(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: _searchController,
+                    textInputAction: TextInputAction.search,
+                    onSubmitted: (_) => FocusScope.of(context).unfocus(),
+                    onChanged: _onSearchChanged,
+                    decoration: InputDecoration(
+                      hintText: 'Pesquise um produto (ex: Arroz, Leite, Café)...',
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      suffixIcon: _searchController.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                _searchController.clear();
+                                _onSearchChanged('');
+                                FocusScope.of(context).unfocus();
+                              },
+                            )
+                          : null,
+                      filled: true,
+                      fillColor: cardColor,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide.none,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 14),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: availableMarkets.map((market) {
-                      final isSelected = _selectedMarketFilter == market;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: FilterChip(
-                          avatar: Icon(
-                            market == 'Todos' ? Icons.store_mall_directory_outlined : Icons.storefront_rounded,
-                            size: 16,
-                            color: isSelected ? Colors.white : primary,
+                  const SizedBox(height: 14),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: availableMarkets.map((market) {
+                        final isSelected = _selectedMarketFilter == market;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: FilterChip(
+                            avatar: Icon(
+                              market == 'Todos' ? Icons.store_mall_directory_outlined : Icons.storefront_rounded,
+                              size: 16,
+                              color: isSelected ? Colors.white : primary,
+                            ),
+                            label: Text(market == 'Todos' ? 'Todos os Mercados' : market),
+                            selected: isSelected,
+                            selectedColor: primary,
+                            labelStyle: TextStyle(
+                              color: isSelected ? Colors.white : (isDark ? Colors.white70 : Colors.black87),
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                              fontSize: 12.5,
+                            ),
+                            onSelected: (selected) {
+                              FocusScope.of(context).unfocus();
+                              setState(() {
+                                _selectedMarketFilter = selected ? market : 'Todos';
+                              });
+                            },
                           ),
-                          label: Text(market == 'Todos' ? 'Todos os Mercados' : market),
-                          selected: isSelected,
-                          selectedColor: primary,
-                          labelStyle: TextStyle(
-                            color: isSelected ? Colors.white : (isDark ? Colors.white70 : Colors.black87),
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                            fontSize: 12.5,
-                          ),
-                          onSelected: (selected) {
-                            setState(() {
-                              _selectedMarketFilter = selected ? market : 'Todos';
-                            });
-                          },
-                        ),
-                      );
-                    }).toList(),
+                        );
+                      }).toList(),
+                    ),
                   ),
-                ),
                 const SizedBox(height: 12),
                 if (_searchedProduct != null) ...[
                   Container(
@@ -1133,6 +1159,7 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen>
               final isSelected = _searchedProduct?.productName.toLowerCase() == comp.productName.toLowerCase();
               return InkWell(
                 onTap: () {
+                  FocusScope.of(context).unfocus();
                   setState(() {
                     if (isSelected) {
                       _searchedProduct = null;
@@ -1204,8 +1231,9 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen>
           ),
         ),
       ],
-    );
-  }
+    ),
+  );
+}
 
   List<Widget> _buildGroupedMarketCards(ProductComparison prod, Color cardColor) {
     final Map<String, List<CommunityPrice>> marketGroups = {};

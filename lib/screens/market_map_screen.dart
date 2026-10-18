@@ -456,6 +456,8 @@ class _MarketMapScreenState extends State<MarketMapScreen> {
                   TextField(
                     controller: modalSearchCtrl,
                     autofocus: true,
+                    textInputAction: TextInputAction.search,
+                    onSubmitted: (_) => FocusScope.of(context).unfocus(),
                     decoration: InputDecoration(
                       hintText: 'Pesquisar mercado pelo nome, rede ou bairro...',
                       hintStyle: const TextStyle(fontSize: 13),
@@ -465,6 +467,7 @@ class _MarketMapScreenState extends State<MarketMapScreen> {
                               icon: const Icon(Icons.clear_rounded, size: 18),
                               onPressed: () {
                                 modalSearchCtrl.clear();
+                                FocusScope.of(context).unfocus();
                                 setModalState(() => modalSearch = '');
                               },
                             )
@@ -545,6 +548,7 @@ class _MarketMapScreenState extends State<MarketMapScreen> {
                             child: Text('Nenhum supermercado encontrado com este filtro.'),
                           )
                         : ListView.separated(
+                            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                             itemCount: filtered.length,
                             separatorBuilder: (_, __) => const Divider(height: 1),
                             itemBuilder: (context, index) {
@@ -1928,6 +1932,8 @@ class _MarketMapScreenState extends State<MarketMapScreen> {
                                       visualDensity: VisualDensity.compact,
                                       onPressed: () {
                                         _searchController.clear();
+                                        _searchFocusNode.unfocus();
+                                        FocusScope.of(context).unfocus();
                                         setState(() {
                                           _searchQuery = '';
                                           _showSearchSuggestions = false;
@@ -1947,7 +1953,10 @@ class _MarketMapScreenState extends State<MarketMapScreen> {
                               });
                               _applyFilters(fitCameraIfFiltered: false);
                             },
+                            textInputAction: TextInputAction.search,
                             onSubmitted: (_) {
+                              _searchFocusNode.unfocus();
+                              FocusScope.of(context).unfocus();
                               setState(() => _showSearchSuggestions = false);
                               _applyFilters(fitCameraIfFiltered: true);
                             },

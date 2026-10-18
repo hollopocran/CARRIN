@@ -1,6 +1,6 @@
 # Documentação Técnica e Arquitetural: CARRIN
 
-> **Versão Atual:** `1.3.558` (Build `558`) — Outubro de 2026  
+> **Versão Atual:** `1.3.559` (Build `559`) — Outubro de 2026  
 > **Status:** Produção Estável  
 > **Slogan:** *"Sua lista, sem complicação."*
 
@@ -315,6 +315,20 @@ O [`BarcodeLookupService`](file:///C:/Dev/CARRIN/lib/services/barcode_lookup_ser
 ---
 
 ## 5. Histórico Cronológico de Atualizações e Versões
+
+### v1.3.559 (18 de Outubro de 2026)
+- **Fechamento Automático do Teclado Após Pesquisa (`ItemSearchDelegate`, `CommunityRadarScreen`, `MarketMapScreen`):**
+  - **Ação Concluída no Teclado (`textInputAction: TextInputAction.search` & `onSubmitted`):** Pressionar o botão de pesquisa/Enter no teclado virtual agora remove o foco (`FocusScope.of(context).unfocus()`) e fecha o teclado instantaneamente em todas as telas de busca.
+  - **Ocultação ao Rolar (`keyboardDismissBehavior: onDrag`):** Ao arrastar ou rolar a lista de resultados em `ItemSearchDelegate`, na aba Comunidade/Radar (Tabs 0, 1 e 2) e no modal de mercados do mapa, o teclado se recolhe suavemente.
+  - **Toque Fora e Interação:** Tocar em qualquer área vazia, card de produto, supermercado, checkbox ou botão limpar agora retira o foco do teclado de forma imediata.
+- **Redesign Compacto e Agrupamento Ergonômico de Temas (`ThemeColorPickerSheet`):**
+  - **Redução de Mais de 50% de Espaço Vertical:** Eliminação do card de prévia redundante de 180px e do banner duplicado de 110px, substituídos por uma faixa ultra-compacta de 48px com indicador da cor ativa, nome, código HEX e atalho para edição.
+  - **Alternador Claro/Escuro Integrado:** O controle de Modo Claro / Modo Escuro foi incorporado diretamente ao cabeçalho em formato de pílula compacta ao lado do botão de restauração das cores do ícone.
+  - **Agrupamento Inteligente por Coleções:** As 36 opções de temas agora são organizadas por abas de categorias com ícones visuais (`🌟 Ícone`, `🌿 Natureza`, `💼 Clássicas`, `☀️ Quentes`, `💎 Elegantes`, `🔮 Criativas`, `🌈 Livre` e `🎨 Todas`):
+    - *Ícone CARRIN:* Exibe os cartões destacados de **Verde do Ícone** e **Azul do Ícone** com selo oficial de fábrica.
+    - *Coleções Específicas:* Paletas exibidas em grades compactas de amostras circulares com checkmark, cabendo inteiramente em 1 a 2 linhas sem rolagem desnecessária.
+    - *Espectro Livre:* Slider arco-íris contínuo HSL e modal para digitação de HEX personalizados.
+- **Validação Automatizada:** 57/57 testes unitários e de widgets aprovados (100% de sucesso), 0 erros no `flutter analyze`.
 
 ### v1.3.558 (18 de Outubro de 2026)
 - **Animação da Logo 100% Autônoma e Abertura Rápida na Splash Screen (`InteractiveAnimatedLogo` & `SplashScreen`):**

@@ -48,23 +48,36 @@ class ItemSearchDelegate extends SearchDelegate<Item?> {
         child: IconButton(
           tooltip: 'Limpar',
           icon: const Icon(Icons.close_rounded),
-          onPressed: query.isEmpty ? null : () => query = '',
+          onPressed: query.isEmpty
+              ? null
+              : () {
+                  query = '';
+                  FocusScope.of(context).unfocus();
+                },
         ),
       ),
     ];
   }
 
   @override
-  Widget? buildLeading(BuildContext context) {
+  Widget buildLeading(BuildContext context) {
     return IconButton(
       tooltip: 'Voltar',
       icon: const Icon(Icons.arrow_back_rounded),
-      onPressed: () => close(context, null),
+      onPressed: () {
+        FocusScope.of(context).unfocus();
+        close(context, null);
+      },
     );
   }
 
   @override
-  Widget buildResults(BuildContext context) => _buildList(context);
+  Widget buildResults(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      FocusScope.of(context).unfocus();
+    });
+    return _buildList(context);
+  }
 
   @override
   Widget buildSuggestions(BuildContext context) => _buildList(context);
@@ -77,31 +90,35 @@ class ItemSearchDelegate extends SearchDelegate<Item?> {
     final normalizedQuery = Utils.normalize(query);
     final tokens = normalizedQuery.split(RegExp(r'\s+')).where((t) => t.isNotEmpty).toList();
     
-    return AnimatedBuilder(
-      animation: provider,
-      builder: (context, _) {
-        final results = provider.items.where((item) {
-          if (tokens.isEmpty) return true;
-          final normName = Utils.normalize(item.name);
-          final normCategory = Utils.normalize(item.category);
-          final barcodeStr = (item.barcode ?? '').toLowerCase().trim();
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: AnimatedBuilder(
+        animation: provider,
+        builder: (context, _) {
+          final results = provider.items.where((item) {
+            if (tokens.isEmpty) return true;
+            final normName = Utils.normalize(item.name);
+            final normCategory = Utils.normalize(item.category);
+            final barcodeStr = (item.barcode ?? '').toLowerCase().trim();
 
-          return tokens.every((token) => 
-            normName.contains(token) || 
-            normCategory.contains(token) || 
-            barcodeStr.contains(token)
+            return tokens.every((token) => 
+              normName.contains(token) || 
+              normCategory.contains(token) || 
+              barcodeStr.contains(token)
+            );
+          }).toList();
+
+          return AnimatedSwitcher(
+            duration: const Duration(milliseconds: 250),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            child: results.isEmpty
+                ? _buildEmptyState(context, tokens.isEmpty)
+                : _buildResultsList(context, results),
           );
-        }).toList();
-
-        return AnimatedSwitcher(
-          duration: const Duration(milliseconds: 250),
-          switchInCurve: Curves.easeOutCubic,
-          switchOutCurve: Curves.easeInCubic,
-          child: results.isEmpty
-              ? _buildEmptyState(context, tokens.isEmpty)
-              : _buildResultsList(context, results),
-        );
-      },
+        },
+      ),
     );
   }
 
@@ -175,6 +192,7 @@ class ItemSearchDelegate extends SearchDelegate<Item?> {
       child: ListView.builder(
         key: ValueKey('search_list_${query.trim()}'),
         physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
         itemCount: results.length,
         addAutomaticKeepAlives: true,
@@ -270,7 +288,10 @@ class _SearchItemTile extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
             child: InkWell(
               borderRadius: BorderRadius.circular(16),
-              onTap: () => onEdit(item),
+              onTap: () {
+                FocusScope.of(context).unfocus();
+                onEdit(item);
+              },
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 child: Column(
@@ -286,6 +307,7 @@ class _SearchItemTile extends StatelessWidget {
                           child: Checkbox(
                             value: item.isBought,
                             onChanged: (val) {
+                              FocusScope.of(context).unfocus();
                               Vibration.vibrate(duration: 35);
                               provider.toggleBought(item);
                             },
@@ -393,6 +415,7 @@ class _SearchItemTile extends StatelessWidget {
                           icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 20),
                           splashRadius: 20,
                           onPressed: () {
+                            FocusScope.of(context).unfocus();
                             Vibration.vibrate(duration: 40);
                             if (item.index != null) {
                               onDelete(item.index!);

@@ -27,6 +27,7 @@ import 'package:lista_compras/services/barcode_lookup_service.dart';
 import 'package:lista_compras/services/database_helper.dart';
 import 'package:lista_compras/widgets/interactive_tab_tutorial.dart';
 import 'package:lista_compras/widgets/interactive_animated_logo.dart';
+import 'package:lista_compras/widgets/theme_color_picker_sheet.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 void main() {
@@ -1214,7 +1215,7 @@ void main() {
 
     testWidgets('triggers autonomous intro animation without user tap when autoPlayIntro is true', (WidgetTester tester) async {
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: Center(
               child: InteractiveAnimatedLogo(
@@ -1233,6 +1234,56 @@ void main() {
       // Executa o ciclo de animação e partículas sem requerer toque
       await tester.pump(const Duration(milliseconds: 400));
       expect(find.byType(InteractiveAnimatedLogo), findsOneWidget);
+    });
+  });
+
+  group('ThemeColorPickerSheet Widget Tests', () {
+    testWidgets('renders compact ThemeColorPickerSheet, shows categories and switches palettes', (WidgetTester tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final themeProvider = ThemeProvider();
+      await themeProvider.init();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (ctx) => Center(
+                child: ElevatedButton(
+                  onPressed: () => ThemeColorPickerSheet.show(ctx, themeProvider),
+                  child: const Text('Open Themes'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open Themes'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Cores do Tema'), findsOneWidget);
+      expect(find.text('Claro'), findsOneWidget);
+      expect(find.text('Escuro'), findsOneWidget);
+      expect(find.text('Ícone'), findsWidgets);
+      expect(find.text('Natureza'), findsOneWidget);
+      expect(find.text('Clássicas'), findsOneWidget);
+
+      // Tap on Natureza category chip
+      await tester.tap(find.text('Natureza'));
+      await tester.pumpAndSettle();
+
+      // Swatches of Natureza (such as Verde Floresta) should be present
+      expect(find.text('Verde Floresta'), findsOneWidget);
+
+      // Select Verde Floresta
+      await tester.tap(find.text('Verde Floresta'));
+      await tester.pumpAndSettle();
+
+      // Tap Aplicar Tema
+      await tester.tap(find.text('Aplicar Tema'));
+      await tester.pumpAndSettle();
+
+      expect(themeProvider.seedColor, equals(AppColors.green));
     });
   });
 }

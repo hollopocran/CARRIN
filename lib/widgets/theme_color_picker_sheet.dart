@@ -4,12 +4,15 @@ import '../theme/app_themes.dart';
 
 /// Modal interativo em BottomSheet para personalização visual de cores e modo de tema.
 /// 
-/// Inclui:
-/// - Cartão interativo com prévia em tempo real
-/// - Alternador de Modo Claro / Escuro
-/// - Slider contínuo com espectro do arco-íris (Matiz HSL livre)
-/// - Paleta com 15 cores curadas e seus respectivos nomes
-/// - Botão para restaurar cor padrão
+/// Agrupamento inteligente, ultra-compacto e ergonômico por coleções:
+/// - 🌟 Ícone CARRIN (Verde Esmeralda e Azul Royal Oficiais)
+/// - 🌿 Natureza & Frescor (7 tons)
+/// - 💼 Clássicas & Neutros (7 tons)
+/// - ☀️ Quentes & Energia (6 tons)
+/// - 💎 Elegantes & Nobres (9 tons)
+/// - 🔮 Criativas & Místicas (5 tons)
+/// - 🌈 Livre (Espectro contínuo HSL e código HEX manual)
+/// - 🎨 Todas (Grade geral compacta de 36 cores)
 class ThemeColorPickerSheet extends StatefulWidget {
   final ThemeProvider provider;
 
@@ -32,7 +35,19 @@ class _ThemeColorPickerSheetState extends State<ThemeColorPickerSheet> {
   late Color _tempColor;
   late bool _tempDarkMode;
   double _currentHue = 220.0;
-  String _selectedCategory = 'Todas';
+  String _selectedCategory = 'Ícone';
+
+  // Categorias com ícones amigáveis para navegação visual imediata
+  static const List<Map<String, String>> _categories = [
+    {'id': 'Ícone', 'label': 'Ícone', 'icon': '🌟'},
+    {'id': 'Natureza', 'label': 'Natureza', 'icon': '🌿'},
+    {'id': 'Clássicas', 'label': 'Clássicas', 'icon': '💼'},
+    {'id': 'Quentes', 'label': 'Quentes', 'icon': '☀️'},
+    {'id': 'Elegantes', 'label': 'Elegantes', 'icon': '💎'},
+    {'id': 'Criativas', 'label': 'Criativas', 'icon': '🔮'},
+    {'id': 'Livre', 'label': 'Livre', 'icon': '🌈'},
+    {'id': 'Todas', 'label': 'Todas', 'icon': '🎨'},
+  ];
 
   @override
   void initState() {
@@ -42,13 +57,22 @@ class _ThemeColorPickerSheetState extends State<ThemeColorPickerSheet> {
 
     final hsl = HSLColor.fromColor(_tempColor);
     _currentHue = hsl.hue;
+
+    // Detecta automaticamente a categoria da cor ativa para abrir diretamente nela
+    String matchedCat = 'Ícone';
+    for (var nc in AppColors.curated) {
+      if (nc.color.toARGB32() == _tempColor.toARGB32()) {
+        matchedCat = nc.category;
+        break;
+      }
+    }
+    _selectedCategory = matchedCat;
   }
 
   void _onHueChanged(double hue) {
     HapticFeedback.selectionClick();
     setState(() {
       _currentHue = hue;
-      // Mantém saturação rica e luminosidade balanceada para temas
       _tempColor = HSLColor.fromAHSL(1.0, hue, 0.75, 0.45).toColor();
     });
   }
@@ -75,6 +99,7 @@ class _ThemeColorPickerSheetState extends State<ThemeColorPickerSheet> {
       _tempColor = AppColors.iconGreen;
       final hsl = HSLColor.fromColor(AppColors.iconGreen);
       _currentHue = hsl.hue;
+      _selectedCategory = 'Ícone';
     });
   }
 
@@ -159,7 +184,6 @@ class _ThemeColorPickerSheetState extends State<ThemeColorPickerSheet> {
   @override
   Widget build(BuildContext context) {
     final sheetBg = Theme.of(context).cardColor;
-    final onSurface = Theme.of(context).colorScheme.onSurface;
     final hexString = '#${_tempColor.toARGB32().toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}';
     final colorName = AppColors.getColorName(_tempColor);
 
@@ -176,14 +200,14 @@ class _ThemeColorPickerSheetState extends State<ThemeColorPickerSheet> {
         ],
       ),
       padding: EdgeInsets.only(
-        top: 16,
+        top: 14,
         left: 20,
         right: 20,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 28,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
       ),
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.88,
+          maxHeight: MediaQuery.of(context).size.height * 0.85,
         ),
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
@@ -194,9 +218,9 @@ class _ThemeColorPickerSheetState extends State<ThemeColorPickerSheet> {
               // Barra de arrasto superior
               Center(
                 child: Container(
-                  width: 44,
+                  width: 40,
                   height: 4,
-                  margin: const EdgeInsets.only(bottom: 16),
+                  margin: const EdgeInsets.only(bottom: 12),
                   decoration: BoxDecoration(
                     color: Colors.grey.withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(2),
@@ -204,94 +228,129 @@ class _ThemeColorPickerSheetState extends State<ThemeColorPickerSheet> {
                 ),
               ),
 
-              // Cabeçalho
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: _tempColor.withValues(alpha: 0.15),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(Icons.palette_rounded, color: _tempColor, size: 22),
-                      ),
-                      const SizedBox(width: 12),
-                      const Text(
-                        'Cores do Tema',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
-                  TextButton.icon(
-                    onPressed: _restoreDefault,
-                    icon: const Icon(Icons.restart_alt, size: 16),
-                    label: const Text('Restaurar Ícone', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                    style: TextButton.styleFrom(
-                      foregroundColor: AppColors.iconGreen,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // Prévia Interativa em Tempo Real
-              _buildLivePreviewCard(_tempColor, _tempDarkMode),
-              const SizedBox(height: 16),
-
-              // Banner com Cores Oficiais do Ícone CARRIN (Verde e Azul)
-              _buildOfficialIconThemeBanner(),
-              const SizedBox(height: 20),
-
-              // Alternador de Modo: Claro / Escuro
-              _buildModeSelector(),
-              const SizedBox(height: 24),
-
-              // Seção de Paletas Curadas com Nomes
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'PALETA DE CORES CURADAS',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.1),
-                  ),
-                  Text(
-                    colorName,
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: onSurface.withValues(alpha: 0.6)),
-                  ),
-                ],
-              ),
+              // 1. Cabeçalho Compacto: Título + Alternador Claro/Escuro + Restaurar
+              _buildCompactHeader(),
               const SizedBox(height: 12),
-              _buildCuratedColorsGrid(),
-              const SizedBox(height: 24),
 
-              // Slider Arco-Íris de Matiz Livre
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              // 2. Faixa Compacta de Pré-visualização da Cor Ativa (Apenas 48px de altura)
+              _buildCompactPreviewStrip(colorName, hexString),
+              const SizedBox(height: 14),
+
+              // 3. Seletor Horizontal de Grupos de Temas (Scroll suave em chips elegantes)
+              _buildCategorySelector(),
+              const SizedBox(height: 14),
+
+              // 4. Área de Paletas Agrupadas (Ultra-compacta e ergonômica)
+              _buildGroupedContent(),
+              const SizedBox(height: 18),
+
+              // 5. Botões de Ação
+              _buildActionButtons(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Cabeçalho compacto com Título, Modo Claro/Escuro em pílula e Restaurar Ícone
+  Widget _buildCompactHeader() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(7),
+              decoration: BoxDecoration(
+                color: _tempColor.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.palette_rounded, color: _tempColor, size: 20),
+            ),
+            const SizedBox(width: 8),
+            const Text(
+              'Cores do Tema',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        Row(
+          children: [
+            // Alternador Claro / Escuro em pílula compacta
+            Container(
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                color: Theme.of(context).scaffoldBackgroundColor,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text(
-                    'ESPECTRO LIVRE DE CORES',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.1),
-                  ),
-                  GestureDetector(
-                    onTap: _promptHexColor,
+                  InkWell(
+                    onTap: () => _toggleDarkMode(false),
+                    borderRadius: BorderRadius.circular(12),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: _tempColor.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: _tempColor.withValues(alpha: 0.35)),
+                        color: !_tempDarkMode ? Theme.of(context).cardColor : Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: !_tempDarkMode
+                            ? [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.08),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 1),
+                                )
+                              ]
+                            : null,
                       ),
                       child: Row(
-                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.edit_rounded, size: 12, color: _tempColor),
+                          Icon(Icons.wb_sunny_rounded, size: 14, color: !_tempDarkMode ? Colors.orange : Colors.grey),
                           const SizedBox(width: 4),
                           Text(
-                            hexString,
-                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _tempColor),
+                            'Claro',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: !_tempDarkMode ? FontWeight.bold : FontWeight.w500,
+                              color: !_tempDarkMode ? null : Colors.grey,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  InkWell(
+                    onTap: () => _toggleDarkMode(true),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: _tempDarkMode ? Theme.of(context).cardColor : Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: _tempDarkMode
+                            ? [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.08),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 1),
+                                )
+                              ]
+                            : null,
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.nightlight_round_rounded, size: 14, color: _tempDarkMode ? Colors.blueAccent : Colors.grey),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Escuro',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: _tempDarkMode ? FontWeight.bold : FontWeight.w500,
+                              color: _tempDarkMode ? null : Colors.grey,
+                            ),
                           ),
                         ],
                       ),
@@ -299,432 +358,413 @@ class _ThemeColorPickerSheetState extends State<ThemeColorPickerSheet> {
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
-              _buildRainbowSlider(),
-              const SizedBox(height: 24),
-
-              // Botões de Ação
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        side: BorderSide(color: Colors.grey.withValues(alpha: 0.25)),
-                      ),
-                      child: const Text('Cancelar'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    flex: 2,
-                    child: ElevatedButton(
-                      onPressed: _applyAndSave,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _tempColor,
-                        foregroundColor: _tempColor.computeLuminance() > 0.5 ? Colors.black : Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        elevation: 0,
-                      ),
-                      child: const Text(
-                        'Aplicar Cor',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+            ),
+            const SizedBox(width: 4),
+            IconButton(
+              icon: const Icon(Icons.restart_alt, size: 20),
+              tooltip: 'Restaurar cores do ícone',
+              color: AppColors.iconGreen,
+              visualDensity: VisualDensity.compact,
+              onPressed: _restoreDefault,
+            ),
+          ],
         ),
-      ),
+      ],
     );
   }
 
-  Widget _buildLivePreviewCard(Color primaryColor, bool isDark) {
-    final previewBg = isDark ? const Color(0xFF131522) : const Color(0xFFF0F3F8);
-    final previewCardBg = isDark ? const Color(0xFF1F2236) : Colors.white;
-    final textColor = isDark ? Colors.white : const Color(0xFF1A1C2C);
-    final textMuted = isDark ? Colors.white60 : Colors.black54;
+  // Barra de prévia compacta (48px) com informações da cor selecionada
+  Widget _buildCompactPreviewStrip(String colorName, String hexString) {
+    final isDark = _tempDarkMode;
+    final cardBg = isDark ? const Color(0xFF1E2132) : const Color(0xFFF1F5F9);
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
-        color: previewBg,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: primaryColor.withValues(alpha: 0.25), width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: primaryColor.withValues(alpha: 0.08),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        color: cardBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _tempColor.withValues(alpha: 0.3), width: 1.5),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Pré-visualização do Aplicativo',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textMuted),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(isDark ? Icons.nightlight_round : Icons.wb_sunny_rounded, size: 12, color: primaryColor),
-                    const SizedBox(width: 4),
-                    Text(
-                      isDark ? 'Modo Escuro' : 'Modo Claro',
-                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: textMuted),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          // Mini item simulado
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            width: 28,
+            height: 28,
             decoration: BoxDecoration(
-              color: previewCardBg,
-              borderRadius: BorderRadius.circular(14),
+              color: _tempColor,
+              shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 8,
+                  color: _tempColor.withValues(alpha: 0.45),
+                  blurRadius: 6,
                   offset: const Offset(0, 2),
                 ),
               ],
             ),
+            child: const Icon(Icons.check, color: Colors.white, size: 16),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  colorName,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  '${_tempDarkMode ? 'Modo Escuro' : 'Modo Claro'} • $hexString',
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                ),
+              ],
+            ),
+          ),
+          InkWell(
+            onTap: _promptHexColor,
+            borderRadius: BorderRadius.circular(10),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: _tempColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: _tempColor.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.edit_rounded, size: 12, color: _tempColor),
+                  const SizedBox(width: 4),
+                  Text(
+                    'HEX',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _tempColor),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Seletor horizontal compacto de categorias/grupos
+  Widget _buildCategorySelector() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      physics: const BouncingScrollPhysics(),
+      child: Row(
+        children: _categories.map((cat) {
+          final isSelected = _selectedCategory == cat['id'];
+          return Padding(
+            padding: const EdgeInsets.only(right: 6),
+            child: ChoiceChip(
+              avatar: Text(cat['icon']!, style: const TextStyle(fontSize: 12)),
+              label: Text(cat['label']!),
+              selected: isSelected,
+              showCheckmark: false,
+              selectedColor: _tempColor,
+              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+              labelStyle: TextStyle(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                color: isSelected
+                    ? (_tempColor.computeLuminance() > 0.5 ? Colors.black : Colors.white)
+                    : null,
+              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              side: BorderSide(
+                color: isSelected ? Colors.transparent : Colors.grey.withValues(alpha: 0.2),
+              ),
+              onSelected: (_) {
+                HapticFeedback.selectionClick();
+                setState(() => _selectedCategory = cat['id']!);
+              },
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  // Conteúdo agrupado inteligente dependendo da categoria selecionada
+  Widget _buildGroupedContent() {
+    if (_selectedCategory == 'Ícone') {
+      return _buildOfficialIconGroup();
+    } else if (_selectedCategory == 'Livre') {
+      return _buildFreeSpectrumGroup();
+    } else if (_selectedCategory == 'Todas') {
+      return _buildAllColorsGrid();
+    } else {
+      return _buildCategorySwatchesGrid(_selectedCategory);
+    }
+  }
+
+  // 1. Grupo Ícone Oficial CARRIN
+  Widget _buildOfficialIconGroup() {
+    final isGreenSelected = _tempColor.toARGB32() == AppColors.iconGreen.toARGB32();
+    final isBlueSelected = _tempColor.toARGB32() == AppColors.iconBlue.toARGB32();
+    final isDark = _tempDarkMode;
+
+    return Row(
+      children: [
+        Expanded(
+          child: InkWell(
+            onTap: () => _selectCuratedColor(AppColors.iconGreen),
+            borderRadius: BorderRadius.circular(16),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+              decoration: BoxDecoration(
+                color: isGreenSelected
+                    ? AppColors.iconGreen
+                    : (isDark ? const Color(0xFF272A3E) : Colors.grey.shade100),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: AppColors.iconGreen,
+                  width: isGreenSelected ? 2.5 : 1.0,
+                ),
+                boxShadow: isGreenSelected
+                    ? [
+                        BoxShadow(
+                          color: AppColors.iconGreen.withValues(alpha: 0.35),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        )
+                      ]
+                    : null,
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: AppColors.iconGreen,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                    child: isGreenSelected
+                        ? const Icon(Icons.check, color: Colors.white, size: 18)
+                        : null,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Verde do Ícone',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.bold,
+                      color: isGreenSelected ? Colors.white : (isDark ? Colors.white : Colors.black87),
+                    ),
+                  ),
+                  Text(
+                    'Padrão de Fábrica',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: isGreenSelected ? Colors.white70 : Colors.grey,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: InkWell(
+            onTap: () => _selectCuratedColor(AppColors.iconBlue),
+            borderRadius: BorderRadius.circular(16),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+              decoration: BoxDecoration(
+                color: isBlueSelected
+                    ? AppColors.iconBlue
+                    : (isDark ? const Color(0xFF272A3E) : Colors.grey.shade100),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: AppColors.iconBlue,
+                  width: isBlueSelected ? 2.5 : 1.0,
+                ),
+                boxShadow: isBlueSelected
+                    ? [
+                        BoxShadow(
+                          color: AppColors.iconBlue.withValues(alpha: 0.35),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        )
+                      ]
+                    : null,
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: AppColors.iconBlue,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                    child: isBlueSelected
+                        ? const Icon(Icons.check, color: Colors.white, size: 18)
+                        : null,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Azul do Ícone',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.bold,
+                      color: isBlueSelected ? Colors.white : (isDark ? Colors.white : Colors.black87),
+                    ),
+                  ),
+                  Text(
+                    'Padrão de Fábrica',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: isBlueSelected ? Colors.white70 : Colors.grey,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // 2. Grupo de Paleta por Categoria (Grade compacta de círculos com nome)
+  Widget _buildCategorySwatchesGrid(String category) {
+    final list = AppColors.curated.where((nc) => nc.category == category).toList();
+
+    return Wrap(
+      spacing: 12,
+      runSpacing: 10,
+      alignment: WrapAlignment.start,
+      children: list.map((nc) {
+        final isSelected = _tempColor.toARGB32() == nc.color.toARGB32();
+        return InkWell(
+          onTap: () => _selectCuratedColor(nc.color),
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? nc.color.withValues(alpha: 0.16)
+                  : Theme.of(context).scaffoldBackgroundColor,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isSelected ? nc.color : Colors.grey.withValues(alpha: 0.2),
+                width: isSelected ? 2.0 : 1.0,
+              ),
+            ),
             child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 32,
-                  height: 32,
+                  width: 22,
+                  height: 22,
                   decoration: BoxDecoration(
-                    color: primaryColor.withValues(alpha: 0.12),
+                    color: nc.color,
                     shape: BoxShape.circle,
-                  ),
-                  child: Icon(Icons.shopping_bag_outlined, color: primaryColor, size: 18),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Café Torrado 500g', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: textColor)),
-                      Text('2 un × R\$ 16,90', style: TextStyle(fontSize: 11, color: textMuted)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: nc.color.withValues(alpha: 0.35),
+                        blurRadius: 4,
+                        offset: const Offset(0, 1),
+                      ),
                     ],
                   ),
+                  child: isSelected
+                      ? const Icon(Icons.check, color: Colors.white, size: 14)
+                      : null,
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: primaryColor.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    'R\$ 33,80',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: primaryColor),
+                const SizedBox(width: 6),
+                Text(
+                  nc.name,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                    color: isSelected ? nc.color : null,
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 10),
-
-          // Barra de progresso simulada com a cor primária
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: LinearProgressIndicator(
-              value: 0.68,
-              minHeight: 6,
-              backgroundColor: isDark ? Colors.white12 : Colors.black12,
-              valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
-            ),
-          ),
-        ],
-      ),
+        );
+      }).toList(),
     );
   }
 
-  Widget _buildOfficialIconThemeBanner() {
-    final isGreenSelected = _tempColor.toARGB32() == AppColors.iconGreen.toARGB32();
-    final isBlueSelected = _tempColor.toARGB32() == AppColors.iconBlue.toARGB32();
-    final isDark = _tempDarkMode;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E2132) : const Color(0xFFF1F5F9),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: (isGreenSelected || isBlueSelected)
-              ? (isGreenSelected ? AppColors.iconGreen : AppColors.iconBlue)
-              : Colors.grey.withValues(alpha: 0.2),
-          width: 1.5,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Row(
-                children: [
-                  Icon(Icons.verified_rounded, size: 16, color: AppColors.iconGreen),
-                  SizedBox(width: 6),
-                  Text(
-                    'Cores Oficiais do Ícone CARRIN',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+  // 3. Grupo de Todas as Cores em Grade Ultra-Compacta (36 círculos limpos)
+  Widget _buildAllColorsGrid() {
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      alignment: WrapAlignment.center,
+      children: AppColors.curated.map((nc) {
+        final isSelected = _tempColor.toARGB32() == nc.color.toARGB32();
+        return Tooltip(
+          message: nc.name,
+          child: InkWell(
+            onTap: () => _selectCuratedColor(nc.color),
+            borderRadius: BorderRadius.circular(18),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: nc.color,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isSelected ? Colors.white : Colors.transparent,
+                  width: 2.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: nc.color.withValues(alpha: isSelected ? 0.6 : 0.3),
+                    blurRadius: isSelected ? 8 : 3,
+                    offset: const Offset(0, 2),
                   ),
                 ],
               ),
-              if (isGreenSelected || isBlueSelected)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: (isGreenSelected ? AppColors.iconGreen : AppColors.iconBlue).withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    'Ativo',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: isGreenSelected ? AppColors.iconGreen : AppColors.iconBlue,
-                    ),
-                  ),
-                ),
-            ],
+              child: isSelected
+                  ? const Icon(Icons.check, color: Colors.white, size: 20)
+                  : null,
+            ),
           ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: InkWell(
-                  onTap: () => _selectCuratedColor(AppColors.iconGreen),
-                  borderRadius: BorderRadius.circular(12),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 180),
-                    padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 10),
-                    decoration: BoxDecoration(
-                      color: isGreenSelected
-                          ? AppColors.iconGreen
-                          : (isDark ? const Color(0xFF272A3E) : Colors.white),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: AppColors.iconGreen,
-                        width: isGreenSelected ? 2.0 : 1.0,
-                      ),
-                      boxShadow: isGreenSelected
-                          ? [
-                              BoxShadow(
-                                color: AppColors.iconGreen.withValues(alpha: 0.35),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              )
-                            ]
-                          : null,
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          width: 14,
-                          height: 14,
-                          decoration: BoxDecoration(
-                            color: AppColors.iconGreen,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 2),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Verde Ícone',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: isGreenSelected ? Colors.white : (isDark ? Colors.white : Colors.black87),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: InkWell(
-                  onTap: () => _selectCuratedColor(AppColors.iconBlue),
-                  borderRadius: BorderRadius.circular(12),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 180),
-                    padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 10),
-                    decoration: BoxDecoration(
-                      color: isBlueSelected
-                          ? AppColors.iconBlue
-                          : (isDark ? const Color(0xFF272A3E) : Colors.white),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: AppColors.iconBlue,
-                        width: isBlueSelected ? 2.0 : 1.0,
-                      ),
-                      boxShadow: isBlueSelected
-                          ? [
-                              BoxShadow(
-                                color: AppColors.iconBlue.withValues(alpha: 0.35),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              )
-                            ]
-                          : null,
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          width: 14,
-                          height: 14,
-                          decoration: BoxDecoration(
-                            color: AppColors.iconBlue,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 2),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Azul Ícone',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: isBlueSelected ? Colors.white : (isDark ? Colors.white : Colors.black87),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
+        );
+      }).toList(),
     );
   }
 
-  Widget _buildModeSelector() {
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: Theme.of(context).scaffoldBackgroundColor,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: GestureDetector(
-              onTap: () => _toggleDarkMode(false),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(
-                  color: !_tempDarkMode ? Theme.of(context).cardColor : Colors.transparent,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: !_tempDarkMode ? [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    )
-                  ] : null,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.wb_sunny_rounded,
-                      size: 18,
-                      color: !_tempDarkMode ? Colors.orange : Colors.grey,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Modo Claro',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: !_tempDarkMode ? FontWeight.bold : FontWeight.w500,
-                        color: !_tempDarkMode ? null : Colors.grey,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+  // 4. Grupo Livre: Slider Arco-Íris + HEX
+  Widget _buildFreeSpectrumGroup() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildRainbowSlider(),
+        const SizedBox(height: 10),
+        Center(
+          child: TextButton.icon(
+            onPressed: _promptHexColor,
+            icon: const Icon(Icons.colorize_rounded, size: 16),
+            label: const Text('Digitar Código HEX Personalizado', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
           ),
-          Expanded(
-            child: GestureDetector(
-              onTap: () => _toggleDarkMode(true),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(
-                  color: _tempDarkMode ? Theme.of(context).cardColor : Colors.transparent,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: _tempDarkMode ? [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    )
-                  ] : null,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.nightlight_round_rounded,
-                      size: 18,
-                      color: _tempDarkMode ? Colors.blueAccent : Colors.grey,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Modo Escuro',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: _tempDarkMode ? FontWeight.bold : FontWeight.w500,
-                        color: _tempDarkMode ? null : Colors.grey,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
   Widget _buildRainbowSlider() {
     return Container(
-      height: 40,
+      height: 38,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(19),
         gradient: const LinearGradient(
           colors: [
             Color(0xFFFF0000), // Vermelho
@@ -739,14 +779,14 @@ class _ThemeColorPickerSheetState extends State<ThemeColorPickerSheet> {
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 8,
+            blurRadius: 6,
             offset: const Offset(0, 2),
           ),
         ],
       ),
       child: SliderTheme(
         data: SliderTheme.of(context).copyWith(
-          trackHeight: 40,
+          trackHeight: 38,
           activeTrackColor: Colors.transparent,
           inactiveTrackColor: Colors.transparent,
           thumbColor: Colors.white,
@@ -763,105 +803,38 @@ class _ThemeColorPickerSheetState extends State<ThemeColorPickerSheet> {
     );
   }
 
-  Widget _buildCuratedColorsGrid() {
-    final filtered = _selectedCategory == 'Todas'
-        ? AppColors.curated
-        : AppColors.curated.where((nc) => nc.category == _selectedCategory).toList();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+  // Botões de Ação
+  Widget _buildActionButtons() {
+    return Row(
       children: [
-        // Filtro por categorias com rolagem horizontal
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          physics: const BouncingScrollPhysics(),
-          child: Row(
-            children: AppColors.categories.map((cat) {
-              final isCatSelected = _selectedCategory == cat;
-              return Padding(
-                padding: const EdgeInsets.only(right: 8, bottom: 12),
-                child: FilterChip(
-                  label: Text(
-                    cat, 
-                    style: TextStyle(
-                      fontSize: 12, 
-                      fontWeight: isCatSelected ? FontWeight.bold : FontWeight.w500,
-                      color: isCatSelected ? Colors.white : null,
-                    ),
-                  ),
-                  selected: isCatSelected,
-                  selectedColor: Theme.of(context).primaryColor,
-                  checkmarkColor: Colors.white,
-                  backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  side: BorderSide(
-                    color: isCatSelected ? Colors.transparent : Colors.grey.withValues(alpha: 0.2),
-                  ),
-                  onSelected: (_) {
-                    HapticFeedback.selectionClick();
-                    setState(() => _selectedCategory = cat);
-                  },
-                ),
-              );
-            }).toList(),
+        Expanded(
+          child: OutlinedButton(
+            onPressed: () => Navigator.pop(context),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              side: BorderSide(color: Colors.grey.withValues(alpha: 0.25)),
+            ),
+            child: const Text('Cancelar'),
           ),
         ),
-        const SizedBox(height: 4),
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: filtered.map((namedColor) {
-            final isSelected = _tempColor.toARGB32() == namedColor.color.toARGB32();
-            return GestureDetector(
-              onTap: () => _selectCuratedColor(namedColor.color),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? namedColor.color.withValues(alpha: 0.16)
-                      : Theme.of(context).scaffoldBackgroundColor,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: isSelected ? namedColor.color : Colors.transparent,
-                    width: 1.5,
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 20,
-                      height: 20,
-                      decoration: BoxDecoration(
-                        color: namedColor.color,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: namedColor.color.withValues(alpha: 0.4),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
-                          )
-                        ],
-                      ),
-                      child: isSelected
-                          ? const Icon(Icons.check, color: Colors.white, size: 14)
-                          : null,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      namedColor.name,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                        color: isSelected ? namedColor.color : null,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }).toList(),
+        const SizedBox(width: 12),
+        Expanded(
+          flex: 2,
+          child: ElevatedButton(
+            onPressed: _applyAndSave,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _tempColor,
+              foregroundColor: _tempColor.computeLuminance() > 0.5 ? Colors.black : Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              elevation: 0,
+            ),
+            child: const Text(
+              'Aplicar Tema',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5),
+            ),
+          ),
         ),
       ],
     );
@@ -874,7 +847,7 @@ class _CustomThumbShape extends SliderComponentShape {
   const _CustomThumbShape({required this.thumbColor});
 
   @override
-  Size getPreferredSize(bool isEnabled, bool isDiscrete) => const Size(28, 28);
+  Size getPreferredSize(bool isEnabled, bool isDiscrete) => const Size(26, 26);
 
   @override
   void paint(
@@ -897,18 +870,18 @@ class _CustomThumbShape extends SliderComponentShape {
     final shadowPaint = Paint()
       ..color = Colors.black.withValues(alpha: 0.25)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
-    canvas.drawCircle(center + const Offset(0, 2), 16, shadowPaint);
+    canvas.drawCircle(center + const Offset(0, 2), 15, shadowPaint);
 
     // Borda branca externa
     final outerPaint = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.fill;
-    canvas.drawCircle(center, 16, outerPaint);
+    canvas.drawCircle(center, 15, outerPaint);
 
     // Círculo interno colorido com a cor selecionada
     final innerPaint = Paint()
       ..color = thumbColor
       ..style = PaintingStyle.fill;
-    canvas.drawCircle(center, 12, innerPaint);
+    canvas.drawCircle(center, 11, innerPaint);
   }
 }
