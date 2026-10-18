@@ -972,6 +972,43 @@ class ItemProvider with ChangeNotifier {
 
   List<Item> get items => _items;
   List<String> get months => _months;
+
+  @visibleForTesting
+  void setMonthsForTesting(List<String> testMonths) {
+    _months = List.from(testMonths);
+  }
+
+  /// Retorna as listas de carrinhos ordenadas cronologicamente com as mais recentes no topo (decrescente).
+  List<String> get sortedMonthsDescending {
+    final list = List<String>.from(_months);
+    list.sort((a, b) {
+      final keyA = _parseMonthYearComparable(a);
+      final keyB = _parseMonthYearComparable(b);
+      if (keyA > 0 && keyB > 0 && keyA != keyB) {
+        return keyB.compareTo(keyA);
+      }
+      final idxA = _months.indexOf(a);
+      final idxB = _months.indexOf(b);
+      return idxB.compareTo(idxA);
+    });
+    return list;
+  }
+
+  /// Retorna as listas de carrinhos ordenadas cronologicamente com as mais antigas no topo (crescente).
+  List<String> get sortedMonthsAscending {
+    final list = List<String>.from(_months);
+    list.sort((a, b) {
+      final keyA = _parseMonthYearComparable(a);
+      final keyB = _parseMonthYearComparable(b);
+      if (keyA > 0 && keyB > 0 && keyA != keyB) {
+        return keyA.compareTo(keyB);
+      }
+      final idxA = _months.indexOf(a);
+      final idxB = _months.indexOf(b);
+      return idxA.compareTo(idxB);
+    });
+    return list;
+  }
   bool get isLoading => _isLoading;
   bool get isSyncingBackground => _isSyncingBackground;
   bool get isMonthsLoading => _isMonthsLoading;
@@ -2466,13 +2503,12 @@ class ItemProvider with ChangeNotifier {
       }
     }
 
-    int res = 0;
-    if (year > 0 && month > 0) {
-      res = year * 100 + month;
-    } else {
-      final idx = _months.indexOf(monthStr);
-      res = idx != -1 ? 100000 + idx : 0;
+    // Se encontrou o mês mas não o ano, assume o ano atual
+    if (year == 0 && month > 0) {
+      year = DateTime.now().year;
     }
+
+    final int res = (year > 0 && month > 0) ? (year * 100 + month) : 0;
 
     _monthComparableCache[monthStr] = res;
     return res;

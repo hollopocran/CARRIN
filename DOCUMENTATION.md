@@ -316,6 +316,14 @@ O [`BarcodeLookupService`](file:///C:/Dev/CARRIN/lib/services/barcode_lookup_ser
 
 ## 5. Histórico Cronológico de Atualizações e Versões
 
+### v1.3.563 (18 de Outubro de 2026)
+- **Inversão e Ordenação Inteligente de Carrinhos / Listas de Compras (`MonthSelectionScreen` & `ItemProvider`):**
+  - **Mais Recentes no Topo por Padrão:** As listas de carrinhos agora são exibidas com os meses/carrinhos mais recentes no topo e os mais antigos embaixo ("colocar as mais antigas para baixo"), garantindo acesso imediato ao carrinho ativo sem necessidade de rolar até o final da tela.
+  - **Botão de Inversão de Ordem no Topo:** Adicionado botão alternador no `AppBar` de *Meus Carrinhos* (`Icons.arrow_downward_rounded` / `Icons.arrow_upward_rounded`) permitindo ao usuário inverter a visualização entre mais recentes no topo ou mais antigas no topo a qualquer momento com tooltip informativo e persistência automática em `SharedPreferences` (`month_sort_descending`).
+  - **Ordenação Cronológica e por Criação:** O algoritmo de ordenação analisa meses e anos (`year * 100 + month`) para ordenar cronologicamente listas com nomes de meses e infere o ano corrente quando omitido, e utiliza a ordem de criação invertida para listas personalizadas ("Rancho", "Churrasco", etc.).
+  - **Histórico no Dashboard e Estatísticas Atualizados:** Os diálogos de *Economia Mensal* e *Histórico de Orçamentos* na Home e o diálogo de *Resumo Geral* na aba de Estatísticas agora também exibem os carrinhos mais recentes no topo.
+- **Validação Automatizada:** 60/60 testes unitários e de widgets aprovados (100% de sucesso), 0 erros no `flutter analyze`.
+
 ### v1.3.562 (18 de Outubro de 2026)
 - **Remoção da Interrogação da Tela Inicial (`DashboardScreen`):**
   - O botão de interrogação `?` foi totalmente retirado da AppBar da Home, mantendo a tela inicial limpa e focada exclusivamente no status de sincronização, alternador de tema e perfil. O suporte e reset de tutoriais permanecem organizados na aba de *Ajustes*.

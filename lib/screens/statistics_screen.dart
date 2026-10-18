@@ -514,11 +514,14 @@ class _StatisticsScreenState extends State<StatisticsScreen> with AutomaticKeepA
         ),
         content: SizedBox(
           width: double.maxFinite,
-          child: ListView.builder(
-            shrinkWrap: true,
-            itemCount: provider.months.length,
-            itemBuilder: (context, index) {
-              final m = provider.months[index];
+          child: Builder(
+            builder: (context) {
+              final monthsList = provider.sortedMonthsDescending;
+              return ListView.builder(
+                shrinkWrap: true,
+                itemCount: monthsList.length,
+                itemBuilder: (context, index) {
+                  final m = monthsList[index];
               final s = provider.getCachedSummaryForMonth(m);
               final b = s?['budget'] ?? 0.0;
               final t = s?['total'] ?? 0.0;
@@ -591,8 +594,10 @@ class _StatisticsScreenState extends State<StatisticsScreen> with AutomaticKeepA
                 ),
               );
             },
-          ),
-        ),
+          );
+        },
+      ),
+    ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),

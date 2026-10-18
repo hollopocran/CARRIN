@@ -1337,6 +1337,61 @@ void main() {
       expect(find.byType(StatisticsScreen), findsOneWidget);
     });
   });
+
+  group('Month List Inversion & Chronological Sorting Tests', () {
+    setUp(() {
+      SharedPreferences.setMockInitialValues({});
+    });
+
+    test('sortedMonthsDescending places newest months on top and oldest at the bottom', () {
+      final provider = ItemProvider();
+      provider.setMonthsForTesting([
+        'Janeiro 2025',
+        'Dezembro 2024',
+        'Outubro 2026',
+        'Fevereiro 2025',
+      ]);
+
+      final desc = provider.sortedMonthsDescending;
+      expect(desc, equals([
+        'Outubro 2026',
+        'Fevereiro 2025',
+        'Janeiro 2025',
+        'Dezembro 2024',
+      ]));
+
+      final asc = provider.sortedMonthsAscending;
+      expect(asc, equals([
+        'Dezembro 2024',
+        'Janeiro 2025',
+        'Fevereiro 2025',
+        'Outubro 2026',
+      ]));
+    });
+
+    test('sortedMonthsDescending places latest created custom lists on top and older ones below', () {
+      final provider = ItemProvider();
+      provider.setMonthsForTesting([
+        'Rancho de Casa',
+        'Churrasco com Amigos',
+        'Festa Junina',
+      ]);
+
+      final desc = provider.sortedMonthsDescending;
+      expect(desc, equals([
+        'Festa Junina',
+        'Churrasco com Amigos',
+        'Rancho de Casa',
+      ]));
+
+      final asc = provider.sortedMonthsAscending;
+      expect(asc, equals([
+        'Rancho de Casa',
+        'Churrasco com Amigos',
+        'Festa Junina',
+      ]));
+    });
+  });
 }
 
 

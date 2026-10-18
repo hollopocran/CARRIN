@@ -465,7 +465,7 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
           if (currentSelected.isNotEmpty && provider.months.contains(currentSelected)) {
             await provider.switchMonth(currentSelected);
           } else {
-            await provider.switchMonth(provider.months.first);
+            await provider.switchMonth(provider.sortedMonthsDescending.first);
           }
           if (mounted) {
             Navigator.push(
@@ -474,9 +474,11 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
             );
           }
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Crie um carrinho primeiro para acessar a lista.')),
-          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Crie um carrinho primeiro para acessar a lista.')),
+            );
+          }
         }
       },
       borderRadius: BorderRadius.circular(110),
@@ -573,41 +575,44 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
         title: const Text('Economia Mensal', style: TextStyle(fontWeight: FontWeight.bold)),
         content: SizedBox(
           width: double.maxFinite,
-          child: provider.months.isEmpty
-              ? const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-                  child: Text(
-                    'Nenhum dado registrado. Crie um carrinho na aba "Carrinhos" para começar a acumular seu histórico de saldo.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey, fontSize: 14, height: 1.4),
-                  ),
-                )
-              : ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: provider.months.length,
-                  itemBuilder: (context, index) {
-                    final month = provider.months[index];
-                    final summary = provider.getCachedSummaryForMonth(month);
-                    final balance = summary?['balance'] ?? 0.0;
-                    final isPositive = balance >= 0;
+          child: () {
+            final monthsList = provider.sortedMonthsDescending;
+            return monthsList.isEmpty
+                ? const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                    child: Text(
+                      'Nenhum dado registrado. Crie um carrinho na aba "Carrinhos" para começar a acumular seu histórico de saldo.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.grey, fontSize: 14, height: 1.4),
+                    ),
+                  )
+                : ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: monthsList.length,
+                    itemBuilder: (context, index) {
+                      final month = monthsList[index];
+                      final summary = provider.getCachedSummaryForMonth(month);
+                      final balance = summary?['balance'] ?? 0.0;
+                      final isPositive = balance >= 0;
 
-                    return ListTile(
-                      leading: Icon(
-                        isPositive ? Icons.sentiment_very_satisfied_rounded : Icons.sentiment_dissatisfied_rounded,
-                        color: isPositive ? Colors.green : Colors.redAccent,
-                      ),
-                      title: Text(month, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      subtitle: Text(isPositive ? 'Sobrou do orçamento' : 'Ultrapassou o limite'),
-                      trailing: Text(
-                        Utils.formatCurrency(balance),
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
+                      return ListTile(
+                        leading: Icon(
+                          isPositive ? Icons.sentiment_very_satisfied_rounded : Icons.sentiment_dissatisfied_rounded,
                           color: isPositive ? Colors.green : Colors.redAccent,
                         ),
-                      ),
-                    );
-                  },
-                ),
+                        title: Text(month, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: Text(isPositive ? 'Sobrou do orçamento' : 'Ultrapassou o limite'),
+                        trailing: Text(
+                          Utils.formatCurrency(balance),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: isPositive ? Colors.green : Colors.redAccent,
+                          ),
+                        ),
+                      );
+                    },
+                  );
+          }(),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Fechar')),
@@ -624,33 +629,36 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
         title: const Text('Histórico de Orçamentos', style: TextStyle(fontWeight: FontWeight.bold)),
         content: SizedBox(
           width: double.maxFinite,
-          child: provider.months.isEmpty
-              ? const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-                  child: Text(
-                    'Nenhum dado registrado. Defina um orçamento ao criar um carrinho para acompanhar seu histórico.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey, fontSize: 14, height: 1.4),
-                  ),
-                )
-              : ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: provider.months.length,
-                  itemBuilder: (context, index) {
-                    final month = provider.months[index];
-                    final summary = provider.getCachedSummaryForMonth(month);
-                    final budget = summary?['budget'] ?? 0.0;
+          child: () {
+            final monthsList = provider.sortedMonthsDescending;
+            return monthsList.isEmpty
+                ? const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                    child: Text(
+                      'Nenhum dado registrado. Defina um orçamento ao criar um carrinho para acompanhar seu histórico.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.grey, fontSize: 14, height: 1.4),
+                    ),
+                  )
+                : ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: monthsList.length,
+                    itemBuilder: (context, index) {
+                      final month = monthsList[index];
+                      final summary = provider.getCachedSummaryForMonth(month);
+                      final budget = summary?['budget'] ?? 0.0;
 
-                    return ListTile(
-                      leading: const Icon(Icons.savings_outlined, color: Colors.blueAccent),
-                      title: Text(month, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      trailing: Text(
-                        Utils.formatCurrency(budget),
-                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blueAccent),
-                      ),
-                    );
-                  },
-                ),
+                      return ListTile(
+                        leading: const Icon(Icons.savings_outlined, color: Colors.blueAccent),
+                        title: Text(month, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        trailing: Text(
+                          Utils.formatCurrency(budget),
+                          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blueAccent),
+                        ),
+                      );
+                    },
+                  );
+          }(),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Fechar')),
