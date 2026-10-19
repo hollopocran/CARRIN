@@ -76,13 +76,13 @@ class TermsScreen extends StatelessWidget {
           ),
           const SizedBox(height: 24),
 
-          // Tópico 1: Minimização e Ausência de Servidores Centrais
+          // Tópico 1: Princípio da Minimização e Arquitetura Descentralizada
           _buildTermCard(
-            title: '1. Princípio da Minimização e Sem Servidores Centrais (Art. 6º, III)',
+            title: '1. Minimização e Arquitetura Descentralizada (Art. 6º, III)',
             icon: Icons.dns_outlined,
             color: Colors.blueAccent,
             isDarkMode: isDarkMode,
-            content: 'O CARRIN não opera servidores centrais de armazenamento ou intermediação de listas pessoais. O desenvolvedor do aplicativo não coleta, não monitora, não analisa e não comercializa nenhum dos seus dados pessoais ou financeiros para anunciantes ou terceiros. Suas informações pertencem exclusivamente a você.',
+            content: 'O CARRIN adota o modelo "Local-First" (local em primeiro lugar). O aplicativo não opera servidores centrais proprietários para coletar ou interceptar suas listas de compras particulares, notas ou dados financeiros. O desenvolvedor não monitora, não analisa e não comercializa seus hábitos de consumo. Suas informações pessoais pertencem unicamente a você.',
           ),
           const SizedBox(height: 16),
 
@@ -106,13 +106,13 @@ class TermsScreen extends StatelessWidget {
           ),
           const SizedBox(height: 16),
 
-          // Tópico 4: Radar de Preços Comunitário e Anonimização
+          // Tópico 4: Servidor Compartilhado do Radar Comunitário e Anonimização
           _buildTermCard(
-            title: '4. Radar Comunitário e Anonimização Absoluta (Art. 12)',
+            title: '4. Conexão Comunitária & Servidor Supabase (Art. 12)',
             icon: Icons.share_location_rounded,
             color: Colors.purpleAccent,
             isDarkMode: isDarkMode,
-            content: 'Ao colaborar com o Radar de Preços Comunitário, apenas cotações puramente impessoais de mercado são transmitidas (nome do item, valor, supermercado e coordenadas públicas da loja). Nomes de usuário, e-mails, fotos ou qualquer identificador pessoal NUNCA são atrelados às cotações públicas da comunidade, garantindo anonimização total nos termos do Artigo 12 da LGPD.',
+            content: 'Para conectar a inteligência de compras entre os usuários, o CARRIN utiliza um banco de dados em nuvem compartilhado (Supabase). Conforme o Artigo 12 da LGPD, os dados transmitidos são estritamente anonimizados: são enviadas apenas cotações impessoais de mercado (produto, valor pago, supermercado e data). Nomes, e-mails, fotos, senhas ou identificadores do aparelho (IMEI) NUNCA são transmitidos ou atrelados às cotações, garantindo impossibilidade de identificação do titular.',
           ),
           const SizedBox(height: 16),
 
@@ -167,6 +167,21 @@ class TermsScreen extends StatelessWidget {
             color: Colors.blueGrey,
             isDarkMode: isDarkMode,
             content: 'Para dirimir dúvidas, solicitar esclarecimentos técnicos ou exercer quaisquer direitos previstos pela LGPD, o canal de suporte com a equipe de desenvolvimento do CARRIN permanece disponível através do repositório oficial no GitHub.',
+          ),
+          const SizedBox(height: 16),
+
+          // Tópico 10: Infraestrutura e Provedores de Nuvem de Terceiros
+          _buildTermCard(
+            title: '10. Provedores de Nuvem & Suboperadores (Art. 9º, II)',
+            icon: Icons.cloud_sync_outlined,
+            color: Colors.deepPurpleAccent,
+            isDarkMode: isDarkMode,
+            content: 'Para prestar seus serviços com alto padrão de segurança sem coletar dados invasivos, o CARRIN integra-se às seguintes infraestruturas de nuvem especializadas:\n\n'
+                '• Supabase Inc.: Servidor em nuvem gerenciado para recepção e distribuição das cotações anônimas do Radar de Preços.\n'
+                '• Google LLC: Infraestrutura para login OAuth 2.0 e gravação da planilha no Google Drive pessoal do usuário.\n'
+                '• GitHub Inc. (Microsoft): Hospedagem pública para consulta de versões e download de atualizações (OTA).\n'
+                '• Open Food Facts: Base comunitária aberta internacional para consulta das descrições de códigos de barras.\n'
+                '• Provedores de Mapas (OSM/Google): Fornecimento dos blocos cartográficos no mapa geográfico.',
           ),
           const SizedBox(height: 32),
 
