@@ -204,13 +204,6 @@ class SettingsScreen extends StatelessWidget {
             icon: Icons.system_update_rounded,
             onTap: () => _handleCheckUpdate(context),
           ),
-          _buildSettingItem(
-            context,
-            title: 'Lançar Atualização',
-            subtitle: 'Painel do desenvolvedor para publicar nova versão OTA',
-            icon: Icons.campaign_rounded,
-            onTap: () => AppUpdatePublisherDialog.show(context),
-          ),
         ],
       ),
     );

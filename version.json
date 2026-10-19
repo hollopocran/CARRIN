@@ -1,16 +1,15 @@
 {
-  "version": "1.3.574",
-  "build_number": 574,
+  "version": "1.3.575",
+  "build_number": 575,
   "release_date": "2026-10-19",
-  "title": "CARRIN v1.3.574",
+  "title": "CARRIN v1.3.575",
   "release_notes": [
-    "Feed Social Puro e Direto: visual limpo sem filtros ou carrosséis excessivos",
+    "Remoção de painel de desenvolvedor/lançamento de versão das configurações",
+    "Feed Social limpo e direto sem filtros pesados",
     "Puxar para atualizar (pull-to-refresh) em tempo real",
-    "Cards sociais leves com tempo relativo, mercado, preço hero e selo de verificação",
-    "Ações rápidas com 1 toque: Confirmar Preço, Salvar na Lista e Compartilhar",
-    "Assinatura oficial unificada para atualização direta sem perda de dados"
+    "Melhorias gerais de segurança e interface"
   ],
-  "apk_url": "https://github.com/hollopocran/CARRIN/releases/download/v1.3.574/carrin_v1.3.574.apk",
+  "apk_url": "https://github.com/hollopocran/CARRIN/releases/download/v1.3.575/carrin_v1.3.575.apk",
   "is_active": true,
   "force_update": false
 }
