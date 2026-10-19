@@ -1,15 +1,14 @@
 {
-  "version": "1.3.569",
-  "build_number": 569,
-  "release_date": "2026-10-18",
-  "title": "CARRIN v1.3.569",
+  "version": "1.3.570",
+  "build_number": 570,
+  "release_date": "2026-10-19",
+  "title": "CARRIN v1.3.570",
   "release_notes": [
-    "Download silencioso de atualizações em segundo plano (sem interrupções na tela antes de baixar)",
-    "Aviso compacto de atualização pronta com link expansível para as notas da versão",
-    "Atualização integral dos Termos de Uso e Política de Privacidade em conformidade com a LGPD (Lei nº 13.709/18)",
-    "Download atômico (.part -> .apk) prevenindo corrupção de arquivos e limpeza de instaladores antigos"
+    "Ativação real do Modo Daltônico com matrizes de Daltonização em tempo real (Deuteranopia, Protanopia, Tritanopia e Alto Contraste)",
+    "Prévia visual com círculos de cores nas opções de acessibilidade das configurações",
+    "Ajuste automático de paletas de alto contraste e conformidade de leitura em todo o app"
   ],
-  "apk_url": "https://github.com/hollopocran/CARRIN/releases/download/v1.3.569/carrin_v1.3.569.apk",
+  "apk_url": "https://github.com/hollopocran/CARRIN/releases/download/v1.3.570/carrin_v1.3.570.apk",
   "is_active": true,
   "force_update": false
 }

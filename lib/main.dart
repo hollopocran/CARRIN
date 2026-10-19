@@ -113,12 +113,21 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       darkTheme: AppThemes.getTheme(themeProvider.seedColor, true, colorBlindMode: themeProvider.colorBlindMode),
       themeMode: themeProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
       builder: (context, child) {
-        return MediaQuery(
+        Widget app = MediaQuery(
           data: MediaQuery.of(context).copyWith(
             textScaler: TextScaler.linear(themeProvider.fontScale),
           ),
           child: child!,
         );
+
+        final matrix = themeProvider.colorBlindMatrix;
+        if (matrix != null) {
+          return ColorFiltered(
+            colorFilter: ColorFilter.matrix(matrix),
+            child: app,
+          );
+        }
+        return app;
       },
       home: const SplashScreen(), // Alterado para a SplashScreen animada
     );

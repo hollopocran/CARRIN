@@ -1,6 +1,6 @@
 # Documentação Técnica e Arquitetural: CARRIN
 
-> **Versão Atual:** `1.3.569` (Build `569`) — Outubro de 2026  
+> **Versão Atual:** `1.3.570` (Build `570`) — Outubro de 2026  
 > **Status:** Produção Estável  
 > **Slogan:** *"Sua lista, sem complicação."*
 
@@ -642,6 +642,16 @@ O [`BarcodeLookupService`](file:///C:/Dev/CARRIN/lib/services/barcode_lookup_ser
 - **Endereço Físico Completo Registrado em Cada Loja:** Adicionado o campo `address` em `PreloadedSupermarket` para todos os 138 estabelecimentos cadastrados.
 - **Exibição do Endereço no Mapa:** O endereço físico real agora é exibido tanto no painel inferior de detalhes (`_showMarketBottomSheet`) quanto na lista de resultados da busca rápida (`_openSearchDialog`).
 - **Validação:** 0 advertências no `flutter analyze`, 33/33 testes aprovados.
+
+### v1.3.570 (19 de Outubro de 2026)
+- **Ativação Real do Modo Daltônico com Matrizes de Daltonização:** Implementação de pipeline de filtragem cromática global no root da aplicação (`MaterialApp.builder` com `ColorFiltered` e `ColorFilter.matrix`), garantindo transformação óptica em tempo real de 100% dos elementos da interface (telas, ícones, botões, gráficos, cards, badges e alertas).
+- **Calibração Científica para Tipos de Daltonismo:**
+  - **Deuteranopia (Dificuldade com verde):** Matriz de transposição espectral que desloca os canais para azul/laranja/amarelo de alta legibilidade.
+  - **Protanopia (Dificuldade com vermelho):** Matriz que reforça a luminosidade dos tons vermelhos (evitando aspecto escuro/apagado) e preserva distinção de alertas.
+  - **Tritanopia (Dificuldade com azul/amarelo):** Realce do contraste azul-verde com proteção de tons quentes.
+  - **Alto Contraste:** Matriz de amplificação de contraste dinâmico (+35%) combinada com sementes de tema preto/esmeralda para legibilidade absoluta sob luz solar.
+- **Prévia Visual em Tempo Real nas Configurações:** Cada modalidade na caixa de diálogo de seleção exibe 3 círculos com a paleta de cores correspondente (Sucesso, Alerta, Destaque), facilitando a escolha imediata do usuário.
+- **Validação:** 0 advertências no `flutter analyze`, 61/61 testes unitários aprovados.
 
 ### v1.3.569 (18 de Outubro de 2026)
 - **Download Silencioso de Atualizações em Segundo Plano:** O aplicativo não exibe mais popups interruptivos solicitando permissão para baixar atualizações. Ao detectar uma nova versão no GitHub/OTA, o download do APK é iniciado silenciosamente em segundo plano enquanto o usuário navega normalmente pelo app.

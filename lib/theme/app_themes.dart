@@ -174,6 +174,21 @@ extension ColorBlindModeExtension on ColorBlindMode {
         return const Color(0xFF00E676);
     }
   }
+
+  List<Color> get previewColors {
+    switch (this) {
+      case ColorBlindMode.none:
+        return const [Color(0xFF10B981), Color(0xFFE63946), Color(0xFF0179F3)];
+      case ColorBlindMode.deuteranopia:
+        return const [Color(0xFF0072B2), Color(0xFFD55E00), Color(0xFFF0E442)];
+      case ColorBlindMode.protanopia:
+        return const [Color(0xFF56B4E9), Color(0xFFE69F00), Color(0xFFCC79A7)];
+      case ColorBlindMode.tritanopia:
+        return const [Color(0xFF009E73), Color(0xFFD55E00), Color(0xFF0072B2)];
+      case ColorBlindMode.highContrast:
+        return const [Color(0xFF00E676), Color(0xFFFF1744), Color(0xFF000000)];
+    }
+  }
 }
 
 class ThemeProvider with ChangeNotifier {
@@ -207,6 +222,50 @@ class ThemeProvider with ChangeNotifier {
   }
 
   String get colorBlindModeLabel => _colorBlindMode.label;
+
+  /// Retorna a matriz 4x5 de Daltonização e compensação de acessibilidade visual.
+  /// Quando `null`, a renderização é 100% nativa sem filtro.
+  List<double>? get colorBlindMatrix {
+    switch (_colorBlindMode) {
+      case ColorBlindMode.none:
+        return null;
+      case ColorBlindMode.deuteranopia:
+        // Daltonização para Deuteranopia (dificuldade com verde):
+        // Desloca o canal verde para ciano/azul e reforça o vermelho para laranja/amarelo vivo
+        return const [
+          1.00,  0.00,  0.00, 0.0, 0.0,
+          0.30,  0.70,  0.00, 0.0, 0.0,
+          0.00,  0.75,  0.65, 0.0, 0.0,
+          0.00,  0.00,  0.00, 1.0, 0.0,
+        ];
+      case ColorBlindMode.protanopia:
+        // Daltonização para Protanopia (dificuldade com vermelho):
+        // Realça a luminosidade do vermelho evitando que pareça preto e converte verde em ciano
+        return const [
+          0.85,  0.25,  0.00, 0.0, 15.0,
+          0.20,  0.80,  0.00, 0.0, 0.0,
+          0.00,  0.55,  0.65, 0.0, 0.0,
+          0.00,  0.00,  0.00, 1.0, 0.0,
+        ];
+      case ColorBlindMode.tritanopia:
+        // Daltonização para Tritanopia (dificuldade com azul e amarelo):
+        // Aumenta a separação entre azul e verde, protegendo amarelos
+        return const [
+          1.00,  0.10,  0.05, 0.0, 0.0,
+          0.00,  0.85,  0.15, 0.0, 0.0,
+          0.35,  0.00,  0.65, 0.0, 0.0,
+          0.00,  0.00,  0.00, 1.0, 0.0,
+        ];
+      case ColorBlindMode.highContrast:
+        // Alto Contraste: amplifica contraste em 35% e reforça a separação entre claros e escuros
+        return const [
+          1.35, -0.15, -0.15, 0.0, -10.0,
+          -0.15, 1.35, -0.15, 0.0, -10.0,
+          -0.15, -0.15, 1.35, 0.0, -10.0,
+          0.00,  0.00,  0.00, 1.0,   0.0,
+        ];
+    }
+  }
 
   Color get successColor {
     switch (_colorBlindMode) {
@@ -347,13 +406,11 @@ class AppThemes {
   static ThemeData getTheme(Color seedColor, bool isDark, {ColorBlindMode colorBlindMode = ColorBlindMode.none}) {
     Color effectiveSeed = seedColor;
     if (colorBlindMode == ColorBlindMode.deuteranopia || colorBlindMode == ColorBlindMode.protanopia) {
-      if (seedColor == AppColors.green || seedColor == AppColors.emerald || seedColor == AppColors.crimson || seedColor == AppColors.wine) {
-        effectiveSeed = const Color(0xFF0072B2);
-      }
+      effectiveSeed = const Color(0xFF0072B2); // Azul Royal universal de alto contraste
     } else if (colorBlindMode == ColorBlindMode.tritanopia) {
-      if (seedColor == AppColors.ocean || seedColor == AppColors.cyan || seedColor == AppColors.amber) {
-        effectiveSeed = const Color(0xFF009E73);
-      }
+      effectiveSeed = const Color(0xFF009E73); // Verde Azulado / Ciano acessível
+    } else if (colorBlindMode == ColorBlindMode.highContrast) {
+      effectiveSeed = isDark ? const Color(0xFF00E676) : const Color(0xFF004D40);
     }
     if (isDark) {
       return _buildDarkTheme(effectiveSeed, colorBlindMode: colorBlindMode);
