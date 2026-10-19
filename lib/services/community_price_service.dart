@@ -510,6 +510,7 @@ class CommunityPriceService {
             .toList();
         if (cloudPrices.isNotEmpty) {
           await DatabaseHelper.instance.saveCommunityPrices(cloudPrices);
+          await DatabaseHelper.instance.deduplicateCommunityPricesCache();
         }
         if (query == null || query.trim().isEmpty) {
           _lastCloudFetchTime = DateTime.now();
@@ -554,24 +555,40 @@ class CommunityPriceService {
     }
 
     // 3. Filtra pelo raio do GPS se o usuário tiver localização
+    List<CommunityPrice> filtered = localPrices;
     if (userLat != null && userLng != null) {
       final maxMeters = radiusKm * 1000;
-      final filtered = localPrices.where((p) {
+      final inRadius = localPrices.where((p) {
         if (p.distanceMeters == null) return true; // sem coordenadas aceita
         return p.distanceMeters! <= maxMeters;
       }).toList();
-
-      filtered.sort((a, b) {
-        final distA = a.distanceMeters ?? double.infinity;
-        final distB = b.distanceMeters ?? double.infinity;
-        return distA.compareTo(distB);
-      });
-      if (filtered.isNotEmpty) {
-        return filtered;
+      if (inRadius.isNotEmpty) {
+        filtered = inRadius;
       }
     }
 
-    return localPrices;
+    // 4. Garante unicidade no feed (elimina produtos repetidos do mesmo mercado)
+    final List<CommunityPrice> dedupedFeed = [];
+    final Set<String> seenFeedKeys = {};
+    for (final p in filtered) {
+      final normProd = p.productName.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+      final normMarket = p.supermarketName.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+      final key = '$normProd|$normMarket';
+      if (seenFeedKeys.add(key)) {
+        dedupedFeed.add(p);
+      }
+    }
+
+    // 5. Ordena cronologicamente (preços mais recentes primeiro no feed social)
+    dedupedFeed.sort((a, b) {
+      final dateComp = b.createdAt.compareTo(a.createdAt);
+      if (dateComp != 0) return dateComp;
+      final distA = a.distanceMeters ?? double.infinity;
+      final distB = b.distanceMeters ?? double.infinity;
+      return distA.compareTo(distB);
+    });
+
+    return dedupedFeed;
   }
 
   /// Retorna o ranking comparativo de quais mercados na região estão valendo mais a pena
@@ -891,14 +908,29 @@ class CommunityPriceService {
 
     final Map<String, List<CommunityPrice>> grouped = {};
     for (var p in prices) {
-      final key = p.productName.toLowerCase().trim();
-      grouped.putIfAbsent(key, () => []).add(p);
+      final key = p.productName.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+      if (key.isNotEmpty) {
+        grouped.putIfAbsent(key, () => []).add(p);
+      }
     }
 
     final List<ProductComparison> result = [];
     for (var entry in grouped.entries) {
-      final list = entry.value;
+      final rawList = entry.value;
+
+      // Deduplica cotações por supermercado (mantendo a cotação mais recente de cada mercado)
+      final Map<String, CommunityPrice> byMarket = {};
+      rawList.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      for (var p in rawList) {
+        final mKey = p.supermarketName.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+        if (!byMarket.containsKey(mKey)) {
+          byMarket[mKey] = p;
+        }
+      }
+
+      final list = byMarket.values.toList();
       list.sort((a, b) => a.price.compareTo(b.price));
+      if (list.isEmpty) continue;
 
       double sum = 0;
       for (var p in list) {
@@ -912,14 +944,14 @@ class CommunityPriceService {
       final mostExpensive = list.last;
 
       result.add(ProductComparison(
-        productName: cheapest.productName,
+        productName: cheapest.productName.trim(),
         unit: cheapest.unit ?? 'un',
         averagePrice: avgPrice,
         minPrice: minPrice,
         maxPrice: maxPrice,
-        cheapestMarket: cheapest.supermarketName,
+        cheapestMarket: cheapest.supermarketName.trim(),
         cheapestMarketDistance: cheapest.distanceMeters,
-        mostExpensiveMarket: mostExpensive.supermarketName,
+        mostExpensiveMarket: mostExpensive.supermarketName.trim(),
         totalQuotes: list.length,
         prices: list,
       ));

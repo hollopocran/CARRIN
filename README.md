@@ -8,7 +8,7 @@
   <a href="https://flutter.dev"><img src="https://img.shields.io/badge/Flutter-3.x-02569B?style=flat-square&logo=flutter&logoColor=white" alt="Flutter" /></a>
   <a href="https://dart.dev"><img src="https://img.shields.io/badge/Dart-3.x-0175C2?style=flat-square&logo=dart&logoColor=white" alt="Dart" /></a>
   <a href="https://developer.android.com"><img src="https://img.shields.io/badge/Android-7.0%2B-3DDC84?style=flat-square&logo=android&logoColor=white" alt="Android" /></a>
-  <a href="https://github.com/hollopocran/CARRIN/releases"><img src="https://img.shields.io/badge/Release-v1.3.575-blue?style=flat-square" alt="Release" /></a>
+  <a href="https://github.com/hollopocran/CARRIN/releases"><img src="https://img.shields.io/badge/Release-v1.3.576-blue?style=flat-square" alt="Release" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/Licen%C3%A7a-MIT-green.svg?style=flat-square" alt="License: MIT" /></a>
   <a href="docs/PRIVACY_POLICY.md"><img src="https://img.shields.io/badge/LGPD-Conforme-10B981?style=flat-square" alt="LGPD" /></a>
 </p>

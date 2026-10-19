@@ -1,6 +1,6 @@
 # Documentação Técnica e Arquitetural: CARRIN
 
-> **Versão Atual:** `1.3.575` (Build `575`) — Outubro de 2026  
+> **Versão Atual:** `1.3.576` (Build `576`) — Outubro de 2026  
 > **Status:** Produção Estável  
 > **Slogan:** *"Sua lista, sem complicação."*
 

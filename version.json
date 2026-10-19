@@ -1,15 +1,15 @@
 {
-  "version": "1.3.575",
-  "build_number": 575,
+  "version": "1.3.576",
+  "build_number": 576,
   "release_date": "2026-10-19",
-  "title": "CARRIN v1.3.575",
+  "title": "CARRIN v1.3.576",
   "release_notes": [
-    "Remoção de painel de desenvolvedor/lançamento de versão das configurações",
-    "Feed Social limpo e direto sem filtros pesados",
-    "Puxar para atualizar (pull-to-refresh) em tempo real",
-    "Melhorias gerais de segurança e interface"
+    "Deduplicação profunda de produtos na Comunidade: fim definitivo de itens repetidos",
+    "Ordenação cronológica com recência no Feed Social (deals mais novos no topo)",
+    "Remoção de painel de desenvolvedor das configurações do app",
+    "Melhorias gerais de consistência de dados"
   ],
-  "apk_url": "https://github.com/hollopocran/CARRIN/releases/download/v1.3.575/carrin_v1.3.575.apk",
+  "apk_url": "https://github.com/hollopocran/CARRIN/releases/download/v1.3.576/carrin_v1.3.576.apk",
   "is_active": true,
   "force_update": false
 }

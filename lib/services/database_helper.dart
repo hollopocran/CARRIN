@@ -910,10 +910,45 @@ class DatabaseHelper {
         limit: 500,
       );
 
-      return maps.map((m) => CommunityPrice.fromMap(m, userLat: userLat, userLng: userLng)).toList();
+      // Deduplica mantendo apenas o registro mais recente por (produto + mercado)
+      final List<CommunityPrice> deduped = [];
+      final Set<String> seenProductMarkets = {};
+
+      for (var m in maps) {
+        final p = CommunityPrice.fromMap(m, userLat: userLat, userLng: userLng);
+        final normProduct = p.productName.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+        final normMarket = p.supermarketName.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+        final key = '$normProduct|$normMarket';
+
+        // Como a consulta já é 'ORDER BY created_at DESC', o primeiro encontrado é o mais recente
+        if (seenProductMarkets.add(key)) {
+          deduped.add(p);
+        }
+      }
+
+      return deduped;
     } catch (e) {
       debugPrint('Erro ao carregar preços da comunidade do SQLite: $e');
       return [];
+    }
+  }
+
+  /// Remove duplicatas físicas do banco mantendo apenas o registro mais recente de cada produto por mercado
+  Future<int> deduplicateCommunityPricesCache() async {
+    final db = await database;
+    try {
+      final deleted = await db.rawDelete('''
+        DELETE FROM community_prices_cache
+        WHERE rowid NOT IN (
+          SELECT MAX(rowid)
+          FROM community_prices_cache
+          GROUP BY LOWER(TRIM(product_name)), LOWER(TRIM(supermarket_name))
+        )
+      ''');
+      return deleted;
+    } catch (e) {
+      debugPrint('Aviso ao deduplicar cache da comunidade no SQLite: $e');
+      return 0;
     }
   }
 
@@ -927,6 +962,8 @@ class DatabaseHelper {
       int inserted = 0;
       await db.transaction((txn) async {
         final batch = txn.batch();
+        final Set<String> seenLocalKeys = {};
+
         for (var row in userItems) {
           final name = (row['name'] as String? ?? '').trim();
           final price = (row['unit_price'] as num?)?.toDouble() ?? 0.0;
@@ -937,11 +974,20 @@ class DatabaseHelper {
             market = 'Supermercados Guanabara';
           }
 
+          final normProduct = name.toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+          final normMarket = market.toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+          final dedupeKey = '$normProduct|$normMarket';
+
+          // Como userItems é ORDER BY id DESC, a primeira ocorrência já é a mais recente
+          if (!seenLocalKeys.add(dedupeKey)) {
+            continue;
+          }
+
           final match = DefaultSupermarketsData.findMatch(market);
           final mLat = match?.latitude ?? -22.89012;
           final mLng = match?.longitude ?? -43.11535;
 
-          final id = 'local_${name.toLowerCase()}_${market.toLowerCase()}';
+          final id = 'local_${normProduct}_$normMarket';
           batch.insert(
             'community_prices_cache',
             {
@@ -963,6 +1009,7 @@ class DatabaseHelper {
         }
         await batch.commit(noResult: true);
       });
+      await deduplicateCommunityPricesCache();
       return inserted;
     } catch (e) {
       debugPrint('Erro ao semear preços locais da comunidade: $e');
