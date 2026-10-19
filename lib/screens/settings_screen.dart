@@ -138,7 +138,7 @@ class SettingsScreen extends StatelessWidget {
           _buildSettingItem(
             context,
             title: 'Ícone do Aplicativo',
-            subtitle: themeProvider.appIcon == '1.png' ? 'Padrão' : 'Moderno',
+            subtitle: (themeProvider.appIcon.contains('app_icon') || themeProvider.appIcon.contains('1.png')) ? 'Padrão' : 'Moderno',
             icon: Icons.image_outlined,
             onTap: () => _showIconDialog(context, themeProvider),
           ),
@@ -427,20 +427,20 @@ class SettingsScreen extends StatelessWidget {
           _buildIconOption(
             context,
             title: 'Padrão',
-            iconPath: '1.png',
-            isSelected: provider.appIcon == '1.png',
+            iconPath: 'assets/images/app_icon.png',
+            isSelected: provider.appIcon.contains('app_icon') || provider.appIcon.contains('1.png'),
             onTap: () {
-              provider.setAppIcon('1.png');
+              provider.setAppIcon('assets/images/app_icon.png');
               Navigator.pop(context);
             },
           ),
           _buildIconOption(
             context,
             title: 'Moderno',
-            iconPath: '1-removebg-preview.png',
-            isSelected: provider.appIcon == '1-removebg-preview.png',
+            iconPath: 'assets/images/app_logo_transparent.png',
+            isSelected: provider.appIcon.contains('logo_transparent') || provider.appIcon.contains('removebg'),
             onTap: () {
-              provider.setAppIcon('1-removebg-preview.png');
+              provider.setAppIcon('assets/images/app_logo_transparent.png');
               Navigator.pop(context);
             },
           ),

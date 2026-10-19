@@ -19,7 +19,7 @@ class InteractiveAnimatedLogo extends StatefulWidget {
 
   const InteractiveAnimatedLogo({
     super.key,
-    this.imagePath = '1-removebg-preview.png',
+    this.imagePath = 'assets/images/app_logo_transparent.png',
     this.size = 200,
     this.onTap,
     this.enableInteraction = true,

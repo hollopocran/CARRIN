@@ -49,15 +49,15 @@ dev_dependencies:
 flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
-  image_path: "1.png"
+  image_path: "assets/images/app_icon.png"
   adaptive_icon_background: "#1A1C2C"
-  adaptive_icon_foreground: "1.png"
+  adaptive_icon_foreground: "assets/images/app_icon.png"
   adaptive_icon_foreground_scale: 1.0 
   min_sdk_android: 21
 
 flutter:
   uses-material-design: true
   assets:
-    - 1.png
-    - 1-removebg-preview.png
+    - assets/images/
+    - assets/credentials.json
 

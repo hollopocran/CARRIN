@@ -181,7 +181,7 @@ class ThemeProvider with ChangeNotifier {
   bool _isDarkMode = false;
   Color _seedColor = AppColors.iconGreen;
   bool _isInitialized = false;
-  String _appIcon = '1.png'; // Ícone padrão
+  String _appIcon = 'assets/images/app_icon.png'; // Ícone padrão
   double _fontScale = 1.0;
   ColorBlindMode _colorBlindMode = ColorBlindMode.none;
 
@@ -189,7 +189,12 @@ class ThemeProvider with ChangeNotifier {
   bool get isDarkMode => _isDarkMode;
   Color get seedColor => _seedColor;
   bool get isInitialized => _isInitialized;
-  String get appIcon => _appIcon;
+  String get appIcon {
+    if (_appIcon.contains('app_icon') || _appIcon == '1.png' || _appIcon.endsWith('/1.png')) {
+      return 'assets/images/app_icon.png';
+    }
+    return 'assets/images/app_logo_transparent.png';
+  }
   double get fontScale => _fontScale;
   ColorBlindMode get colorBlindMode => _colorBlindMode;
 
