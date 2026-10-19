@@ -247,6 +247,7 @@ class ItemProvider with ChangeNotifier {
         _service.setCurrentTitle(target);
         _isLoading = false;
         _safeNotify();
+        _updateNotification();
       }
     } catch (e) {
       debugPrint('Aviso na carga rápida inicial do SQLite: $e');
@@ -1587,6 +1588,7 @@ class ItemProvider with ChangeNotifier {
       if (!wasAlreadyLoaded) {
         _safeNotify();
       }
+      _updateNotification();
       
       final lastSync = _lastItemsSync[targetMonth];
       final bool isStale = lastSync == null ? false : DateTime.now().difference(lastSync).inMinutes > 5;
@@ -1620,6 +1622,7 @@ class ItemProvider with ChangeNotifier {
         _updatePriceHistoryWithItemList(localItems, targetMonth, prefs);
         _fillMissingBarcodesInCurrentItems(notify: false);
         _safeNotify();
+        _updateNotification();
       }
     } catch (e) {
       debugPrint('Erro ao ler itens do SQLite: $e');
@@ -1923,6 +1926,7 @@ class ItemProvider with ChangeNotifier {
       }
     }
     _safeNotify();
+    _updateNotification();
 
     _service.setCurrentTitle(month);
     
@@ -2867,6 +2871,7 @@ class ItemProvider with ChangeNotifier {
       if (!value) {
         _notificationService.cancelAll();
       } else {
+        await _notificationService.requestPermissions();
         _updateNotification();
       }
     }

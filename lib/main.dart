@@ -95,10 +95,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.detached || 
-        state == AppLifecycleState.paused || 
-        state == AppLifecycleState.hidden) {
-      // Fecha a notificação imediatamente assim que o usuário sair do app
+    if (state == AppLifecycleState.detached) {
+      // Fecha a notificação apenas quando a aplicação for totalmente encerrada
       NotificationService().cancelAll();
     }
   }

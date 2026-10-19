@@ -1,6 +1,6 @@
 # Documentação Técnica e Arquitetural: CARRIN
 
-> **Versão Atual:** `1.3.570` (Build `570`) — Outubro de 2026  
+> **Versão Atual:** `1.3.571` (Build `571`) — Outubro de 2026  
 > **Status:** Produção Estável  
 > **Slogan:** *"Sua lista, sem complicação."*
 
@@ -642,6 +642,18 @@ O [`BarcodeLookupService`](file:///C:/Dev/CARRIN/lib/services/barcode_lookup_ser
 - **Endereço Físico Completo Registrado em Cada Loja:** Adicionado o campo `address` em `PreloadedSupermarket` para todos os 138 estabelecimentos cadastrados.
 - **Exibição do Endereço no Mapa:** O endereço físico real agora é exibido tanto no painel inferior de detalhes (`_showMarketBottomSheet`) quanto na lista de resultados da busca rápida (`_openSearchDialog`).
 - **Validação:** 0 advertências no `flutter analyze`, 33/33 testes aprovados.
+
+### v1.3.571 (19 de Outubro de 2026)
+- **Correção Crítica no Carregamento de Recursos das Notificações:**
+  - Resolução do erro `invalid_large_icon` no Android (`FlutterLocalNotificationsPlugin`): o `largeIcon` referenciando recurso inexistente na pasta drawable foi corrigido, mapeando o bitmap nativo para `ic_carrin_logo` em todas as densidades de tela (`drawable-mdpi`, `drawable-hdpi`, `drawable-xhdpi`, `drawable-xxhdpi`, `drawable-xxxhdpi`).
+  - Adição de blocos de proteção `try/catch` com log detalhado em todos os métodos de disparo e cancelamento do `NotificationService`.
+- **Canal de Notificações com Prioridade Padrão (`shopping_list_progress_v5`):**
+  - Migração para `Importance.defaultImportance` (com som e vibração desativados), garantindo exibição confiável na barra de status e tela de bloqueio em interfaces customizadas (Samsung One UI, Xiaomi HyperOS/MIUI e Motorola) sem incomodar com toques a cada item comprado.
+- **Persistência da Notificação em Segundo Plano:**
+  - Correção no ciclo de vida em `lib/main.dart` e `PopScope` de `lib/screens/main_screen.dart`: a notificação de compras agora permanece ativa quando o usuário bloqueia a tela, abre a calculadora ou alterna entre apps no supermercado, sendo encerrada apenas ao fechar o app da multitarefa (`onTaskRemoved`) ou ao finalizar a lista.
+- **Disparo e Atualização Automática Imediata:**
+  - O monitor de compras agora é atualizado automaticamente ao iniciar o app com lista salva, ao alternar entre listas no seletor de meses e ao ativar o switch nas configurações.
+- **Validação:** 0 advertências no `flutter analyze`, 61/61 testes unitários aprovados.
 
 ### v1.3.570 (19 de Outubro de 2026)
 - **Ativação Real do Modo Daltônico com Matrizes de Daltonização:** Implementação de pipeline de filtragem cromática global no root da aplicação (`MaterialApp.builder` com `ColorFiltered` e `ColorFilter.matrix`), garantindo transformação óptica em tempo real de 100% dos elementos da interface (telas, ícones, botões, gráficos, cards, badges e alertas).

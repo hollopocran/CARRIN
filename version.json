@@ -1,14 +1,15 @@
 {
-  "version": "1.3.570",
-  "build_number": 570,
+  "version": "1.3.571",
+  "build_number": 571,
   "release_date": "2026-10-19",
-  "title": "CARRIN v1.3.570",
+  "title": "CARRIN v1.3.571",
   "release_notes": [
-    "Ativação real do Modo Daltônico com matrizes de Daltonização em tempo real (Deuteranopia, Protanopia, Tritanopia e Alto Contraste)",
-    "Prévia visual com círculos de cores nas opções de acessibilidade das configurações",
-    "Ajuste automático de paletas de alto contraste e conformidade de leitura em todo o app"
+    "Correção crítica nas notificações do Android: resolução de recursos nativos (ic_carrin_logo e ic_notification_cart)",
+    "Notificação persistente de progresso e barra de status enquanto o app estiver em segundo plano ou na tela de bloqueio",
+    "Canal de notificação de compras atualizado (shopping_list_progress_v5) com compatibilidade para MIUI, One UI e Motorola",
+    "Atualização automática imediata da notificação ao iniciar o app ou alternar a lista de compras"
   ],
-  "apk_url": "https://github.com/hollopocran/CARRIN/releases/download/v1.3.570/carrin_v1.3.570.apk",
+  "apk_url": "https://github.com/hollopocran/CARRIN/releases/download/v1.3.571/carrin_v1.3.571.apk",
   "is_active": true,
   "force_update": false
 }

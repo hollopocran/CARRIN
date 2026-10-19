@@ -7,7 +7,6 @@ import 'month_selection_screen.dart';
 import 'statistics_screen.dart';
 import 'community_radar_screen.dart';
 import 'settings_screen.dart';
-import '../services/notification_service.dart';
 import '../providers/item_provider.dart';
 import '../widgets/interactive_tab_tutorial.dart';
 import '../services/app_update_service.dart';
@@ -159,7 +158,6 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         canPop: _currentIndex == 0,
         onPopInvokedWithResult: (didPop, result) {
           if (didPop) {
-            NotificationService().cancelAll();
             return;
           }
           _onItemTapped(0);
