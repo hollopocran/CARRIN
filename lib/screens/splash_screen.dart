@@ -122,7 +122,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                   controller: nameController,
                   decoration: const InputDecoration(
                     labelText: 'Nome do Perfil',
-                    hintText: 'Weverton',
+                    hintText: 'Ex: Meu Perfil, Família...',
                     floatingLabelBehavior: FloatingLabelBehavior.always,
                     border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
                   ),
@@ -146,7 +146,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
             ElevatedButton(
               onPressed: () async {
                 final name = nameController.text.trim().isEmpty 
-                    ? 'Weverton' 
+                    ? 'Meu Perfil' 
                     : nameController.text.trim();
                 
                 Navigator.pop(dialogContext); // Close dialog

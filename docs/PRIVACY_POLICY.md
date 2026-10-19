@@ -2,8 +2,8 @@
 
 **Última atualização:** 17 de Outubro de 2026  
 **Aplicativo:** CARRIN (Package: `com.wmartins.carrin`)  
-**Desenvolvedor:** Weverton Martins  
-**Contato:** wevertonmartins@gmail.com (ou suporte via repositório)
+**Desenvolvedor:** Equipe CARRIN  
+**Contato:** Suporte via repositório oficial (GitHub Issues)
 
 ---
 
@@ -59,4 +59,4 @@ Podemos atualizar nossa Política de Privacidade periodicamente para refletir me
 
 ## 6. Contato
 Caso tenha dúvidas, sugestões ou solicitações sobre esta Política de Privacidade ou sobre o tratamento de seus dados, entre em contato através de:
-* **E-mail de Suporte:** `wevertonmartins@gmail.com`
+* **Canal Oficial:** Abrir uma solicitação no repositório oficial do projeto: [GitHub Issues](https://github.com/hollopocran/CARRIN/issues)

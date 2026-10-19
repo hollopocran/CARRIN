@@ -589,7 +589,7 @@ void main() {
         supermarketName: 'Carrefour',
         latitude: -23.5614,
         longitude: -46.6559,
-        submittedBy: 'Weverton',
+        submittedBy: 'Cliente',
         verifiedReceipt: true,
         createdAt: now,
         distanceMeters: 1200,
@@ -604,7 +604,7 @@ void main() {
       expect(map['supermarket_name'], equals('Carrefour'));
       expect(map['latitude'], equals(-23.5614));
       expect(map['longitude'], equals(-46.6559));
-      expect(map['submitted_by'], equals('Weverton'));
+      expect(map['submitted_by'], equals('Cliente'));
       expect(map['verified_receipt'], equals(1));
       expect(map['created_at'], equals(now.toIso8601String()));
       expect(price.formattedDistance, equals('1.2km'));

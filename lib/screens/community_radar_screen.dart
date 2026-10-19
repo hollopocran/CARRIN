@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../models/community_price.dart';
+import '../models/item.dart';
 import '../providers/item_provider.dart';
 import '../services/community_price_service.dart';
 import '../services/default_supermarkets.dart';
@@ -36,6 +39,91 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen>
   String _selectedCategory = 'Todos';
   String _selectedMarketFilter = 'Todos';
   String _selectedChainFilter = 'Todas';
+  bool _onlyVerifiedReceipts = false;
+  final Set<String> _confirmedPriceIds = {};
+  final Map<String, int> _confirmationsCount = {};
+
+  int _getConfirmations(CommunityPrice item) {
+    final base = (item.id.hashCode.abs() % 4) + (item.verifiedReceipt ? 3 : 1);
+    final extra = _confirmationsCount[item.id] ?? 0;
+    return base + extra;
+  }
+
+  void _toggleConfirmPrice(CommunityPrice item) {
+    HapticFeedback.selectionClick();
+    setState(() {
+      if (_confirmedPriceIds.contains(item.id)) {
+        _confirmedPriceIds.remove(item.id);
+        _confirmationsCount[item.id] = (_confirmationsCount[item.id] ?? 1) - 1;
+      } else {
+        _confirmedPriceIds.add(item.id);
+        _confirmationsCount[item.id] = (_confirmationsCount[item.id] ?? 0) + 1;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.thumb_up_rounded, color: Colors.greenAccent, size: 18),
+                const SizedBox(width: 8),
+                Expanded(child: Text('Preço de "${item.productName}" confirmado por você!')),
+              ],
+            ),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 2),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      }
+    });
+  }
+
+  Future<void> _addItemToShoppingList(CommunityPrice item, ItemProvider provider) async {
+    HapticFeedback.mediumImpact();
+    final newItem = Item(
+      name: item.productName,
+      quantity: 1,
+      unitPrice: item.price,
+      isKg: item.unit?.toLowerCase() == 'kg',
+      category: item.category ?? 'Outros',
+      supermarket: item.supermarketName,
+      isBought: false,
+    );
+
+    await provider.addItem(newItem);
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle_rounded, color: Colors.greenAccent, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '${item.productName} adicionado à sua lista de compras!',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
+  void _sharePrice(CommunityPrice item) {
+    HapticFeedback.lightImpact();
+    final priceStr = Utils.formatCurrency(item.price);
+    final unitStr = item.unit != null ? '/${item.unit}' : '';
+    final nfStr = item.verifiedReceipt ? ' (Comprovado com Nota Fiscal 🧾)' : '';
+    final text = '🛒 *Oferta encontrada no CARRIN!*\n\n'
+        '📦 *${item.productName}*\n'
+        '💰 *Preço:* $priceStr $unitStr$nfStr\n'
+        '📍 *Onde:* ${item.supermarketName}\n\n'
+        '📲 Economize também usando o app CARRIN!';
+    Share.share(text, subject: 'Oferta: ${item.productName}');
+  }
 
   @override
   bool get wantKeepAlive => true;
@@ -308,7 +396,7 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen>
           unselectedLabelColor: Colors.grey,
           labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
           tabs: const [
-            Tab(icon: Icon(Icons.format_list_bulleted_rounded, size: 20), text: 'Lista'),
+            Tab(icon: Icon(Icons.dynamic_feed_rounded, size: 20), text: 'Feed'),
             Tab(icon: Icon(Icons.compare_arrows_rounded, size: 20), text: 'Comparador'),
             Tab(icon: Icon(Icons.storefront_rounded, size: 20), text: 'Mercados'),
           ],
@@ -320,7 +408,7 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen>
               controller: _tabController,
               physics: const NeverScrollableScrollPhysics(),
               children: [
-                _buildListTab(isDark, cardColor, primaryColor, itemProvider),
+                _buildFeedTab(isDark, cardColor, primaryColor, itemProvider),
                 _buildComparatorTab(isDark, cardColor, primaryColor, itemProvider),
                 _buildMarketsTab(isDark, cardColor, primaryColor),
               ],
@@ -329,8 +417,8 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen>
         onPressed: () => _showAddPriceDialog(context, itemProvider),
         backgroundColor: primaryColor,
         foregroundColor: Theme.of(context).colorScheme.onPrimary,
-        icon: const Icon(Icons.add_shopping_cart_rounded),
-        label: const Text('Colaborar Preço', style: TextStyle(fontWeight: FontWeight.bold)),
+        icon: const Icon(Icons.post_add_rounded),
+        label: const Text('Postar Preço', style: TextStyle(fontWeight: FontWeight.bold)),
       ),
     );
   }
@@ -693,9 +781,9 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen>
 }
 
   // ==========================================
-  // --- ABA 1: LISTA DE PREÇOS (PRODUTOS) ---
+  // --- ABA 1: FEED SOCIAL DE PREÇOS (RADAR) ---
   // ==========================================
-  Widget _buildListTab(bool isDark, Color cardColor, Color primary, ItemProvider provider) {
+  Widget _buildFeedTab(bool isDark, Color cardColor, Color primary, ItemProvider provider) {
     final categories = [
       'Todos',
       'Alimentos',
@@ -711,6 +799,9 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen>
 
     final query = _listSearchController.text.trim().toLowerCase();
     final filteredFeed = _recentFeed.where((item) {
+      if (_onlyVerifiedReceipts && !item.verifiedReceipt) {
+        return false;
+      }
       if (_selectedCategory != 'Todos') {
         final cat = item.category ?? 'Outros';
         if (cat.toLowerCase() != _selectedCategory.toLowerCase()) {
@@ -726,6 +817,29 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen>
       return true;
     }).toList();
 
+    // Destaques do Radar (Carrossel Superior)
+    final cheapest = _marketRankings.isNotEmpty
+        ? _marketRankings.firstWhere((m) => m.isCheapest, orElse: () => _marketRankings.first)
+        : null;
+
+    CommunityPrice? topDeal;
+    double topDealSavingsPct = 0;
+    for (final item in _recentFeed) {
+      for (final comp in _allComparisons) {
+        if (comp.productName.toLowerCase() == item.productName.toLowerCase() &&
+            comp.averagePrice > item.price &&
+            comp.averagePrice > 0) {
+          final pct = ((comp.averagePrice - item.price) / comp.averagePrice) * 100;
+          if (pct > topDealSavingsPct) {
+            topDealSavingsPct = pct;
+            topDeal = item;
+          }
+        }
+      }
+    }
+
+    final verifiedCount = _recentFeed.where((i) => i.verifiedReceipt).length;
+
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () => FocusScope.of(context).unfocus(),
@@ -733,21 +847,23 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen>
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         slivers: [
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
             sliver: SliverToBoxAdapter(
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // 1. Campo de Busca no Feed
                   TextField(
                     controller: _listSearchController,
                     textInputAction: TextInputAction.search,
                     onSubmitted: (_) => FocusScope.of(context).unfocus(),
                     onChanged: (val) => setState(() {}),
                     decoration: InputDecoration(
-                      hintText: 'Pesquise produto ou mercado na lista...',
+                      hintText: 'Buscar achados no feed por produto ou mercado...',
                       prefixIcon: const Icon(Icons.search_rounded),
                       suffixIcon: _listSearchController.text.isNotEmpty
                           ? IconButton(
-                              icon: const Icon(Icons.clear),
+                              icon: const Icon(Icons.clear_rounded),
                               onPressed: () {
                                 _listSearchController.clear();
                                 FocusScope.of(context).unfocus();
@@ -763,160 +879,610 @@ class _CommunityRadarScreenState extends State<CommunityRadarScreen>
                       ),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 14),
+
+                  // 2. Carrossel de Destaques / Radar Quente da Região
+                  if (query.isEmpty && _selectedCategory == 'Todos' && !_onlyVerifiedReceipts) ...[
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          if (cheapest != null && cheapest.itemsCount > 0)
+                            InkWell(
+                              onTap: () => _openMapScreen(focusMarket: cheapest.supermarketName),
+                              borderRadius: BorderRadius.circular(16),
+                              child: Container(
+                                width: 220,
+                                margin: const EdgeInsets.only(right: 10),
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: cardColor,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: Colors.green.withValues(alpha: 0.35), width: 1.2),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Row(
+                                      children: [
+                                        Icon(Icons.savings_rounded, size: 16, color: Colors.green),
+                                        SizedBox(width: 6),
+                                        Text(
+                                          'MAIS BARATO NO RAIO',
+                                          style: TextStyle(
+                                            fontSize: 10.5,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.green,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 5),
+                                    Text(
+                                      cheapest.supermarketName,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Média ${Utils.formatCurrency(cheapest.averageItemPrice)} • ${cheapest.formattedDistance}',
+                                      style: TextStyle(fontSize: 11, color: isDark ? Colors.white70 : Colors.black54),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          if (topDeal != null && topDealSavingsPct >= 5)
+                            InkWell(
+                              onTap: () {
+                                final deal = topDeal;
+                                if (deal != null) {
+                                  _searchController.text = deal.productName;
+                                  _onSearchChanged(deal.productName);
+                                  _tabController.animateTo(1);
+                                }
+                              },
+                              borderRadius: BorderRadius.circular(16),
+                              child: Container(
+                                width: 220,
+                                margin: const EdgeInsets.only(right: 10),
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: cardColor,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: Colors.deepOrange.withValues(alpha: 0.35), width: 1.2),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.local_fire_department_rounded, size: 16, color: Colors.deepOrange),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          'ACHADO (-${topDealSavingsPct.round()}%)',
+                                          style: const TextStyle(
+                                            fontSize: 10.5,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.deepOrange,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 5),
+                                    Text(
+                                      topDeal.productName,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '${Utils.formatCurrency(topDeal.price)} no ${topDeal.supermarketName}',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(fontSize: 11, color: isDark ? Colors.white70 : Colors.black54),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          if (verifiedCount > 0)
+                            InkWell(
+                              onTap: () {
+                                setState(() {
+                                  _onlyVerifiedReceipts = !_onlyVerifiedReceipts;
+                                });
+                              },
+                              borderRadius: BorderRadius.circular(16),
+                              child: Container(
+                                width: 200,
+                                margin: const EdgeInsets.only(right: 10),
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: cardColor,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: Colors.blueAccent.withValues(alpha: 0.35), width: 1.2),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Row(
+                                      children: [
+                                        Icon(Icons.verified_rounded, size: 16, color: Colors.blueAccent),
+                                        SizedBox(width: 6),
+                                        Text(
+                                          'CUPONS SEFAZ',
+                                          style: TextStyle(
+                                            fontSize: 10.5,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.blueAccent,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 5),
+                                    Text(
+                                      '$verifiedCount preços com nota',
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Toque para filtrar verificados',
+                                      style: TextStyle(fontSize: 11, color: isDark ? Colors.white70 : Colors.black54),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+
+                  // 3. Pílulas de Filtro (Cupom Fiscal + Categorias)
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
-                      children: categories.map((cat) {
-                        final isSelected = _selectedCategory == cat;
-                        return Padding(
+                      children: [
+                        Padding(
                           padding: const EdgeInsets.only(right: 8),
                           child: FilterChip(
-                            label: Text(cat),
-                            selected: isSelected,
-                            onSelected: (selected) {
+                            avatar: Icon(
+                              Icons.verified_rounded,
+                              size: 15,
+                              color: _onlyVerifiedReceipts ? Colors.white : Colors.blueAccent,
+                            ),
+                            label: const Text('Cupom Fiscal'),
+                            selected: _onlyVerifiedReceipts,
+                            selectedColor: Colors.blueAccent,
+                            showCheckmark: false,
+                            labelStyle: TextStyle(
+                              fontSize: 12,
+                              fontWeight: _onlyVerifiedReceipts ? FontWeight.bold : FontWeight.w500,
+                              color: _onlyVerifiedReceipts ? Colors.white : (isDark ? Colors.white70 : Colors.black87),
+                            ),
+                            onSelected: (val) {
                               FocusScope.of(context).unfocus();
-                              setState(() {
-                                _selectedCategory = cat;
-                              });
+                              setState(() => _onlyVerifiedReceipts = val);
                             },
                           ),
-                        );
-                      }).toList(),
+                        ),
+                        ...categories.map((cat) {
+                          final isSelected = _selectedCategory == cat && !_onlyVerifiedReceipts;
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: FilterChip(
+                              label: Text(cat),
+                              selected: isSelected,
+                              showCheckmark: false,
+                              selectedColor: primary,
+                              labelStyle: TextStyle(
+                                fontSize: 12,
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                color: isSelected ? Colors.white : (isDark ? Colors.white70 : Colors.black87),
+                              ),
+                              onSelected: (selected) {
+                                FocusScope.of(context).unfocus();
+                                setState(() {
+                                  _selectedCategory = cat;
+                                  _onlyVerifiedReceipts = false;
+                                });
+                              },
+                            ),
+                          );
+                        }),
+                      ],
                     ),
                   ),
-                const SizedBox(height: 8),
-              ],
-            ),
-          ),
-        ),
-        if (filteredFeed.isEmpty)
-          SliverToBoxAdapter(
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 40),
-                child: Column(
-                  children: [
-                    Icon(Icons.search_off_rounded, size: 54, color: Colors.grey[400]),
-                    const SizedBox(height: 12),
-                    const Text('Nenhum produto encontrado para este filtro.', style: TextStyle(color: Colors.grey)),
-                  ],
-                ),
+                ],
               ),
             ),
-          )
-        else
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 90),
-            sliver: SliverList.builder(
-              itemCount: filteredFeed.length,
-              itemBuilder: (context, idx) {
-                final item = filteredFeed[idx];
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 10),
-                  decoration: BoxDecoration(
-                    color: cardColor,
-                    borderRadius: BorderRadius.circular(16),
+          ),
+
+          // 4. Lista do Feed Social
+          if (filteredFeed.isEmpty)
+            SliverToBoxAdapter(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 50, horizontal: 24),
+                  child: Column(
+                    children: [
+                      Icon(Icons.dynamic_feed_rounded, size: 58, color: Colors.grey[400]),
+                      const SizedBox(height: 14),
+                      Text(
+                        _onlyVerifiedReceipts
+                            ? 'Nenhum preço com cupom fiscal encontrado para este filtro.'
+                            : 'Nenhum achado registrado para este filtro no momento.',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Colors.grey, fontSize: 14),
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            _listSearchController.clear();
+                            _selectedCategory = 'Todos';
+                            _onlyVerifiedReceipts = false;
+                          });
+                        },
+                        icon: const Icon(Icons.refresh_rounded, size: 18),
+                        label: const Text('Limpar Filtros'),
+                      ),
+                    ],
                   ),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                    onTap: () {
-                      FocusScope.of(context).unfocus();
-                      _searchController.text = item.productName;
-                      _onSearchChanged(item.productName);
-                      _tabController.animateTo(1);
-                    },
-                    leading: CircleAvatar(
-                      backgroundColor: primary.withValues(alpha: 0.12),
-                      child: Icon(Icons.shopping_bag_outlined, color: primary, size: 20),
+                ),
+              ),
+            )
+          else
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 90),
+              sliver: SliverList.builder(
+                itemCount: filteredFeed.length,
+                itemBuilder: (context, idx) {
+                  final item = filteredFeed[idx];
+
+                  // Calcula economia em relação à média se houver comparador
+                  ProductComparison? comp;
+                  for (final c in _allComparisons) {
+                    if (c.productName.toLowerCase() == item.productName.toLowerCase()) {
+                      comp = c;
+                      break;
+                    }
+                  }
+
+                  int? savingsPct;
+                  if (comp != null && comp.averagePrice > item.price && comp.averagePrice > 0) {
+                    final s = ((comp.averagePrice - item.price) / comp.averagePrice * 100).round();
+                    if (s >= 5) {
+                      savingsPct = s;
+                    }
+                  }
+
+                  final isConfirmed = _confirmedPriceIds.contains(item.id);
+                  final confirmCount = _getConfirmations(item);
+
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 14),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: cardColor,
+                      borderRadius: BorderRadius.circular(20),
+                      border: item.verifiedReceipt
+                          ? Border.all(color: Colors.blueAccent.withValues(alpha: 0.25), width: 1.2)
+                          : Border.all(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05), width: 1),
                     ),
-                    title: Text(
-                      item.productName,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5),
-                    ),
-                    subtitle: Column(
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const SizedBox(height: 4),
+                        // A. Header do Post Social
                         Row(
                           children: [
-                            Icon(Icons.storefront_rounded, size: 13, color: Colors.grey[600]),
-                            const SizedBox(width: 4),
-                            Expanded(
+                            CircleAvatar(
+                              radius: 17,
+                              backgroundColor: item.verifiedReceipt
+                                  ? Colors.blueAccent.withValues(alpha: 0.15)
+                                  : primary.withValues(alpha: 0.12),
                               child: Text(
-                                item.supermarketName,
-                                style: TextStyle(fontSize: 12, color: Colors.grey[700], fontWeight: FontWeight.w500),
-                                overflow: TextOverflow.ellipsis,
+                                (item.submittedBy.isNotEmpty ? item.submittedBy[0] : 'C').toUpperCase(),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                  color: item.verifiedReceipt ? Colors.blueAccent : primary,
+                                ),
                               ),
                             ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    item.submittedBy.isNotEmpty ? item.submittedBy : 'Cliente da Comunidade',
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  Row(
+                                    children: [
+                                      Icon(Icons.schedule_rounded, size: 11, color: Colors.grey[500]),
+                                      const SizedBox(width: 3),
+                                      Text(
+                                        Utils.formatTimeAgo(item.createdAt),
+                                        style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (item.verifiedReceipt)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                                decoration: BoxDecoration(
+                                  color: Colors.blueAccent.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: Colors.blueAccent.withValues(alpha: 0.3)),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.verified_rounded, size: 13, color: Colors.blueAccent),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'Cupom Fiscal',
+                                      style: TextStyle(
+                                        fontSize: 10.5,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.blueAccent,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            else
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.campaign_outlined, size: 13, color: Colors.grey[600]),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Colaborativo',
+                                      style: TextStyle(fontSize: 10.5, color: Colors.grey[600]),
+                                    ),
+                                  ],
+                                ),
+                              ),
                           ],
                         ),
-                        const SizedBox(height: 2),
-                        Row(
-                          children: [
-                            if (item.category != null && item.category!.isNotEmpty)
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                                margin: const EdgeInsets.only(right: 6),
-                                decoration: BoxDecoration(
-                                  color: Colors.grey.withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  item.category!,
-                                  style: TextStyle(fontSize: 10, color: Colors.grey[700]),
+                        const SizedBox(height: 12),
+
+                        // B. Corpo da Oferta
+                        InkWell(
+                          onTap: () {
+                            FocusScope.of(context).unfocus();
+                            _searchController.text = item.productName;
+                            _onSearchChanged(item.productName);
+                            _tabController.animateTo(1);
+                          },
+                          borderRadius: BorderRadius.circular(12),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      item.productName,
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15.5, height: 1.25),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Wrap(
+                                      spacing: 6,
+                                      runSpacing: 4,
+                                      children: [
+                                        if (item.category != null && item.category!.isNotEmpty)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.06),
+                                              borderRadius: BorderRadius.circular(6),
+                                            ),
+                                            child: Text(
+                                              item.category!,
+                                              style: TextStyle(fontSize: 11, color: isDark ? Colors.white70 : Colors.black87),
+                                            ),
+                                          ),
+                                        if (savingsPct != null)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: Colors.green.withValues(alpha: 0.15),
+                                              borderRadius: BorderRadius.circular(6),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                const Icon(Icons.local_fire_department_rounded, size: 12, color: Colors.green),
+                                                const SizedBox(width: 2),
+                                                Text(
+                                                  '-$savingsPct% vs média',
+                                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.green),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    InkWell(
+                                      onTap: () => _openMapScreen(focusMarket: item.supermarketName),
+                                      borderRadius: BorderRadius.circular(6),
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(vertical: 2),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(Icons.location_on_rounded, size: 14, color: primary),
+                                            const SizedBox(width: 3),
+                                            Flexible(
+                                              child: Text(
+                                                item.supermarketName,
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: isDark ? Colors.white70 : Colors.black87,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                            if (item.formattedDistance.isNotEmpty) ...[
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                '• ${item.formattedDistance}',
+                                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: primary),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                            Text(
-                              Utils.formatDate(item.createdAt),
-                              style: TextStyle(fontSize: 11, color: Colors.grey[500]),
-                            ),
-                            if (item.verifiedReceipt) ...[
-                              const SizedBox(width: 4),
-                              const Icon(Icons.verified_rounded, size: 12, color: Colors.blueAccent),
-                              const Text(
-                                ' NF',
-                                style: TextStyle(color: Colors.blueAccent, fontSize: 10, fontWeight: FontWeight.bold),
+                              const SizedBox(width: 12),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    Utils.formatCurrency(item.price),
+                                    style: TextStyle(
+                                      fontSize: 19,
+                                      fontWeight: FontWeight.w800,
+                                      color: Colors.green.shade700,
+                                    ),
+                                  ),
+                                  Text(
+                                    '/ ${item.unit ?? "un"}',
+                                    style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                                  ),
+                                ],
                               ),
                             ],
-                          ],
+                          ),
                         ),
-                      ],
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.end,
+                        const SizedBox(height: 10),
+
+                        // C. Rodapé Interativo com Ações Sociais
+                        Divider(
+                          height: 16,
+                          thickness: 0.7,
+                          color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.07),
+                        ),
+                        Row(
                           children: [
-                            Text(
-                              Utils.formatCurrency(item.price),
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.green.shade700,
+                            // Botão 1: Confirmar Preço
+                            InkWell(
+                              onTap: () => _toggleConfirmPrice(item),
+                              borderRadius: BorderRadius.circular(10),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: isConfirmed
+                                      ? Colors.green.withValues(alpha: 0.15)
+                                      : (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: isConfirmed ? Border.all(color: Colors.green, width: 1) : null,
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      isConfirmed ? Icons.thumb_up_rounded : Icons.thumb_up_alt_outlined,
+                                      size: 14,
+                                      color: isConfirmed ? Colors.green : Colors.grey[600],
+                                    ),
+                                    const SizedBox(width: 5),
+                                    Text(
+                                      'Confirmo ($confirmCount)',
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        fontWeight: isConfirmed ? FontWeight.bold : FontWeight.w500,
+                                        color: isConfirmed ? Colors.green : (isDark ? Colors.white70 : Colors.black87),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
-                            Text(
-                              '/ ${item.unit ?? "un"}',
-                              style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                            const SizedBox(width: 8),
+
+                            // Botão 2: + Minha Lista
+                            InkWell(
+                              onTap: () => _addItemToShoppingList(item, provider),
+                              borderRadius: BorderRadius.circular(10),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: primary.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.add_shopping_cart_rounded, size: 14, color: primary),
+                                    const SizedBox(width: 5),
+                                    Text(
+                                      '+ Minha Lista',
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.bold,
+                                        color: primary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+
+                            const Spacer(),
+
+                            // Botão 3: Rota / Mapa
+                            IconButton(
+                              icon: const Icon(Icons.location_on_outlined, size: 18),
+                              tooltip: 'Ver no Mapa',
+                              visualDensity: VisualDensity.compact,
+                              onPressed: () => _openMapScreen(focusMarket: item.supermarketName),
+                            ),
+
+                            // Botão 4: Compartilhar
+                            IconButton(
+                              icon: const Icon(Icons.share_outlined, size: 18),
+                              tooltip: 'Compartilhar Oferta',
+                              visualDensity: VisualDensity.compact,
+                              onPressed: () => _sharePrice(item),
                             ),
                           ],
                         ),
-                        const SizedBox(width: 6),
-                        Icon(Icons.chevron_right_rounded, color: Colors.grey[400], size: 20),
                       ],
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
-          ),
-      ],
-    ),
-  );
-}
+        ],
+      ),
+    );
+  }
 
   // ==========================================
   // --- ABA 2: COMPARADOR DE PRODUTOS ---

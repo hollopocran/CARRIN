@@ -44,6 +44,26 @@ class Utils {
     return dateFormat.format(date);
   }
 
+  /// Formata uma data em tempo relativo humanizado para feeds (ex: "Agora há pouco", "há 15min", "há 2h", "Ontem")
+  static String formatTimeAgo(DateTime date) {
+    final now = DateTime.now();
+    final difference = now.difference(date);
+
+    if (difference.inSeconds < 60) {
+      return 'Agora há pouco';
+    } else if (difference.inMinutes < 60) {
+      return 'há ${difference.inMinutes}min';
+    } else if (difference.inHours < 24) {
+      return 'há ${difference.inHours}h';
+    } else if (difference.inDays == 1) {
+      return 'Ontem';
+    } else if (difference.inDays < 7) {
+      return 'há ${difference.inDays}d';
+    } else {
+      return formatDate(date);
+    }
+  }
+
   static final Map<String, String> _normalizeCache = {};
   static final Map<int, String> _charMap = _buildCharMap();
 

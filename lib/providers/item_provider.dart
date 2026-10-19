@@ -182,7 +182,7 @@ class ItemProvider with ChangeNotifier {
           final map = Map<String, dynamic>.from(e);
           final accEmail = map['email']?.toString() ?? '';
           if (accEmail.trim().toLowerCase() == email.trim().toLowerCase()) {
-            _activeUserDisplayName = map['displayName']?.toString() ?? 'Weverton';
+            _activeUserDisplayName = map['displayName']?.toString() ?? 'Meu Perfil';
             final savedPhoto = map['photoUrl']?.toString();
             if (!email.endsWith('@offline') && (savedPhoto == null || savedPhoto.isEmpty)) {
               _activeUserPhotoUrl = '';
@@ -357,7 +357,7 @@ class ItemProvider with ChangeNotifier {
     await prefs.setString('active_user_email', _activeUserEmail!);
     
     // Salva o perfil local na lista de contas recentes
-    await _saveAccountToRecents(_activeUserEmail!, displayName ?? 'Weverton', photoUrl ?? 'supermarket_cart');
+    await _saveAccountToRecents(_activeUserEmail!, displayName ?? 'Meu Perfil', photoUrl ?? 'supermarket_cart');
     
     DatabaseHelper.changeUser(_activeUserEmail);
     _service.setActiveUserEmail(_activeUserEmail);
