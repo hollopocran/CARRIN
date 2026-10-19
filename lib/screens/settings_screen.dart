@@ -240,7 +240,36 @@ class SettingsScreen extends StatelessWidget {
     messenger.hideCurrentSnackBar();
 
     if (info != null) {
-      AppUpdateDialog.show(context, info);
+      final cached = await AppUpdateService.instance.getDownloadedApk(info);
+      if (cached != null) {
+        if (!context.mounted) return;
+        AppUpdateDialog.showReady(context, info, cached.path);
+      } else if (AppUpdateService.instance.isDownloadingInBackground) {
+        final prog = (AppUpdateService.instance.backgroundProgress * 100).toInt();
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('A nova versão (v${info.version}) já está sendo baixada em segundo plano ($prog%). Você será avisado assim que concluir!'),
+            duration: const Duration(seconds: 4),
+            backgroundColor: Colors.blue.shade700,
+          ),
+        );
+      } else {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Nova versão v${info.version} encontrada! Baixando silenciosamente em segundo plano...'),
+            duration: const Duration(seconds: 4),
+            backgroundColor: Colors.blue.shade700,
+          ),
+        );
+        AppUpdateService.instance.downloadInBackground(
+          info,
+          onReady: (readyInfo, apkPath) {
+            if (context.mounted) {
+              AppUpdateDialog.showReady(context, readyInfo, apkPath);
+            }
+          },
+        );
+      }
     } else if (AppUpdateService.instance.lastFetchError != null) {
       messenger.showSnackBar(
         SnackBar(

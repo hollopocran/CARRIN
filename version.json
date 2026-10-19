@@ -1,17 +1,15 @@
 {
-  "version": "1.3.568",
-  "build_number": 568,
+  "version": "1.3.569",
+  "build_number": 569,
   "release_date": "2026-10-18",
-  "title": "CARRIN v1.3.568",
+  "title": "CARRIN v1.3.569",
   "release_notes": [
-    "Bloqueio de orientação em modo retrato vertical (o app não gira mais para paisagem ao inclinar o celular)",
-    "Persistência garantida da escala de fontes (85% e outros tamanhos são mantidos após fechar o app)",
-    "Correção de ícone nativo nas notificações de carrinho (ic_notification_cart)",
-    "Isolamento resiliente de inicialização dos serviços do aplicativo",
-    "Diagnóstico inteligente para atualizações OTA e instruções de visibilidade do repositório",
-    "Correção da barra de navegação no rodapé (botões voltar, home e janelas do Android)"
+    "Download silencioso de atualizações em segundo plano (sem interrupções na tela antes de baixar)",
+    "Aviso compacto de atualização pronta com link expansível para as notas da versão",
+    "Atualização integral dos Termos de Uso e Política de Privacidade em conformidade com a LGPD (Lei nº 13.709/18)",
+    "Download atômico (.part -> .apk) prevenindo corrupção de arquivos e limpeza de instaladores antigos"
   ],
-  "apk_url": "https://github.com/hollopocran/CARRIN/releases/download/v1.3.568/carrin_v1.3.568.apk",
+  "apk_url": "https://github.com/hollopocran/CARRIN/releases/download/v1.3.569/carrin_v1.3.569.apk",
   "is_active": true,
   "force_update": false
 }

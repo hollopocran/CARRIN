@@ -69,8 +69,8 @@ class AppUpdateService {
   AppUpdateService._();
   static final AppUpdateService instance = AppUpdateService._();
 
-  static const String currentAppVersion = '1.3.568';
-  static const int currentBuildNumber = 568;
+  static const String currentAppVersion = '1.3.569';
+  static const int currentBuildNumber = 569;
 
   static const MethodChannel _installerChannel = MethodChannel('com.wmartins.carrin/installer');
 
@@ -193,10 +193,118 @@ class AppUpdateService {
     }
   }
 
-  /// Baixa o APK com acompanhamento de progresso em tempo real e inicia a instalação
+  // Estado do download em segundo plano
+  bool _isDownloadingInBackground = false;
+  double _backgroundProgress = 0.0;
+  int _backgroundReceived = 0;
+  int _backgroundTotal = 0;
+  AppUpdateInfo? _downloadingInfo;
+  AppUpdateInfo? _readyUpdateInfo;
+  String? _readyApkPath;
+
+  bool get isDownloadingInBackground => _isDownloadingInBackground;
+  double get backgroundProgress => _backgroundProgress;
+  int get backgroundReceived => _backgroundReceived;
+  int get backgroundTotal => _backgroundTotal;
+  AppUpdateInfo? get readyUpdateInfo => _readyUpdateInfo;
+  String? get readyApkPath => _readyApkPath;
+
+  /// Retorna o arquivo APK já baixado se ele existir e estiver íntegro no cache
+  Future<File?> getDownloadedApk(AppUpdateInfo info) async {
+    try {
+      final tempDir = await getTemporaryDirectory();
+      final apkFile = File('${tempDir.path}/carrin_v${info.version}_b${info.buildNumber}.apk');
+      if (await apkFile.exists()) {
+        final len = await apkFile.length();
+        if (len > 15 * 1024 * 1024) {
+          _readyUpdateInfo = info;
+          _readyApkPath = apkFile.path;
+          return apkFile;
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /// Limpa APKs antigos de versões anteriores da pasta temporária
+  Future<void> cleanOldDownloadedApks() async {
+    try {
+      final tempDir = await getTemporaryDirectory();
+      final files = tempDir.listSync();
+      for (final f in files) {
+        if (f is File) {
+          final p = f.path;
+          if (p.contains('carrin_') && (p.endsWith('.apk') || p.endsWith('.part'))) {
+            if (_readyApkPath != p) {
+              await f.delete().catchError((_) => f);
+            }
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  /// Executa o download silenciosamente em background sem interromper o usuário.
+  /// Quando terminar, invoca o callback onReady com o info e o caminho do APK pronto.
+  Future<File?> downloadInBackground(
+    AppUpdateInfo info, {
+    void Function(AppUpdateInfo info, String filePath)? onReady,
+  }) async {
+    // 1. Verifica se já está em disco
+    final existing = await getDownloadedApk(info);
+    if (existing != null) {
+      _readyUpdateInfo = info;
+      _readyApkPath = existing.path;
+      onReady?.call(info, existing.path);
+      return existing;
+    }
+
+    if (_isDownloadingInBackground && _downloadingInfo?.buildNumber == info.buildNumber) {
+      return null; // Já está baixando em segundo plano
+    }
+
+    _isDownloadingInBackground = true;
+    _downloadingInfo = info;
+    _backgroundProgress = 0.0;
+    _backgroundReceived = 0;
+    _backgroundTotal = 0;
+
+    try {
+      final file = await downloadApk(
+        apkUrl: info.apkUrl,
+        buildNumber: info.buildNumber,
+        version: info.version,
+        onProgress: (prog, received, total) {
+          _backgroundProgress = prog;
+          _backgroundReceived = received;
+          _backgroundTotal = total;
+        },
+      );
+
+      _isDownloadingInBackground = false;
+      _downloadingInfo = null;
+      _readyUpdateInfo = info;
+      _readyApkPath = file.path;
+
+      // Limpa downloads obsoletos em background
+      cleanOldDownloadedApks();
+
+      onReady?.call(info, file.path);
+      return file;
+    } catch (e) {
+      _isDownloadingInBackground = false;
+      _downloadingInfo = null;
+      debugPrint('Aviso: falha no download silencioso do APK: $e');
+      return null;
+    }
+  }
+
+  /// Baixa o APK com acompanhamento de progresso em tempo real e escrita atômica (.part -> .apk)
   Future<File> downloadApk({
     required String apkUrl,
-    required void Function(double progress, int receivedBytes, int totalBytes) onProgress,
+    int? buildNumber,
+    String? version,
+    void Function(double progress, int receivedBytes, int totalBytes)? onProgress,
   }) async {
     final client = http.Client();
     try {
@@ -204,29 +312,47 @@ class AppUpdateService {
       final request = http.Request('GET', uri);
       final response = await client.send(request);
 
-      if (response.statusCode != 200) {
-        throw Exception('Servidor retornou erro ${response.statusCode} ao baixar o APK.');
+      if (response.statusCode != 200 && response.statusCode != 302) {
+        throw Exception('Servidor retornou código ${response.statusCode} ao baixar o APK.');
       }
 
-      final totalBytes = response.contentLength ?? 0;
+      http.StreamedResponse finalResponse = response;
+      if (response.statusCode == 302 && response.headers.containsKey('location')) {
+        final redirectUri = Uri.parse(response.headers['location']!);
+        final redirectRequest = http.Request('GET', redirectUri);
+        finalResponse = await client.send(redirectRequest);
+      }
+
+      final totalBytes = finalResponse.contentLength ?? 0;
       final tempDir = await getTemporaryDirectory();
-      final apkFile = File('${tempDir.path}/carrin_update.apk');
-      if (await apkFile.exists()) {
-        await apkFile.delete();
+      final suffix = (version != null && buildNumber != null)
+          ? 'carrin_v${version}_b$buildNumber'
+          : 'carrin_update';
+      final apkFile = File('${tempDir.path}/$suffix.apk');
+      final partFile = File('${tempDir.path}/$suffix.apk.part');
+
+      if (await partFile.exists()) {
+        await partFile.delete().catchError((_) => partFile);
       }
 
-      final sink = apkFile.openWrite();
+      final sink = partFile.openWrite();
       int receivedBytes = 0;
 
-      await for (final chunk in response.stream) {
+      await for (final chunk in finalResponse.stream) {
         sink.add(chunk);
         receivedBytes += chunk.length;
         final progress = totalBytes > 0 ? (receivedBytes / totalBytes) : 0.0;
-        onProgress(progress, receivedBytes, totalBytes);
+        onProgress?.call(progress, receivedBytes, totalBytes);
       }
 
       await sink.flush();
       await sink.close();
+
+      if (await apkFile.exists()) {
+        await apkFile.delete().catchError((_) => apkFile);
+      }
+      await partFile.rename(apkFile.path);
+
       return apkFile;
     } finally {
       client.close();

@@ -1,6 +1,6 @@
 # Documentação Técnica e Arquitetural: CARRIN
 
-> **Versão Atual:** `1.3.568` (Build `568`) — Outubro de 2026  
+> **Versão Atual:** `1.3.569` (Build `569`) — Outubro de 2026  
 > **Status:** Produção Estável  
 > **Slogan:** *"Sua lista, sem complicação."*
 
@@ -642,6 +642,20 @@ O [`BarcodeLookupService`](file:///C:/Dev/CARRIN/lib/services/barcode_lookup_ser
 - **Endereço Físico Completo Registrado em Cada Loja:** Adicionado o campo `address` em `PreloadedSupermarket` para todos os 138 estabelecimentos cadastrados.
 - **Exibição do Endereço no Mapa:** O endereço físico real agora é exibido tanto no painel inferior de detalhes (`_showMarketBottomSheet`) quanto na lista de resultados da busca rápida (`_openSearchDialog`).
 - **Validação:** 0 advertências no `flutter analyze`, 33/33 testes aprovados.
+
+### v1.3.569 (18 de Outubro de 2026)
+- **Download Silencioso de Atualizações em Segundo Plano:** O aplicativo não exibe mais popups interruptivos solicitando permissão para baixar atualizações. Ao detectar uma nova versão no GitHub/OTA, o download do APK é iniciado silenciosamente em segundo plano enquanto o usuário navega normalmente pelo app.
+- **Aviso Compacto de Instalação com Notas Expansíveis:** Ao término do download, o usuário é notificado com um card compacto ("Atualização Pronta!") contendo um link sutil expansível *"Notas da versão ▼"* (recolhido por padrão para não poluir a tela) e botão direto *"Instalar Agora"*.
+- **Download Atômico e Limpeza de Cache:** Implementação de escrita atômica com arquivo temporário `.apk.part` renomeado somente após a conclusão do streaming, prevenindo corrupção de arquivos em conexões instáveis, além de purga automática de instaladores antigos.
+- **Conformidade Integral com a LGPD (Lei nº 13.709/18):** Atualização completa da tela de Termos e Privacidade (`TermsScreen`) com 9 tópicos jurídicos claros (Minimização, SQLite local, OAuth pessoal do Google Sheets, Anonimização total do Radar Supabase, descarte de CPF de cupons NFC-e da SEFAZ, localização não-comercializada e canal DPO).
+- **Validação:** 0 advertências no `flutter analyze`, 61/61 testes unitários aprovados.
+
+### v1.3.568 (18 de Outubro de 2026)
+- **Bloqueio de Orientação em Modo Retrato:** Fixação do app exclusivamente em modo vertical (`portraitUp`), prevenindo giros acidentais para paisagem em celulares e tablets.
+- **Persistência Garantida da Escala de Fontes:** Correção e persistência do ajuste de fonte (85%, 100%, 115%) via `SharedPreferences`.
+- **Ícone Nativo em Notificações:** Correção do ícone de carrinho (`ic_notification_cart`) nas notificações do Android.
+- **Adaptação para Barra de Navegação Inferior:** Margens seguras com `SafeArea` e compatibilidade total com a barra de botões nativos do rodapé (voltar, home e janelas).
+- **Validação:** 0 advertências no `flutter analyze`, 61/61 testes unitários aprovados.
 
 ### v1.3.539 (16 de Outubro de 2026)
 - **Calibração Exata de Geolocalização (GPS & Rooftop OSM):** Auditoria e correção de precisão métrica de todas as coordenadas de supermercados na API/catálogo (`DefaultSupermarketsData`), cruzando dados com o banco do OpenStreetMap/Photon.
