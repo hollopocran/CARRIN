@@ -307,13 +307,15 @@ class CommunityPriceService {
           return true;
         } else {
           debugPrint('⚠️ Resposta Supabase: ${response.statusCode} - ${response.body}');
+          return false;
         }
       } catch (e) {
         debugPrint('⚠️ Erro ao enviar preço para o Supabase (salvo localmente): $e');
+        return false;
       }
     }
 
-    return true;
+    return false;
   }
 
   /// Publica uma lista de preços em lote na nuvem do Supabase e no SQLite local
@@ -352,13 +354,15 @@ class CommunityPriceService {
           return prices.length;
         } else {
           debugPrint('⚠️ Erro no batch Supabase: ${response.statusCode} - ${response.body}');
+          return 0;
         }
       } catch (e) {
         debugPrint('⚠️ Erro ao enviar lote para o Supabase: $e');
+        return 0;
       }
     }
 
-    return prices.length;
+    return 0;
   }
 
   /// Coleta os produtos que o usuário possui com preços reais registrados no app
@@ -487,7 +491,7 @@ class CommunityPriceService {
     double? userLng,
   }) async {
     try {
-      String urlStr = '${_cachedUrl!}/rest/v1/community_prices?select=*&order=created_at.desc&limit=500';
+      String urlStr = '${_cachedUrl!}/rest/v1/community_prices?select=id,product_name,category,unit,price,supermarket_name,latitude,longitude,submitted_by,verified_receipt,created_at&order=created_at.desc&limit=500';
       if (query != null && query.trim().isNotEmpty) {
         urlStr += '&product_name=ilike.*${Uri.encodeComponent(query.trim())}*';
       }
@@ -977,21 +981,47 @@ create table if not exists community_prices (
   longitude double precision,
   submitted_by text default 'Cliente CARRIN',
   verified_receipt boolean default false,
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+
+  -- Restrições de integridade
+  constraint chk_community_price_positive check (price > 0 and price <= 50000),
+  constraint chk_community_latitude check (latitude is null or (latitude between -90.0 and 90.0)),
+  constraint chk_community_longitude check (longitude is null or (longitude between -180.0 and 180.0)),
+  constraint chk_community_name_length check (char_length(trim(product_name)) >= 2),
+  constraint chk_community_market_length check (char_length(trim(supermarket_name)) >= 2)
 );
 
--- Índices para buscas ultrarrápidas por produto e mercado
-create index if not exists idx_community_product on community_prices(product_name);
+-- Extensão e Índice GIN para buscas textuais rápidas por substring (ILIKE)
+create extension if not exists pg_trgm;
+create index if not exists idx_community_product_gin_trgm on community_prices using gin (product_name gin_trgm_ops);
+
+-- Índices adicionais para ordenação e filtros
 create index if not exists idx_community_market on community_prices(supermarket_name);
 create index if not exists idx_community_created on community_prices(created_at desc);
 
--- Políticas de segurança: Leitura e escrita públicas e anônimas
+-- Políticas de segurança (Row Level Security)
 alter table community_prices enable row level security;
-grant all on table community_prices to anon, authenticated;
+
+-- Revoga privilégios perigosos e concede somente leitura e inserção
+revoke all on table community_prices from anon, authenticated;
+grant select, insert on table community_prices to anon, authenticated;
+
 drop policy if exists "Permitir leitura pública" on community_prices;
 drop policy if exists "Permitir inserção pública" on community_prices;
-create policy "Permitir leitura pública" on community_prices for select to anon, authenticated using (true);
-create policy "Permitir inserção pública" on community_prices for insert to anon, authenticated with check (true);
+drop policy if exists "Permitir inserção anônima segura" on community_prices;
+
+create policy "Permitir leitura pública"
+  on community_prices for select to anon, authenticated
+  using (true);
+
+create policy "Permitir inserção anônima segura"
+  on community_prices for insert to anon, authenticated
+  with check (
+    verified_receipt is not true
+    and price > 0
+    and char_length(trim(product_name)) >= 2
+    and char_length(trim(supermarket_name)) >= 2
+  );
 ''';
   }
 }
