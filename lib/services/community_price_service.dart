@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -14,6 +15,23 @@ class CommunityPriceService {
 
   static const String _prefUrlKey = 'supabase_community_url';
   static const String _prefAnonKey = 'supabase_community_anon_key';
+  static const String _prefDeviceIdKey = 'community_price_device_id';
+
+  /// Namespace persistente do dispositivo para evitar colisões entre IDs SQLite
+  /// que podem se repetir em instalações/dispositivos diferentes.
+  Future<String> _getStableDeviceId() async {
+    final prefs = await SharedPreferences.getInstance();
+    var deviceId = prefs.getString(_prefDeviceIdKey);
+    if (deviceId != null && deviceId.trim().isNotEmpty) return deviceId;
+
+    final random = Random.secure();
+    final timestamp = DateTime.now().microsecondsSinceEpoch.toRadixString(16);
+    final randomPart = List.generate(24, (_) => random.nextInt(16).toRadixString(16)).join();
+    deviceId = '${timestamp}_$randomPart';
+    await prefs.setString(_prefDeviceIdKey, deviceId);
+    return deviceId;
+  }
+
 
   /// Credenciais padrão do Supabase embutidas (zero configuração para o usuário)
   static const String defaultSupabaseUrl = 'https://togbshissjtctvlsvapc.supabase.co';
@@ -93,47 +111,41 @@ class CommunityPriceService {
     _isInitialized = true;
   }
 
-  /// Sincronização automática e mandatória em segundo plano de todas as compras reais do usuário
+  /// Sincroniza compras usando um identificador de evento persistente por item SQLite.
+  /// A chave do evento não depende de preço/nome, portanto compras repetidas são eventos distintos.
   Future<void> _autoSyncUserPurchasesInBackground() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final userItems = await DatabaseHelper.instance.getAllUserPurchasedProducts();
       if (userItems.isEmpty) return;
 
-      final syncedJson = prefs.getString('community_synced_items_v2');
-      Map<String, dynamic> syncedMap = {};
+      final deviceId = await _getStableDeviceId();
+      final syncedJson = prefs.getString('community_synced_event_ids_v1');
+      final Set<String> syncedEventIds = {};
       if (syncedJson != null && syncedJson.isNotEmpty) {
         try {
-          syncedMap = jsonDecode(syncedJson) as Map<String, dynamic>;
+          syncedEventIds.addAll((jsonDecode(syncedJson) as List).whereType<String>());
         } catch (_) {}
       }
 
       final List<CommunityPrice> toPublish = [];
-      final Map<String, dynamic> updatedMap = Map.from(syncedMap);
-
-      for (var row in userItems) {
+      final Set<String> eventIdsInBatch = {};
+      for (final row in userItems) {
+        final itemId = (row['id'] as num?)?.toInt();
         final name = (row['name'] as String? ?? '').trim();
         final price = (row['unit_price'] as num?)?.toDouble() ?? 0.0;
-        if (name.isEmpty || price <= 0) continue;
+        if (itemId == null || name.isEmpty || price <= 0) continue;
+
+        final eventId = 'purchase_${deviceId}_$itemId';
+        if (syncedEventIds.contains(eventId) || !eventIdsInBatch.add(eventId)) continue;
 
         String market = (row['supermarket'] as String? ?? '').trim();
         if (market.isEmpty || market.toLowerCase() == 'supermercado local' || market.toLowerCase() == 'supermercado') {
           market = defaultStoreName;
         }
-
-        final key = '${name.toLowerCase()}|${market.toLowerCase()}';
-        final lastSyncedPrice = (updatedMap[key] as num?)?.toDouble();
-
-        // Se já sincronizado com este mesmo preço, não duplica
-        if (lastSyncedPrice != null && (lastSyncedPrice - price).abs() < 0.001) {
-          continue;
-        }
-
-        // Resolve as coordenadas exatas do supermercado
         final coords = await resolveMarketCoordinates(market);
-
         toPublish.add(CommunityPrice(
-          id: 'user_${DateTime.now().millisecondsSinceEpoch}_${key.hashCode.abs()}',
+          id: eventId,
           productName: name,
           category: row['category'] as String?,
           unit: row['is_kg'] == 1 ? 'kg' : 'un',
@@ -145,17 +157,17 @@ class CommunityPriceService {
           verifiedReceipt: false,
           createdAt: DateTime.now(),
         ));
-
-        updatedMap[key] = price;
       }
 
-      if (toPublish.isNotEmpty) {
-        debugPrint('🚀 Auto-sincronizando ${toPublish.length} compras reais do usuário para a Comunidade...');
-        final count = await publishPricesBatch(toPublish);
-        if (count > 0) {
-          await prefs.setString('community_synced_items_v2', jsonEncode(updatedMap));
-          debugPrint('✅ $count compras do usuário sincronizadas com a Comunidade Supabase!');
-        }
+      if (toPublish.isEmpty) return;
+      debugPrint('🚀 Sincronizando ${toPublish.length} eventos de compra para a Comunidade...');
+      final count = await publishPricesBatch(toPublish);
+      if (count == toPublish.length) {
+        syncedEventIds.addAll(toPublish.map((p) => p.id));
+        await prefs.setString('community_synced_event_ids_v1', jsonEncode(syncedEventIds.toList()));
+        debugPrint('✅ ${toPublish.length} eventos de compra confirmados/sincronizados!');
+      } else {
+        debugPrint('⚠️ Sincronização incompleta/falhou; os eventos serão tentados novamente.');
       }
     } catch (e) {
       debugPrint('⚠️ Erro na auto-sincronização de compras: $e');
@@ -224,7 +236,7 @@ class CommunityPriceService {
     }
     if (isPost) {
       headers['Content-Type'] = 'application/json';
-      headers['Prefer'] = 'return=minimal';
+      headers['Prefer'] = 'resolution=ignore-duplicates,return=minimal';
     }
     return headers;
   }
@@ -284,11 +296,12 @@ class CommunityPriceService {
     // 2. Se o Supabase estiver configurado, envia via REST API
     if (isConfigured) {
       try {
-        final endpoint = Uri.parse('${_cachedUrl!}/rest/v1/community_prices');
+        final endpoint = Uri.parse('${_cachedUrl!}/rest/v1/community_prices?on_conflict=event_id');
         final response = await http.post(
           endpoint,
           headers: _buildHeaders(isPost: true),
           body: jsonEncode({
+            'event_id': newPrice.id,
             'product_name': newPrice.productName,
             'category': newPrice.category,
             'unit': newPrice.unit,
@@ -307,14 +320,14 @@ class CommunityPriceService {
           return true;
         } else {
           debugPrint('⚠️ Resposta Supabase: ${response.statusCode} - ${response.body}');
-          return false;
         }
       } catch (e) {
         debugPrint('⚠️ Erro ao enviar preço para o Supabase (salvo localmente): $e');
-        return false;
       }
     }
 
+    // O preço continua salvo no SQLite para uso offline, mas só consideramos
+    // a publicação bem-sucedida quando o Supabase confirma uma resposta 2xx.
     return false;
   }
 
@@ -329,8 +342,9 @@ class CommunityPriceService {
     // 2. Se o Supabase estiver configurado, envia em lote via REST API
     if (isConfigured) {
       try {
-        final endpoint = Uri.parse('${_cachedUrl!}/rest/v1/community_prices');
+        final endpoint = Uri.parse('${_cachedUrl!}/rest/v1/community_prices?on_conflict=event_id');
         final payload = prices.map((p) => {
+          'event_id': p.id,
           'product_name': p.productName,
           'category': p.category,
           'unit': p.unit,
@@ -354,14 +368,14 @@ class CommunityPriceService {
           return prices.length;
         } else {
           debugPrint('⚠️ Erro no batch Supabase: ${response.statusCode} - ${response.body}');
-          return 0;
         }
       } catch (e) {
         debugPrint('⚠️ Erro ao enviar lote para o Supabase: $e');
-        return 0;
       }
     }
 
+    // Mantém os preços no SQLite, mas sinaliza falha para que a sincronização
+    // não marque os itens como enviados e possa tentar novamente mais tarde.
     return 0;
   }
 
@@ -491,7 +505,7 @@ class CommunityPriceService {
     double? userLng,
   }) async {
     try {
-      String urlStr = '${_cachedUrl!}/rest/v1/community_prices?select=id,product_name,category,unit,price,supermarket_name,latitude,longitude,submitted_by,verified_receipt,created_at&order=created_at.desc&limit=500';
+      String urlStr = '${_cachedUrl!}/rest/v1/community_prices?select=id,event_id,product_name,category,unit,price,supermarket_name,latitude,longitude,submitted_by,verified_receipt,created_at&order=created_at.desc&limit=500';
       if (query != null && query.trim().isNotEmpty) {
         urlStr += '&product_name=ilike.*${Uri.encodeComponent(query.trim())}*';
       }
@@ -968,60 +982,53 @@ class CommunityPriceService {
 
   /// Retorna o SQL para criar a tabela no Supabase com 1 clique
   String getSupabaseSetupSql() {
-    return '''
--- Tabela para a Rede Social de Preços do CARRIN
-create table if not exists community_prices (
-  id uuid default gen_random_uuid() primary key,
-  product_name text not null,
+    return r'''
+-- CARRIN v1.3.578: execute in Supabase SQL Editor.
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+CREATE TABLE IF NOT EXISTS community_prices (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  event_id text,
+  product_name text NOT NULL,
   category text,
-  unit text default 'un',
-  price numeric(10,2) not null,
-  supermarket_name text not null,
+  unit text DEFAULT 'un',
+  price numeric(10,2) NOT NULL,
+  supermarket_name text NOT NULL,
   latitude double precision,
   longitude double precision,
-  submitted_by text default 'Cliente CARRIN',
-  verified_receipt boolean default false,
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
-
-  -- Restrições de integridade
-  constraint chk_community_price_positive check (price > 0 and price <= 50000),
-  constraint chk_community_latitude check (latitude is null or (latitude between -90.0 and 90.0)),
-  constraint chk_community_longitude check (longitude is null or (longitude between -180.0 and 180.0)),
-  constraint chk_community_name_length check (char_length(trim(product_name)) >= 2),
-  constraint chk_community_market_length check (char_length(trim(supermarket_name)) >= 2)
+  submitted_by text DEFAULT 'Cliente CARRIN',
+  verified_receipt boolean DEFAULT false,
+  created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL,
+  CONSTRAINT chk_community_price_positive CHECK (price > 0 AND price <= 50000),
+  CONSTRAINT chk_community_coords_valid CHECK ((latitude IS NULL OR latitude BETWEEN -90.0 AND 90.0) AND (longitude IS NULL OR longitude BETWEEN -180.0 AND 180.0)),
+  CONSTRAINT chk_community_name_length CHECK (length(trim(product_name)) BETWEEN 1 AND 200),
+  CONSTRAINT chk_community_market_length CHECK (length(trim(supermarket_name)) BETWEEN 1 AND 200),
+  CONSTRAINT chk_community_unit_valid CHECK (unit IN ('un', 'kg', 'g', 'l', 'ml', 'cx', 'pct', 'dz'))
 );
 
--- Extensão e Índice GIN para buscas textuais rápidas por substring (ILIKE)
-create extension if not exists pg_trgm;
-create index if not exists idx_community_product_gin_trgm on community_prices using gin (product_name gin_trgm_ops);
+ALTER TABLE public.community_prices ADD COLUMN IF NOT EXISTS event_id text;
+DO $$ BEGIN ALTER TABLE public.community_prices ADD CONSTRAINT chk_community_price_positive CHECK (price > 0 AND price <= 50000); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE public.community_prices ADD CONSTRAINT chk_community_coords_valid CHECK ((latitude IS NULL OR latitude BETWEEN -90.0 AND 90.0) AND (longitude IS NULL OR longitude BETWEEN -180.0 AND 180.0)); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE public.community_prices ADD CONSTRAINT chk_community_name_length CHECK (length(trim(product_name)) BETWEEN 1 AND 200); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE public.community_prices ADD CONSTRAINT chk_community_market_length CHECK (length(trim(supermarket_name)) BETWEEN 1 AND 200); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE public.community_prices ADD CONSTRAINT chk_community_unit_valid CHECK (unit IN ('un', 'kg', 'g', 'l', 'ml', 'cx', 'pct', 'dz')); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
--- Índices adicionais para ordenação e filtros
-create index if not exists idx_community_market on community_prices(supermarket_name);
-create index if not exists idx_community_created on community_prices(created_at desc);
+CREATE INDEX IF NOT EXISTS idx_community_product ON public.community_prices(product_name);
+CREATE INDEX IF NOT EXISTS idx_community_market ON public.community_prices(supermarket_name);
+CREATE INDEX IF NOT EXISTS idx_community_created ON public.community_prices(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_community_product_trgm ON public.community_prices USING gin (product_name gin_trgm_ops);
+-- Verifique duplicatas existentes antes de criar o índice único.
+-- SELECT event_id, COUNT(*) FROM public.community_prices WHERE event_id IS NOT NULL GROUP BY event_id HAVING COUNT(*) > 1;
+-- Índice não parcial para inferência de on_conflict=event_id pelo PostgREST.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_community_prices_event_id_unique ON public.community_prices(event_id);
 
--- Políticas de segurança (Row Level Security)
-alter table community_prices enable row level security;
-
--- Revoga privilégios perigosos e concede somente leitura e inserção
-revoke all on table community_prices from anon, authenticated;
-grant select, insert on table community_prices to anon, authenticated;
-
-drop policy if exists "Permitir leitura pública" on community_prices;
-drop policy if exists "Permitir inserção pública" on community_prices;
-drop policy if exists "Permitir inserção anônima segura" on community_prices;
-
-create policy "Permitir leitura pública"
-  on community_prices for select to anon, authenticated
-  using (true);
-
-create policy "Permitir inserção anônima segura"
-  on community_prices for insert to anon, authenticated
-  with check (
-    verified_receipt is not true
-    and price > 0
-    and char_length(trim(product_name)) >= 2
-    and char_length(trim(supermarket_name)) >= 2
-  );
+ALTER TABLE public.community_prices ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.community_prices FROM anon, authenticated;
+GRANT SELECT, INSERT ON TABLE public.community_prices TO anon, authenticated;
+DROP POLICY IF EXISTS "Permitir leitura pública" ON public.community_prices;
+DROP POLICY IF EXISTS "Permitir inserção pública" ON public.community_prices;
+CREATE POLICY "Permitir leitura pública" ON public.community_prices FOR SELECT TO anon, authenticated USING (true);
+CREATE POLICY "Permitir inserção pública" ON public.community_prices FOR INSERT TO anon, authenticated WITH CHECK (verified_receipt IS NOT TRUE);
 ''';
   }
 }

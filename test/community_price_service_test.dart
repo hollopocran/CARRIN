@@ -40,27 +40,31 @@ void main() {
     );
   });
 
-  group('CommunityPriceService Unit Tests', () {
-    test('getSupabaseSetupSql includes hardened security constraints and RLS', () {
+  group('CommunityPriceService Unit Tests (v1.3.578)', () {
+    test('getSupabaseSetupSql includes idempotency column, unique index and RLS', () {
       final sql = CommunityPriceService.instance.getSupabaseSetupSql();
+
+      // Verifica coluna e índice de idempotência
+      expect(sql, contains('event_id'));
+      expect(sql, contains('idx_community_prices_event_id_unique'));
 
       // Verifica constraints de integridade
       expect(sql, contains('chk_community_price_positive'));
-      expect(sql, contains('chk_community_latitude'));
-      expect(sql, contains('chk_community_longitude'));
+      expect(sql, contains('chk_community_coords_valid'));
       expect(sql, contains('chk_community_name_length'));
       expect(sql, contains('chk_community_market_length'));
+      expect(sql, contains('chk_community_unit_valid'));
 
       // Verifica busca eficiente por substring com trigramas
       expect(sql, contains('pg_trgm'));
-      expect(sql, contains('idx_community_product_gin_trgm'));
+      expect(sql, contains('idx_community_product_trgm'));
       expect(sql, contains('gin_trgm_ops'));
 
       // Verifica políticas RLS seguras
-      expect(sql, contains('revoke all on table community_prices from anon, authenticated;'));
-      expect(sql, contains('grant select, insert on table community_prices to anon, authenticated;'));
-      expect(sql, contains('Permitir inserção anônima segura'));
-      expect(sql, contains('verified_receipt is not true'));
+      expect(sql, contains('REVOKE ALL ON TABLE public.community_prices FROM anon, authenticated;'));
+      expect(sql, contains('GRANT SELECT, INSERT ON TABLE public.community_prices TO anon, authenticated;'));
+      expect(sql, contains('Permitir inserção pública'));
+      expect(sql, contains('verified_receipt IS NOT TRUE'));
     });
 
     test('publishPrice rejects invalid inputs before hitting network', () async {
@@ -102,7 +106,7 @@ void main() {
 
       final samplePrices = [
         CommunityPrice(
-          id: 'test_1',
+          id: 'purchase_device123_42',
           productName: 'Arroz Teste',
           price: 15.0,
           supermarketName: 'Mercado Teste',

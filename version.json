@@ -1,14 +1,15 @@
 {
-  "version": "1.3.577",
-  "build_number": 577,
-  "release_date": "2026-10-20",
-  "title": "CARRIN v1.3.577",
+  "version": "1.3.578",
+  "build_number": 578,
+  "release_date": "2026-10-21",
+  "title": "CARRIN v1.3.578",
   "release_notes": [
-    "Correção na confirmação de sincronização comunitária: itens com falha de rede ou HTTP não são mais marcados como enviados",
-    "Redução no consumo de dados (egress) com projeção explícita de colunas no radar social",
-    "Reforço de segurança e integridade no banco de preços e RLS"
+    "Idempotência a nível de evento: envio de event_id com on_conflict=event_id e resolution=ignore-duplicates para impedir duplicações em timeouts ou falhas de rede",
+    "Identificador estável e anônimo de dispositivo para isolamento global de compras",
+    "Rastreio local aprimorado de eventos de compra confirmados no SQLite e Supabase",
+    "Preservação total das otimizações de Egress, índices GIN de busca por trigramas e segurança RLS"
   ],
-  "apk_url": "https://github.com/hollopocran/CARRIN/releases/download/v1.3.577/carrin_v1.3.577.apk",
+  "apk_url": "https://github.com/hollopocran/CARRIN/releases/download/v1.3.578/carrin_v1.3.578.apk",
   "is_active": true,
   "force_update": false
 }

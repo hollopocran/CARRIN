@@ -1173,6 +1173,7 @@ class DatabaseHelper {
     try {
       final List<Map<String, dynamic>> results = await db.rawQuery('''
         SELECT 
+          id,
           name, 
           unit_price, 
           is_kg, 
