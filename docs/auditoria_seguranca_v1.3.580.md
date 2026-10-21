@@ -2,16 +2,16 @@
 
 **Versão:** CARRIN v1.3.580  
 **Data da Auditoria:** 21 de Outubro de 2026  
-**Commit de Referência:** `4690d8f`  
+**Commit de Consolidação:** `04d39fe`  
 **Escopo:** Endurecimento da infraestrutura Supabase (PostgreSQL / PostgREST) e cliente Flutter (`CommunityPriceService`).
 
 ---
 
-## 1. Resumo Executivo e Parecer
+## 1. Resumo Executivo e Conclusão
 
 A presente auditoria avaliou a camada de persistência de dados colaborativos (`public.community_prices`), o controle de acesso por linha (Row Level Security - RLS), as restrições de integridade relacional, o mecanismo de idempotência de rede e a otimização de busca textual por trigramas.
 
-**Parecer:** **Aprovado com ressalvas operacionais documentadas**. A infraestrutura em produção está protegida contra injeção de recibos forjados, adulteração/exclusão de registros por agentes públicos, payloads inválidos e eventos duplicados, apresentando tempo de resposta sub-5ms em buscas textuais.
+> **Parecer de Fechamento:** Os testes de autorização indicam que os papéis públicos `anon` e `authenticated` possuem apenas os privilégios diretos de leitura e inserção necessários sobre `public.community_prices`, sem privilégios efetivos de atualização, exclusão ou `TRUNCATE`. A inspeção de rotinas em `public` não identificou funções personalizadas ou funções `SECURITY DEFINER`, conforme o escopo consultado. Em conjunto com os testes de RLS, constraints e idempotência, os resultados sustentam uma avaliação de segurança favorável ao módulo de preços comunitários.
 
 ---
 
