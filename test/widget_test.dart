@@ -681,7 +681,13 @@ void main() {
       final service = CommunityPriceService.instance;
 
       final sql = service.getSupabaseSetupSql();
-      expect(sql.toLowerCase(), contains('create table if not exists community_prices'));
+      expect(
+        sql.toLowerCase(),
+        anyOf(
+          contains('create table if not exists public.community_prices'),
+          contains('create table if not exists community_prices'),
+        ),
+      );
       expect(sql.toLowerCase(), contains('enable row level security'));
       expect(sql.toLowerCase(), contains('create policy'));
 
