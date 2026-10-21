@@ -161,7 +161,7 @@ Hash SHA-256 verificado do artefato compilado a partir do código auditado:
 
 | Artefato | Caminho | Hash SHA-256 |
 | :--- | :--- | :--- |
-| **Release APK** | `build/app/outputs/flutter-apk/carrin_v1.3.580.apk` | `fe89632061f07ef8b55739a02fd804c7f514067807fe11da747b8dc634c14223` |
+| **Release APK** | `build/app/outputs/flutter-apk/carrin_v1.3.580.apk` | `668d283574f5b5b3d9e7276e6676c148b459b89eed09fca5060361b4fb7200b9` |
 
 ### Procedimento para validação manual ou AAB (Google Play):
 ```bash
