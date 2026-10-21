@@ -310,7 +310,7 @@ class CommunityPriceService {
             'latitude': newPrice.latitude,
             'longitude': newPrice.longitude,
             'submitted_by': newPrice.submittedBy,
-            'verified_receipt': newPrice.verifiedReceipt,
+            'verified_receipt': false, // Sempre false no envio público anon para respeitar a política RLS
             'created_at': newPrice.createdAt.toIso8601String(),
           }),
         ).timeout(const Duration(seconds: 5));
@@ -353,7 +353,7 @@ class CommunityPriceService {
           'latitude': p.latitude,
           'longitude': p.longitude,
           'submitted_by': p.submittedBy,
-          'verified_receipt': p.verifiedReceipt,
+          'verified_receipt': false, // Sempre false no envio público anon para respeitar a política RLS
           'created_at': p.createdAt.toIso8601String(),
         }).toList();
 
@@ -1017,9 +1017,10 @@ CREATE INDEX IF NOT EXISTS idx_community_product ON public.community_prices(prod
 CREATE INDEX IF NOT EXISTS idx_community_market ON public.community_prices(supermarket_name);
 CREATE INDEX IF NOT EXISTS idx_community_created ON public.community_prices(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_community_product_trgm ON public.community_prices USING gin (product_name gin_trgm_ops);
--- Verifique duplicatas existentes antes de criar o índice único.
+-- Verifique duplicatas existentes antes de criar o índice único:
 -- SELECT event_id, COUNT(*) FROM public.community_prices WHERE event_id IS NOT NULL GROUP BY event_id HAVING COUNT(*) > 1;
--- Índice não parcial para inferência de on_conflict=event_id pelo PostgREST.
+-- Remove versão parcial anterior (se houver) para garantir que o PostgREST infira on_conflict=event_id:
+DROP INDEX IF EXISTS public.idx_community_prices_event_id_unique;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_community_prices_event_id_unique ON public.community_prices(event_id);
 
 ALTER TABLE public.community_prices ENABLE ROW LEVEL SECURITY;
