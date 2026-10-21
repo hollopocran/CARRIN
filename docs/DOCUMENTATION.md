@@ -341,6 +341,36 @@ O [`BarcodeLookupService`](file:///C:/Dev/CARRIN/lib/services/barcode_lookup_ser
 
 ## 5. Histórico Cronológico de Atualizações e Versões
 
+### v1.3.579 (21 de Outubro de 2026)
+- **Preservação de Recursos Nativos Android contra Shrinking/R8 (`android/app/src/main/res/raw/keep.xml`):**
+  - Criação do arquivo de regras de retenção de recursos nativos (`tools:keep="@drawable/*,@mipmap/*"`). Previne que o otimizador R8 / Android Gradle Plugin descarte os drawables nativos das notificações (`ic_notification_cart`, `ic_carrin_logo`) durante o build de release com `isShrinkResources = true` e `isMinifyEnabled = true`.
+  - Resolução definitiva de exceções silenciosas de ícone ausente (`invalid_icon` / `invalid_large_icon`), restaurando 100% da visibilidade e estabilidade do monitor de compras na barra de status e tela de bloqueio.
+- **Fallback Seguro e Persistência do Monitor de Compras (`NotificationService` & `main.dart`):**
+  - Adição de fallback defensivo para `@mipmap/launcher_icon` caso os recursos específicos sofram qualquer problema no dispositivo.
+  - Ajuste de `autoCancel: false` no monitor contínuo: o toque na notificação para retornar ao aplicativo não encerra mais prematuramente o monitoramento, mantendo `ongoing: false` para que o usuário ainda possa dispensar com swipe se desejar.
+  - Reativação imediata do monitoramento em `didChangeAppLifecycleState(AppLifecycleState.resumed)` e após concessão explícita de permissões.
+- **Correção Abrangente do Modo Daltônico com Paleta Semântica Acessível:**
+  - Vinculação de todas as cores de status (itens riscados, alertas de orçamento, balanço financeiro, medidores de saúde financeira e chips de preço) ao `Theme.of(context).colorScheme.primary` e `Theme.of(context).colorScheme.error` em vez de constantes fixas (`Colors.green`, `Colors.redAccent`).
+  - Paletas científicas calibradas para legibilidade absoluta:
+    - **Deuteranopia & Protanopia:** Azul Royal (`#0072B2`) e Vermillion/Laranja Queimado (`#D55E00`).
+    - **Tritanopia:** Verde Azulado (`#009E73`) e Rosa Avermelhado (`#CC79A7`).
+    - **Alto Contraste:** Verde Neon (`#00E676`) e Vermelho Intenso (`#FF1744`).
+- **Reatividade Instantânea no Root (`main.dart`):**
+  - Adição de `key: ValueKey(themeProvider.colorBlindMode)` no `ColorFiltered` global, forçando reconstrução limpa e imediata de toda a árvore de widgets ao alternar o modo nas configurações.
+- **Validação Automatizada:** 70/70 testes aprovados (100% de sucesso), 0 advertências no `dart analyze`.
+
+### v1.3.578 (21 de Outubro de 2026)
+- **Idempotência a Nível de Evento no Radar de Preços Comunitário (`CommunityPriceService`):**
+  - Envio de identificador estável `event_id` estruturado (`<deviceId>_<itemId>`) em conjunto com as diretivas HTTP `on_conflict=event_id` e `resolution=ignore-duplicates` no Supabase REST API (individual e batch).
+  - Previne duplicações de compras na nuvem em casos de retentativas automáticas causadas por oscilações ou timeouts de conexão.
+- **Identificador de Dispositivo Anônimo e Persistente:**
+  - Geração de UUID v4 anônimo local salvo em `SharedPreferences` para garantir unicidade global sem coletar dados pessoais do usuário.
+- **Exposição da Chave Primária SQLite (`DatabaseHelper.getAllUserPurchasedProducts`):**
+  - Inclusão da coluna `id` na consulta de produtos comprados para suportar o rastreamento preciso de eventos e confirmações de sincronização.
+- **Preservação Integral de Egress e Políticas de Segurança:**
+  - Manutenção de seleção explícita de colunas na API do Supabase, índices GIN de busca por trigramas (`pg_trgm`) e restrições `CHECK (price > 0)`.
+- **Validação Automatizada:** 68/68 testes aprovados, 0 advertências no `dart analyze`.
+
 ### v1.3.568 (18 de Outubro de 2026)
 - **Bloqueio de Orientação em Modo Retrato Vertical (`AndroidManifest.xml` & `main.dart`):**
   - **Prevenção de Quebra de Telas em Modo Paisagem:** Configurado `android:screenOrientation="portrait"` na atividade principal do Android (`MainActivity`) e `SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp, DeviceOrientation.portraitDown])` no `main()`.

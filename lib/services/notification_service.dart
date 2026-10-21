@@ -29,16 +29,25 @@ class NotificationService {
   /// Initializes notification plugins and creates necessary Android channels.
   Future<void> init() async {
     try {
-      const AndroidInitializationSettings initializationSettingsAndroid =
-          AndroidInitializationSettings(cartNotificationIcon); 
+      try {
+        const AndroidInitializationSettings initializationSettingsAndroid =
+            AndroidInitializationSettings(cartNotificationIcon); 
 
-      const InitializationSettings initializationSettings = InitializationSettings(
-        android: initializationSettingsAndroid,
-      );
+        const InitializationSettings initializationSettings = InitializationSettings(
+          android: initializationSettingsAndroid,
+        );
 
-      await _notificationsPlugin.initialize(
-        initializationSettings,
-      );
+        await _notificationsPlugin.initialize(
+          initializationSettings,
+        );
+      } catch (initErr) {
+        debugPrint('Fallback de inicialização com @mipmap/launcher_icon: $initErr');
+        const AndroidInitializationSettings fallbackInit =
+            AndroidInitializationSettings('@mipmap/launcher_icon');
+        await _notificationsPlugin.initialize(
+          const InitializationSettings(android: fallbackInit),
+        );
+      }
 
       // Progress Channel (Prioridade padrão: exibe na barra de status e tela de bloqueio sem som repetitivo)
       const AndroidNotificationChannel progressChannel = AndroidNotificationChannel(
@@ -72,25 +81,46 @@ class NotificationService {
   /// Triggers a high-priority budget alert notification.
   Future<void> showBudgetAlert(String title, String body) async {
     try {
-      const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-        budgetChannelId,
-        budgetChannelName,
-        channelDescription: 'Notifica quando o orçamento limite for ultrapassado',
-        importance: Importance.high,
-        priority: Priority.high,
-        color: Color(0xFFFF5252),
-        ledColor: Color(0xFFFF5252),
-        ledOnMs: 1000,
-        ledOffMs: 500,
-        playSound: true,
-        enableVibration: true,
-        autoCancel: true,
-        icon: cartNotificationIcon,
-        largeIcon: DrawableResourceAndroidBitmap(appLogoIcon),
-      );
+      try {
+        const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+          budgetChannelId,
+          budgetChannelName,
+          channelDescription: 'Notifica quando o orçamento limite for ultrapassado',
+          importance: Importance.high,
+          priority: Priority.high,
+          color: Color(0xFFFF5252),
+          ledColor: Color(0xFFFF5252),
+          ledOnMs: 1000,
+          ledOffMs: 500,
+          playSound: true,
+          enableVibration: true,
+          autoCancel: true,
+          icon: cartNotificationIcon,
+          largeIcon: DrawableResourceAndroidBitmap(appLogoIcon),
+        );
 
-      const NotificationDetails details = NotificationDetails(android: androidDetails);
-      await _notificationsPlugin.show(1, title, body, details); // ID 1 for Alerts
+        const NotificationDetails details = NotificationDetails(android: androidDetails);
+        await _notificationsPlugin.show(1, title, body, details); // ID 1 for Alerts
+      } catch (inner) {
+        debugPrint('Fallback alert com @mipmap/launcher_icon: $inner');
+        const AndroidNotificationDetails fallbackDetails = AndroidNotificationDetails(
+          budgetChannelId,
+          budgetChannelName,
+          channelDescription: 'Notifica quando o orçamento limite for ultrapassado',
+          importance: Importance.high,
+          priority: Priority.high,
+          color: Color(0xFFFF5252),
+          ledColor: Color(0xFFFF5252),
+          ledOnMs: 1000,
+          ledOffMs: 500,
+          playSound: true,
+          enableVibration: true,
+          autoCancel: true,
+          icon: '@mipmap/launcher_icon',
+          largeIcon: DrawableResourceAndroidBitmap('@mipmap/launcher_icon'),
+        );
+        await _notificationsPlugin.show(1, title, body, const NotificationDetails(android: fallbackDetails));
+      }
     } catch (e) {
       debugPrint('Erro ao disparar showBudgetAlert: $e');
     }
@@ -127,7 +157,8 @@ class NotificationService {
   /// Shows or updates a notification with current shopping progress.
   /// 
   /// Displays a native Android progress bar, item counters, expenditure, and budget metrics.
-  /// Uses ongoing: false and autoCancel: true so it is never trapped/persistent on the device.
+  /// Uses ongoing: false so the user can dismiss it if wanted, but autoCancel: false so
+  /// tapping the notification to enter the app does not eliminate the active session monitor.
   Future<void> showOrUpdateProgress(
     String listName, 
     int bought, 
@@ -158,41 +189,76 @@ class NotificationService {
         bigText += '\nOrçamento: ${Utils.formatCurrency(budget)} | Saldo: ${Utils.formatCurrency(balance)}';
       }
 
-      final AndroidNotificationDetails androidPlatformChannelSpecifics = AndroidNotificationDetails(
-        channelId,
-        channelName,
-        channelDescription: channelDescription,
-        importance: Importance.defaultImportance,
-        priority: Priority.defaultPriority,
-        ticker: 'Carrin atualizado',
-        ongoing: false, // Não fica presa/travada: usuário pode deslizar para dispensar
-        autoCancel: true, // Cancela ao tocar para abrir o app
-        onlyAlertOnce: true, 
-        showProgress: true,
-        maxProgress: total,
-        progress: bought,
-        subText: subText,
-        color: const Color(0xFF10B981), // Destaque na cor verde esmeralda do CARRIN
-        styleInformation: BigTextStyleInformation(
-          bigText,
-          contentTitle: title,
-          summaryText: subText ?? '$bought/$total itens',
-        ),
-        visibility: NotificationVisibility.public, 
-        icon: cartNotificationIcon,
-        largeIcon: const DrawableResourceAndroidBitmap(appLogoIcon),
-      );
+      try {
+        final AndroidNotificationDetails androidPlatformChannelSpecifics = AndroidNotificationDetails(
+          channelId,
+          channelName,
+          channelDescription: channelDescription,
+          importance: Importance.defaultImportance,
+          priority: Priority.defaultPriority,
+          ticker: 'Carrin atualizado',
+          ongoing: false, // Deslizável/dispensável
+          autoCancel: false, // Não é apagada acidentalmente ao tocar para abrir o app
+          onlyAlertOnce: true, 
+          showProgress: true,
+          maxProgress: total,
+          progress: bought,
+          subText: subText,
+          color: const Color(0xFF10B981), // Destaque na cor verde esmeralda do CARRIN
+          styleInformation: BigTextStyleInformation(
+            bigText,
+            contentTitle: title,
+            summaryText: subText ?? '$bought/$total itens',
+          ),
+          visibility: NotificationVisibility.public, 
+          icon: cartNotificationIcon,
+          largeIcon: const DrawableResourceAndroidBitmap(appLogoIcon),
+        );
 
-      final NotificationDetails platformChannelSpecifics = NotificationDetails(
-        android: androidPlatformChannelSpecifics,
-      );
+        final NotificationDetails platformChannelSpecifics = NotificationDetails(
+          android: androidPlatformChannelSpecifics,
+        );
 
-      await _notificationsPlugin.show(
-        0, // ID 0 for Progress
-        title,
-        content,
-        platformChannelSpecifics,
-      );
+        await _notificationsPlugin.show(
+          0, // ID 0 for Progress
+          title,
+          content,
+          platformChannelSpecifics,
+        );
+      } catch (inner) {
+        debugPrint('Fallback progress com @mipmap/launcher_icon: $inner');
+        final AndroidNotificationDetails fallbackSpecifics = AndroidNotificationDetails(
+          channelId,
+          channelName,
+          channelDescription: channelDescription,
+          importance: Importance.defaultImportance,
+          priority: Priority.defaultPriority,
+          ticker: 'Carrin atualizado',
+          ongoing: false,
+          autoCancel: false,
+          onlyAlertOnce: true, 
+          showProgress: true,
+          maxProgress: total,
+          progress: bought,
+          subText: subText,
+          color: const Color(0xFF10B981),
+          styleInformation: BigTextStyleInformation(
+            bigText,
+            contentTitle: title,
+            summaryText: subText ?? '$bought/$total itens',
+          ),
+          visibility: NotificationVisibility.public, 
+          icon: '@mipmap/launcher_icon',
+          largeIcon: const DrawableResourceAndroidBitmap('@mipmap/launcher_icon'),
+        );
+
+        await _notificationsPlugin.show(
+          0,
+          title,
+          content,
+          NotificationDetails(android: fallbackSpecifics),
+        );
+      }
     } catch (e) {
       debugPrint('Erro ao disparar showOrUpdateProgress: $e');
     }

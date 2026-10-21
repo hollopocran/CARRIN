@@ -251,7 +251,9 @@ class _SearchItemTile extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
     final badgeInfo = provider.getPriceBadgeInfo(item);
     final String status = badgeInfo['status'] as String? ?? 'Novo';
-    final Color statusColor = badgeInfo['color'] as Color? ?? Colors.blueGrey;
+    final Color statusColor = (status == 'Barato' || status == 'Na Média')
+        ? theme.colorScheme.primary
+        : (status == 'Caro' ? theme.colorScheme.error : (badgeInfo['color'] as Color? ?? Colors.blueGrey));
     final bool showBadge = status != 'N/A' && status != 'Novo';
 
     return Padding(
@@ -312,7 +314,7 @@ class _SearchItemTile extends StatelessWidget {
                               provider.toggleBought(item);
                             },
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                            activeColor: Colors.green,
+                            activeColor: theme.colorScheme.primary,
                           ),
                         ),
                         const SizedBox(width: 10),

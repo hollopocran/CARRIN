@@ -450,6 +450,11 @@ class AppThemes {
         secondary: secondaryColor,
         surface: Colors.white,
         onPrimary: Colors.white,
+        error: (colorBlindMode == ColorBlindMode.deuteranopia || colorBlindMode == ColorBlindMode.protanopia)
+            ? const Color(0xFFD55E00)
+            : (colorBlindMode == ColorBlindMode.tritanopia
+                ? const Color(0xFFCC79A7)
+                : (colorBlindMode == ColorBlindMode.highContrast ? const Color(0xFFFF1744) : const Color(0xFFE63946))),
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: seedColor,
@@ -541,6 +546,11 @@ class AppThemes {
         surface: const Color(0xFF181A26),
         onPrimary: onPrimaryColor,
         onSurface: Colors.white,
+        error: (colorBlindMode == ColorBlindMode.deuteranopia || colorBlindMode == ColorBlindMode.protanopia)
+            ? const Color(0xFFD55E00)
+            : (colorBlindMode == ColorBlindMode.tritanopia
+                ? const Color(0xFFCC79A7)
+                : (colorBlindMode == ColorBlindMode.highContrast ? const Color(0xFFFF1744) : const Color(0xFFE63946))),
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: primaryColor,

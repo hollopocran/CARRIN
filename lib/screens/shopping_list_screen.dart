@@ -1056,7 +1056,9 @@ if (_isMarketLocked)
     
     final badgeInfo = itemProvider.getPriceBadgeInfo(item);
     final String status = badgeInfo['status'] as String;
-    final Color statusColor = badgeInfo['color'] as Color;
+    final Color statusColor = (status == 'Barato' || status == 'Na Média')
+        ? Theme.of(context).colorScheme.primary
+        : (status == 'Caro' ? Theme.of(context).colorScheme.error : (badgeInfo['color'] as Color));
 
     return Material(
       color: isSelected ? Theme.of(context).primaryColor.withValues(alpha: 0.15) : Colors.transparent,
@@ -1112,7 +1114,7 @@ if (_isMarketLocked)
                             itemProvider.toggleBought(item);
                           },
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_marketMode ? 8 : 6)),
-                          activeColor: Colors.green,
+                          activeColor: Theme.of(context).colorScheme.primary,
                         ),
                       ),
                     const SizedBox(width: 8),
@@ -1474,12 +1476,12 @@ if (_isMarketLocked)
                                       leading: Container(
                                         padding: const EdgeInsets.all(8),
                                         decoration: BoxDecoration(
-                                          color: (isBestPrice ? Colors.amber : (isCurrent ? Theme.of(context).primaryColor : (isHigher ? Colors.red : Colors.green))).withValues(alpha: 0.12),
+                                          color: (isBestPrice ? Colors.amber : (isCurrent ? Theme.of(context).primaryColor : (isHigher ? Theme.of(context).colorScheme.error : Theme.of(context).colorScheme.primary))).withValues(alpha: 0.12),
                                           shape: BoxShape.circle,
                                         ),
                                         child: Icon(
                                           isBestPrice ? Icons.star_rounded : (isCurrent ? Icons.gps_fixed : (isHigher ? Icons.trending_up : (isLower ? Icons.trending_down : Icons.trending_flat))), 
-                                          color: isBestPrice ? Colors.amber[800] : (isCurrent ? Theme.of(context).primaryColor : (isHigher ? Colors.red : (isLower ? Colors.green : Colors.grey))), 
+                                          color: isBestPrice ? Colors.amber[800] : (isCurrent ? Theme.of(context).primaryColor : (isHigher ? Theme.of(context).colorScheme.error : (isLower ? Theme.of(context).colorScheme.primary : Colors.grey))), 
                                           size: 18,
                                         ),
                                       ),
@@ -1518,7 +1520,7 @@ if (_isMarketLocked)
                                             style: TextStyle(
                                               fontSize: 16,
                                               fontWeight: FontWeight.bold,
-                                              color: isBestPrice ? Colors.green[700] : (isCurrent ? Theme.of(context).primaryColor : null),
+                                              color: isBestPrice ? Theme.of(context).colorScheme.primary : (isCurrent ? Theme.of(context).primaryColor : null),
                                             ),
                                           ),
                                           if (isCurrent)
@@ -1526,7 +1528,7 @@ if (_isMarketLocked)
                                           else if (item.unitPrice > 0)
                                             Text(
                                               isHigher ? '+ ${Utils.formatCurrency(price - item.unitPrice)}' : (isLower ? '- ${Utils.formatCurrency(item.unitPrice - price)}' : 'Mesmo preço'),
-                                              style: TextStyle(fontSize: 10, color: isHigher ? Colors.red : (isLower ? Colors.green : Colors.grey)),
+                                              style: TextStyle(fontSize: 10, color: isHigher ? Theme.of(context).colorScheme.error : (isLower ? Theme.of(context).colorScheme.primary : Colors.grey)),
                                             ),
                                         ],
                                       ),
@@ -2379,9 +2381,18 @@ class _StickyHealthHeaderDelegate extends SliverPersistentHeaderDelegate {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const SizedBox(height: 16),
-                      ClipRRect(borderRadius: BorderRadius.circular(10), child: LinearProgressIndicator(value: healthPercent.clamp(0.0, 1.0), minHeight: 8, backgroundColor: Colors.grey[200], valueColor: AlwaysStoppedAnimation<Color>(healthPercent > 1.0 ? Colors.redAccent : (healthPercent > 0.8 ? Colors.orangeAccent : Colors.green)))),
-                      const SizedBox(height: 4),
-                      const Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text('Seguro', style: TextStyle(fontSize: 9, color: Colors.green, fontWeight: FontWeight.bold)), Text('Atenção', style: TextStyle(fontSize: 9, color: Colors.orange, fontWeight: FontWeight.bold)), Text('Crítico', style: TextStyle(fontSize: 9, color: Colors.red, fontWeight: FontWeight.bold))]),
+                      Builder(builder: (ctx) {
+                        final primarySuccess = Theme.of(ctx).colorScheme.primary;
+                        final dangerError = Theme.of(ctx).colorScheme.error;
+                        return Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            ClipRRect(borderRadius: BorderRadius.circular(10), child: LinearProgressIndicator(value: healthPercent.clamp(0.0, 1.0), minHeight: 8, backgroundColor: Colors.grey[200], valueColor: AlwaysStoppedAnimation<Color>(healthPercent > 1.0 ? dangerError : (healthPercent > 0.8 ? Colors.orangeAccent : primarySuccess)))),
+                            const SizedBox(height: 4),
+                            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text('Seguro', style: TextStyle(fontSize: 9, color: primarySuccess, fontWeight: FontWeight.bold)), const Text('Atenção', style: TextStyle(fontSize: 9, color: Colors.orange, fontWeight: FontWeight.bold)), Text('Crítico', style: TextStyle(fontSize: 9, color: dangerError, fontWeight: FontWeight.bold))]),
+                          ],
+                        );
+                      }),
                       const SizedBox(height: 6),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,

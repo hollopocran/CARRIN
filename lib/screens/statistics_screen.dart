@@ -366,7 +366,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with AutomaticKeepA
                                     TextSpan(
                                       text: 'Saldo: ${Utils.formatCurrency(balVal)}',
                                       style: TextStyle(
-                                        color: balVal < 0 ? Colors.redAccent : Colors.greenAccent,
+                                        color: balVal < 0 ? Theme.of(context).colorScheme.error : Theme.of(context).colorScheme.primary,
                                         fontSize: 12,
                                         fontWeight: FontWeight.w600,
                                       ),
@@ -471,7 +471,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with AutomaticKeepA
         const SizedBox(height: 32),
         Row(children: [
           Expanded(child: _buildInfoMetric('Média de Gasto', Utils.formatCurrency(avg), textColor)),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('% Mudança', style: TextStyle(color: Colors.grey, fontSize: 12)), const SizedBox(height: 10), Row(children: [Icon(isDown ? Icons.arrow_downward : Icons.arrow_upward, color: isDown ? Colors.green : Colors.red, size: 20), const SizedBox(width: 6), Text('${change.abs().toStringAsFixed(1)}%', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: isDown ? Colors.green : Colors.red))])]))
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('% Mudança', style: TextStyle(color: Colors.grey, fontSize: 12)), const SizedBox(height: 10), Row(children: [Icon(isDown ? Icons.arrow_downward : Icons.arrow_upward, color: isDown ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.error, size: 20), const SizedBox(width: 6), Text('${change.abs().toStringAsFixed(1)}%', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: isDown ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.error))])]))
         ]),
         const SizedBox(height: 32),
         Row(children: [Expanded(child: _buildInfoMetric('Máximo', Utils.formatCurrency(maxT), textColor)), Expanded(child: _buildInfoMetric('Mínimo', Utils.formatCurrency(minT), textColor))])
@@ -489,7 +489,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with AutomaticKeepA
       childAnimationBuilder: (w) => useAnimations ? SlideAnimation(verticalOffset: 20.0, child: FadeInAnimation(child: w)) : w,
       children: months.map((m) {
         final b = data[m]?['budget'] ?? 0.0; final t = data[m]?['total'] ?? 0.0; final bal = b - t;
-        Color statusC = bal < 1.0 ? Colors.redAccent : (bal <= 100.0 ? Colors.orangeAccent : Colors.green);
+        Color statusC = bal < 1.0 ? Theme.of(context).colorScheme.error : (bal <= 100.0 ? Colors.orangeAccent : Theme.of(context).colorScheme.primary);
         return Container(margin: const EdgeInsets.only(bottom: 16), decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(24), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))]), child: Material(color: Colors.transparent, child: InkWell(onTap: () => _showMonthDetail(m, b, t), borderRadius: BorderRadius.circular(24), child: Padding(padding: const EdgeInsets.all(24), child: Column(children: [Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(m, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor)), const Icon(Icons.chevron_right, color: Colors.grey, size: 22)]), const SizedBox(height: 20), Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [_buildListMetric('Orçamento', Utils.formatCurrency(b), null), _buildListMetric('Gasto', Utils.formatCurrency(t), Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Theme.of(context).primaryColor), _buildListMetric('Saldo', Utils.formatCurrency(bal), statusC)])])))));
       }).toList(),
     )));
@@ -537,7 +537,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with AutomaticKeepA
                       children: [
                         Icon(
                           isEx ? Icons.warning_rounded : Icons.check_circle_rounded,
-                          color: isEx ? Colors.redAccent : Colors.green,
+                          color: isEx ? Theme.of(context).colorScheme.error : Theme.of(context).colorScheme.primary,
                           size: 20,
                         ),
                         const SizedBox(width: 8),
@@ -574,7 +574,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with AutomaticKeepA
                             Icon(
                               isEx ? Icons.trending_up : Icons.trending_down,
                               size: 14,
-                              color: isEx ? Colors.redAccent : Colors.green,
+                              color: isEx ? Theme.of(context).colorScheme.error : Theme.of(context).colorScheme.primary,
                             ),
                             const SizedBox(width: 4),
                             Text(
@@ -582,7 +582,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with AutomaticKeepA
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
-                                color: isEx ? Colors.redAccent : Colors.green,
+                                color: isEx ? Theme.of(context).colorScheme.error : Theme.of(context).colorScheme.primary,
                               ),
                             ),
                           ],
@@ -622,7 +622,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with AutomaticKeepA
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final balance = budget - total;
     final percent = budget > 0 ? (total / budget) : (total > 0 ? 1.1 : 0.0);
-    Color statusC = balance < 1.0 ? Colors.redAccent : (balance <= 100.0 ? Colors.orangeAccent : Colors.green);
+    Color statusC = balance < 1.0 ? Theme.of(context).colorScheme.error : (balance <= 100.0 ? Colors.orangeAccent : Theme.of(context).colorScheme.primary);
     
     final Color buttonBg = Theme.of(context).primaryColor;
     final Color buttonFg = buttonBg.computeLuminance() > 0.5 ? Colors.black : Colors.white;

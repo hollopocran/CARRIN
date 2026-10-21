@@ -80,9 +80,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     
-    // Pede permissão logo após o app carregar a interface
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      NotificationService().requestPermissions();
+    // Pede permissão logo após o app carregar a interface e já engatilha o progresso
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final granted = await NotificationService().requestPermissions();
+      if (granted && mounted) {
+        Provider.of<ItemProvider>(context, listen: false).refreshNotification();
+      }
     });
   }
 
@@ -95,7 +98,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.detached) {
+    if (state == AppLifecycleState.resumed) {
+      // Reativa/atualiza o monitor de compras ao voltar para o app
+      Provider.of<ItemProvider>(context, listen: false).refreshNotification();
+    } else if (state == AppLifecycleState.detached) {
       // Fecha a notificação apenas quando a aplicação for totalmente encerrada
       NotificationService().cancelAll();
     }
@@ -121,6 +127,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         final matrix = themeProvider.colorBlindMatrix;
         if (matrix != null) {
           return ColorFiltered(
+            key: ValueKey(themeProvider.colorBlindMode),
             colorFilter: ColorFilter.matrix(matrix),
             child: app,
           );

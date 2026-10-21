@@ -333,19 +333,19 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.green.withValues(alpha: 0.12),
+                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+                      border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3)),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.lock_outline, color: Colors.green, size: 14),
-                        SizedBox(width: 4),
+                        Icon(Icons.lock_outline, color: Theme.of(context).colorScheme.primary, size: 14),
+                        const SizedBox(width: 4),
                         Text(
                           'COMPRA CONCLUÍDA',
                           style: TextStyle(
-                            color: Colors.green,
+                            color: Theme.of(context).colorScheme.primary,
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 0.5,
@@ -408,7 +408,7 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
           title: 'Saldo Restante',
           value: balanceVal,
           icon: Icons.account_balance_wallet_outlined,
-          color: balanceVal >= 0 ? Colors.green : Colors.redAccent,
+          color: balanceVal >= 0 ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.error,
           onTap: () => _showBalanceHistoryDialog(context, provider),
         );
       case 'orcamento':
@@ -598,7 +598,7 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
                       return ListTile(
                         leading: Icon(
                           isPositive ? Icons.sentiment_very_satisfied_rounded : Icons.sentiment_dissatisfied_rounded,
-                          color: isPositive ? Colors.green : Colors.redAccent,
+                          color: isPositive ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.error,
                         ),
                         title: Text(month, style: const TextStyle(fontWeight: FontWeight.bold)),
                         subtitle: Text(isPositive ? 'Sobrou do orçamento' : 'Ultrapassou o limite'),
@@ -606,7 +606,7 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
                           Utils.formatCurrency(balance),
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: isPositive ? Colors.green : Colors.redAccent,
+                            color: isPositive ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.error,
                           ),
                         ),
                       );
