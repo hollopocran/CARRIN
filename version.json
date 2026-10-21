@@ -1,15 +1,15 @@
 {
-  "version": "1.3.580",
-  "build_number": 580,
+  "version": "1.3.581",
+  "build_number": 581,
   "release_date": "2026-10-21",
-  "title": "CARRIN v1.3.580",
+  "title": "CARRIN v1.3.581",
   "release_notes": [
-    "Notificações automáticas de atualização em segundo plano: checagem periódica nativa via WorkManager sem precisar abrir o app",
-    "Notificação de download concluído na barra de status: aviso imediato com botão direto para disparar o instalador do Android",
-    "Preservação de avisos de atualização ao fechar o app pelo multitarefa",
-    "Canal de notificações dedicado para atualizações de versão com prioridade alta"
+    "Segurança e RLS: publicação auditada de preços e integração robusta com o Supabase",
+    "Notificações automáticas de atualização em segundo plano via WorkManager e barra de status",
+    "Busca acelerada de produtos: índice GIN com trigramas para respostas instantâneas",
+    "Notificação de download concluído com instalação em um único toque"
   ],
-  "apk_url": "https://github.com/hollopocran/CARRIN/releases/download/v1.3.580/carrin_v1.3.580.apk",
+  "apk_url": "https://github.com/hollopocran/CARRIN/releases/download/v1.3.581/carrin_v1.3.581.apk",
   "is_active": true,
   "force_update": false
 }
