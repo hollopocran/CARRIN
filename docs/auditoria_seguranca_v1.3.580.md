@@ -30,6 +30,17 @@ Consulta executada em `information_schema.role_table_grants` para a tabela `publ
 
 *Evidência:* Privilégios destrutivos (`UPDATE`, `DELETE`, `TRUNCATE`, `TRIGGER`, `REFERENCES`) foram expressamente revogados de `PUBLIC`, `anon` e `authenticated`.
 
+#### 2.1.1 Privilégios Efetivos Reais (`has_table_privilege`)
+
+Resultado da validação com o resolvedor nativo do PostgreSQL (considerando heranças, grupos e concessões a `PUBLIC`):
+
+| Papel | can_select | can_insert | can_update | can_delete | can_truncate | Status Efetivo |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| `anon` | **true** | **true** | **false** | **false** | **false** | ✅ Protegido |
+| `authenticated` | **true** | **true** | **false** | **false** | **false** | ✅ Protegido |
+
+*Conclusão:* O motor do PostgreSQL certifica que `anon` e `authenticated` não possuem privilégios efetivos para modificar (`UPDATE`), excluir (`DELETE`) ou truncar (`TRUNCATE`) a tabela.
+
 ### 2.2 Sondas de Segurança (RLS e Imutabilidade)
 
 Executadas via cliente HTTP público utilizando a chave anônima:
@@ -130,19 +141,9 @@ LIMIT 50;
   - Todas as 31 rotinas presentes no schema `public` pertencem exclusivamente à extensão oficial `pg_trgm` (operações matemáticas e de indexação GIN/GiST).
   - Todas possuem `is_security_definer = false` (`security_type: INVOKER`).
   - **Zero rotinas customizadas** e **zero funções `SECURITY DEFINER`** no schema público.
-- **Ressalva de Escopo & Privilégios Efetivos:**
-  - A confirmação de ausência de rotinas `SECURITY DEFINER` em `public` elimina vetores diretos via RPC público.
-  - Para validação de privilégios efetivos (herdados, diretos ou via grupos) sobre a tabela, recomenda-se a execução de `has_table_privilege()`:
-    ```sql
-    SELECT 
-        role_name,
-        has_table_privilege(role_name, 'public.community_prices', 'SELECT') AS can_select,
-        has_table_privilege(role_name, 'public.community_prices', 'INSERT') AS can_insert,
-        has_table_privilege(role_name, 'public.community_prices', 'UPDATE') AS can_update,
-        has_table_privilege(role_name, 'public.community_prices', 'DELETE') AS can_delete,
-        has_table_privilege(role_name, 'public.community_prices', 'TRUNCATE') AS can_truncate
-    FROM (VALUES ('anon'), ('authenticated')) AS roles(role_name);
-    ```
+- **Validação de Privilégios Efetivos Concluída:**
+  - A execução de `has_table_privilege()` retornou rigorosamente `false` para `can_update`, `can_delete` e `can_truncate` em ambos os papéis (`anon` e `authenticated`).
+  - Isso encerra a ressalva de privilégios efetivos, certificando que não existem permissões residuais herdadas de papéis intermediários ou via concessões legadas a `PUBLIC`.
 
 ### 6.2 Chave `service_role`
 - A chave `service_role` permanece protegida exclusivamente no painel administrativo do Supabase e em eventuais Edge Functions de manutenção. Não deve, sob nenhuma hipótese, ser adicionada a arquivos `.env` empacotados no APK.
