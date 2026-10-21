@@ -61,7 +61,7 @@ void main() {
       expect(sql, contains('gin_trgm_ops'));
 
       // Verifica políticas RLS seguras
-      expect(sql, contains('REVOKE ALL ON TABLE public.community_prices FROM anon, authenticated;'));
+      expect(sql, contains('REVOKE ALL ON TABLE public.community_prices FROM PUBLIC, anon, authenticated;'));
       expect(sql, contains('GRANT SELECT, INSERT ON TABLE public.community_prices TO anon, authenticated;'));
       expect(sql, contains('Permitir inserção pública'));
       expect(sql, contains('verified_receipt IS NOT TRUE'));

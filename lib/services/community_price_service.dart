@@ -983,15 +983,15 @@ class CommunityPriceService {
   /// Retorna o SQL para criar a tabela no Supabase com 1 clique
   String getSupabaseSetupSql() {
     return r'''
--- CARRIN v1.3.578: execute in Supabase SQL Editor.
+-- CARRIN v1.3.580: execute in Supabase SQL Editor.
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
-CREATE TABLE IF NOT EXISTS community_prices (
+CREATE TABLE IF NOT EXISTS public.community_prices (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   event_id text,
   product_name text NOT NULL,
   category text,
-  unit text DEFAULT 'un',
+  unit text NOT NULL DEFAULT 'un',
   price numeric(10,2) NOT NULL,
   supermarket_name text NOT NULL,
   latitude double precision,
@@ -1007,6 +1007,12 @@ CREATE TABLE IF NOT EXISTS community_prices (
 );
 
 ALTER TABLE public.community_prices ADD COLUMN IF NOT EXISTS event_id text;
+
+-- Saneamento e restrição NOT NULL na coluna unit
+UPDATE public.community_prices SET unit = 'un' WHERE unit IS NULL;
+ALTER TABLE public.community_prices ALTER COLUMN unit SET DEFAULT 'un';
+ALTER TABLE public.community_prices ALTER COLUMN unit SET NOT NULL;
+
 DO $$ BEGIN ALTER TABLE public.community_prices ADD CONSTRAINT chk_community_price_positive CHECK (price > 0 AND price <= 50000); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN ALTER TABLE public.community_prices ADD CONSTRAINT chk_community_coords_valid CHECK ((latitude IS NULL OR latitude BETWEEN -90.0 AND 90.0) AND (longitude IS NULL OR longitude BETWEEN -180.0 AND 180.0)); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN ALTER TABLE public.community_prices ADD CONSTRAINT chk_community_name_length CHECK (length(trim(product_name)) BETWEEN 1 AND 200); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
@@ -1017,17 +1023,22 @@ CREATE INDEX IF NOT EXISTS idx_community_product ON public.community_prices(prod
 CREATE INDEX IF NOT EXISTS idx_community_market ON public.community_prices(supermarket_name);
 CREATE INDEX IF NOT EXISTS idx_community_created ON public.community_prices(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_community_product_trgm ON public.community_prices USING gin (product_name gin_trgm_ops);
--- Verifique duplicatas existentes antes de criar o índice único:
--- SELECT event_id, COUNT(*) FROM public.community_prices WHERE event_id IS NOT NULL GROUP BY event_id HAVING COUNT(*) > 1;
+
 -- Remove versão parcial anterior (se houver) para garantir que o PostgREST infira on_conflict=event_id:
 DROP INDEX IF EXISTS public.idx_community_prices_event_id_unique;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_community_prices_event_id_unique ON public.community_prices(event_id);
 
 ALTER TABLE public.community_prices ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON TABLE public.community_prices FROM anon, authenticated;
+
+-- Revoga explicitamente de PUBLIC (todos os papéis herdados), além de anon e authenticated:
+REVOKE ALL ON TABLE public.community_prices FROM PUBLIC, anon, authenticated;
 GRANT SELECT, INSERT ON TABLE public.community_prices TO anon, authenticated;
+
 DROP POLICY IF EXISTS "Permitir leitura pública" ON public.community_prices;
 DROP POLICY IF EXISTS "Permitir inserção pública" ON public.community_prices;
+DROP POLICY IF EXISTS "Enable read access for all users" ON public.community_prices;
+DROP POLICY IF EXISTS "Enable insert for all users" ON public.community_prices;
+
 CREATE POLICY "Permitir leitura pública" ON public.community_prices FOR SELECT TO anon, authenticated USING (true);
 CREATE POLICY "Permitir inserção pública" ON public.community_prices FOR INSERT TO anon, authenticated WITH CHECK (verified_receipt IS NOT TRUE);
 ''';

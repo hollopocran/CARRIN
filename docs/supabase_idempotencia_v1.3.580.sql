@@ -3,16 +3,29 @@
 -- Executar no SQL Editor do painel do Supabase.
 -- ==============================================================================
 
--- 1. Extensão para busca textual acelerada por trigramas
+-- ==============================================================================
+-- PASSO 0: CONSULTAS DE DIAGNÓSTICO (Opcional - executar antes para auditar)
+-- ==============================================================================
+-- 1. Verificar duplicatas em event_id antes de criar o índice único:
+-- SELECT event_id, COUNT(*) FROM public.community_prices WHERE event_id IS NOT NULL GROUP BY event_id HAVING COUNT(*) > 1;
+--
+-- 2. Inspecionar todas as políticas RLS existentes para identificar políticas permissivas legadas:
+-- SELECT policyname, permissive, roles, cmd, qual, with_check FROM pg_policies WHERE schemaname = 'public' AND tablename = 'community_prices';
+
+-- ==============================================================================
+-- PASSO 1: ESTRUTURA, EXTENSÕES E TABELA
+-- ==============================================================================
+
+-- Extensão para busca textual acelerada por trigramas
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
--- 2. Tabela de preços da comunidade
+-- Tabela de preços da comunidade
 CREATE TABLE IF NOT EXISTS public.community_prices (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   event_id text,
   product_name text NOT NULL,
   category text,
-  unit text DEFAULT 'un',
+  unit text NOT NULL DEFAULT 'un',
   price numeric(10,2) NOT NULL,
   supermarket_name text NOT NULL,
   latitude double precision,
@@ -27,9 +40,19 @@ CREATE TABLE IF NOT EXISTS public.community_prices (
   CONSTRAINT chk_community_unit_valid CHECK (unit IN ('un', 'kg', 'g', 'l', 'ml', 'cx', 'pct', 'dz'))
 );
 
--- 3. Caso a tabela já exista de versões anteriores, assegura coluna e constraints:
+-- ==============================================================================
+-- PASSO 2: MIGRAÇÃO DE DADOS E CONSTRAINTS PARA TABELAS PRÉ-EXISTENTES
+-- ==============================================================================
+
+-- Coluna event_id
 ALTER TABLE public.community_prices ADD COLUMN IF NOT EXISTS event_id text;
 
+-- Saneamento e restrição NOT NULL na coluna unit
+UPDATE public.community_prices SET unit = 'un' WHERE unit IS NULL;
+ALTER TABLE public.community_prices ALTER COLUMN unit SET DEFAULT 'un';
+ALTER TABLE public.community_prices ALTER COLUMN unit SET NOT NULL;
+
+-- Restrições de domínio (idempotentes via DO blocks)
 DO $$ BEGIN 
   ALTER TABLE public.community_prices ADD CONSTRAINT chk_community_price_positive CHECK (price > 0 AND price <= 50000); 
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
@@ -50,38 +73,45 @@ DO $$ BEGIN
   ALTER TABLE public.community_prices ADD CONSTRAINT chk_community_unit_valid CHECK (unit IN ('un', 'kg', 'g', 'l', 'ml', 'cx', 'pct', 'dz')); 
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
--- 4. Índices de alta performance
+-- ==============================================================================
+-- PASSO 3: ÍNDICES DE PERFORMANCE E IDEMPOTÊNCIA
+-- ==============================================================================
+
 CREATE INDEX IF NOT EXISTS idx_community_product ON public.community_prices(product_name);
 CREATE INDEX IF NOT EXISTS idx_community_market ON public.community_prices(supermarket_name);
 CREATE INDEX IF NOT EXISTS idx_community_created ON public.community_prices(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_community_product_trgm ON public.community_prices USING gin (product_name gin_trgm_ops);
 
--- 5. Substituição de índice parcial por UNIQUE padrão (não-parcial):
+-- Remove qualquer índice parcial anterior e recria como UNIQUE padrão (não-parcial):
 -- O PostgREST exige um índice/restrição UNIQUE não-parcial para inferir on_conflict=event_id.
--- Remove versão parcial anterior (se houver) e recria:
 DROP INDEX IF EXISTS public.idx_community_prices_event_id_unique;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_community_prices_event_id_unique ON public.community_prices(event_id);
 
--- 6. Segurança em Nível de Linha (RLS) e Privilégios Mínimos
+-- ==============================================================================
+-- PASSO 4: SEGURANÇA EM NÍVEL DE LINHA (RLS) E PRIVILÉGIOS MÍNIMOS
+-- ==============================================================================
+
 ALTER TABLE public.community_prices ENABLE ROW LEVEL SECURITY;
 
--- Revoga todos os privilégios públicos para fechar portas
-REVOKE ALL ON TABLE public.community_prices FROM anon, authenticated;
+-- Revoga explicitamente de PUBLIC (todos os papéis herdados), além de anon e authenticated:
+REVOKE ALL ON TABLE public.community_prices FROM PUBLIC, anon, authenticated;
 
--- Concede estritamente LEITURA (SELECT) e INSERÇÃO (INSERT)
+-- Concede estritamente LEITURA (SELECT) e INSERÇÃO (INSERT) apenas a anon e authenticated
 GRANT SELECT, INSERT ON TABLE public.community_prices TO anon, authenticated;
 
--- Políticas RLS
+-- Limpeza de políticas RLS conhecidas
 DROP POLICY IF EXISTS "Permitir leitura pública" ON public.community_prices;
 DROP POLICY IF EXISTS "Permitir inserção pública" ON public.community_prices;
+DROP POLICY IF EXISTS "Enable read access for all users" ON public.community_prices;
+DROP POLICY IF EXISTS "Enable insert for all users" ON public.community_prices;
 
--- Qualquer cliente pode consultar os preços para alimentar o comparador e mapa
+-- Leitura pública para alimentar o feed comunitário, comparador e mapa
 CREATE POLICY "Permitir leitura pública" 
   ON public.community_prices 
   FOR SELECT TO anon, authenticated 
   USING (true);
 
--- Clientes anônimos podem inserir novos preços, MAS NÃO podem falsificar verified_receipt = true
+-- Inserção pública permitida, mas trava verified_receipt contra forjamento anônimo
 CREATE POLICY "Permitir inserção pública" 
   ON public.community_prices 
   FOR INSERT TO anon, authenticated 
