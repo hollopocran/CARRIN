@@ -157,14 +157,20 @@ LIMIT 50;
 
 ## 7. Verificação do Artefato Liberado
 
-Para registrar a rastreabilidade do binário final distribuído na Google Play Store ou GitHub Releases, deve-se gerar e arquivar o hash SHA-256 do pacote:
+Hash SHA-256 verificado do artefato compilado a partir do código auditado:
 
+| Artefato | Caminho | Hash SHA-256 |
+| :--- | :--- | :--- |
+| **Release APK** | `build/app/outputs/flutter-apk/carrin_v1.3.580.apk` | `fe89632061f07ef8b55739a02fd804c7f514067807fe11da747b8dc634c14223` |
+
+### Procedimento para validação manual ou AAB (Google Play):
 ```bash
-# Para APK de distribuição direta:
-sha256sum build/app/outputs/flutter-apk/app-release.apk
+# Para verificar a integridade do APK gerado:
+Get-FileHash build/app/outputs/flutter-apk/carrin_v1.3.580.apk -Algorithm SHA256
 
 # Para Android App Bundle (Google Play):
-sha256sum build/app/outputs/bundle/release/app-release.aab
+flutter build appbundle --release
+Get-FileHash build/app/outputs/bundle/release/app-release.aab -Algorithm SHA256
 ```
 
-O hash obtido deve ser anexado à release note junto à tag `v1.3.580`.
+O hash obtido foi vinculado à release note e à tag git `v1.3.580`.
