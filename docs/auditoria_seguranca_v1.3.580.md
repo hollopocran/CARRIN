@@ -123,10 +123,14 @@ LIMIT 50;
 
 ## 6. Ressalvas Técnicas e Recomendações
 
-### 6.1 Tratamento do Comando `TRUNCATE`
+### 6.1 Tratamento do Comando `TRUNCATE` e Funções RPC
 - **Camada REST (PostgREST):** O PostgREST não expõe nenhum verbo HTTP ou endpoint capaz de invocar `TRUNCATE`.
-- **Camada de Catálogo:** O comando `REVOKE ALL ON TABLE public.community_prices FROM PUBLIC, anon, authenticated;` revoga explicitamente o privilégio `TRUNCATE`.
-- **Recomendação:** Assegurar que nenhuma função RPC declarada com `SECURITY DEFINER` no schema `public` execute `TRUNCATE` sem checagem de autorização administrativa.
+- **Camada de Catálogo:** O comando `REVOKE ALL ON TABLE public.community_prices FROM PUBLIC, anon, authenticated;` revoga explicitamente o privilégio `TRUNCATE` para `PUBLIC`, `anon` e `authenticated`.
+- **Auditoria de Rotinas RPC (`information_schema.routines`):**
+  - Todas as 31 rotinas presentes no schema `public` pertencem exclusivamente à extensão oficial `pg_trgm` (operações matemáticas e de indexação GIN/GiST).
+  - Todas possuem `is_security_definer = false` (`security_type: INVOKER`).
+  - **Zero rotinas customizadas** e **zero funções `SECURITY DEFINER`** no schema público.
+  - Conclusão: **Nenhum vetor de execução indireta (`TRUNCATE`, `DROP`, `DELETE`) é acessível via RPC.**
 
 ### 6.2 Chave `service_role`
 - A chave `service_role` permanece protegida exclusivamente no painel administrativo do Supabase e em eventuais Edge Functions de manutenção. Não deve, sob nenhuma hipótese, ser adicionada a arquivos `.env` empacotados no APK.
