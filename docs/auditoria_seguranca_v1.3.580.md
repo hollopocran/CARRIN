@@ -124,13 +124,25 @@ LIMIT 50;
 ## 6. Ressalvas Técnicas e Recomendações
 
 ### 6.1 Tratamento do Comando `TRUNCATE` e Funções RPC
-- **Camada REST (PostgREST):** O PostgREST não expõe nenhum verbo HTTP ou endpoint capaz de invocar `TRUNCATE`.
+- **Camada REST (PostgREST):** O PostgREST não expõe nenhum verbo HTTP ou endpoint nativo capaz de invocar `TRUNCATE`. Além disso, a configuração padrão do PostgREST expõe estritamente o schema `public` (`pgrst.db_schemas = 'public'`).
 - **Camada de Catálogo:** O comando `REVOKE ALL ON TABLE public.community_prices FROM PUBLIC, anon, authenticated;` revoga explicitamente o privilégio `TRUNCATE` para `PUBLIC`, `anon` e `authenticated`.
-- **Auditoria de Rotinas RPC (`information_schema.routines`):**
+- **Auditoria de Rotinas RPC em `public` (`information_schema.routines`):**
   - Todas as 31 rotinas presentes no schema `public` pertencem exclusivamente à extensão oficial `pg_trgm` (operações matemáticas e de indexação GIN/GiST).
   - Todas possuem `is_security_definer = false` (`security_type: INVOKER`).
   - **Zero rotinas customizadas** e **zero funções `SECURITY DEFINER`** no schema público.
-  - Conclusão: **Nenhum vetor de execução indireta (`TRUNCATE`, `DROP`, `DELETE`) é acessível via RPC.**
+- **Ressalva de Escopo & Privilégios Efetivos:**
+  - A confirmação de ausência de rotinas `SECURITY DEFINER` em `public` elimina vetores diretos via RPC público.
+  - Para validação de privilégios efetivos (herdados, diretos ou via grupos) sobre a tabela, recomenda-se a execução de `has_table_privilege()`:
+    ```sql
+    SELECT 
+        role_name,
+        has_table_privilege(role_name, 'public.community_prices', 'SELECT') AS can_select,
+        has_table_privilege(role_name, 'public.community_prices', 'INSERT') AS can_insert,
+        has_table_privilege(role_name, 'public.community_prices', 'UPDATE') AS can_update,
+        has_table_privilege(role_name, 'public.community_prices', 'DELETE') AS can_delete,
+        has_table_privilege(role_name, 'public.community_prices', 'TRUNCATE') AS can_truncate
+    FROM (VALUES ('anon'), ('authenticated')) AS roles(role_name);
+    ```
 
 ### 6.2 Chave `service_role`
 - A chave `service_role` permanece protegida exclusivamente no painel administrativo do Supabase e em eventuais Edge Functions de manutenção. Não deve, sob nenhuma hipótese, ser adicionada a arquivos `.env` empacotados no APK.
