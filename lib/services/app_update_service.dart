@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'notification_service.dart';
 
 /// Modelo de dados da versão remota disponível
 class AppUpdateInfo {
@@ -69,8 +70,8 @@ class AppUpdateService {
   AppUpdateService._();
   static final AppUpdateService instance = AppUpdateService._();
 
-  static const String currentAppVersion = '1.3.579';
-  static const int currentBuildNumber = 579;
+  static const String currentAppVersion = '1.3.580';
+  static const int currentBuildNumber = 580;
 
   static const MethodChannel _installerChannel = MethodChannel('com.wmartins.carrin/installer');
 
@@ -288,6 +289,12 @@ class AppUpdateService {
 
       // Limpa downloads obsoletos em background
       cleanOldDownloadedApks();
+
+      // Dispara notificação nativa na barra de status informando que o APK está pronto
+      NotificationService().showUpdateReady(
+        version: info.version,
+        apkPath: file.path,
+      );
 
       onReady?.call(info, file.path);
       return file;

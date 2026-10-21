@@ -200,7 +200,7 @@ class SettingsScreen extends StatelessWidget {
           _buildSettingItem(
             context,
             title: 'Verificar Atualizações',
-            subtitle: 'Versão instalada: v${AppUpdateService.currentAppVersion} (Build ${AppUpdateService.currentBuildNumber})',
+            subtitle: 'v${AppUpdateService.currentAppVersion} (Build ${AppUpdateService.currentBuildNumber}) • Notificações automáticas ativas',
             icon: Icons.system_update_rounded,
             onTap: () => _handleCheckUpdate(context),
           ),

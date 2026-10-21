@@ -1,15 +1,15 @@
 {
-  "version": "1.3.579",
-  "build_number": 579,
+  "version": "1.3.580",
+  "build_number": 580,
   "release_date": "2026-10-21",
-  "title": "CARRIN v1.3.579",
+  "title": "CARRIN v1.3.580",
   "release_notes": [
-    "Notificações do Monitor de Compras corrigidas: preservação de drawables nativos contra descarte pelo R8/ShrinkResources no release APK",
-    "Persistência aprimorada: o toque na notificação para entrar no app não descarta mais a sessão de monitoramento ativa",
-    "Modo Daltônico 100% funcional: adaptação semântica das cores de status, itens comprados, alertas de orçamento e métricas de saúde financeira para paletas acessíveis de alto contraste",
-    "Reatividade imediata: aplicação instantânea das matrizes cromáticas na alternância de modos de acessibilidade"
+    "Notificações automáticas de atualização em segundo plano: checagem periódica nativa via WorkManager sem precisar abrir o app",
+    "Notificação de download concluído na barra de status: aviso imediato com botão direto para disparar o instalador do Android",
+    "Preservação de avisos de atualização ao fechar o app pelo multitarefa",
+    "Canal de notificações dedicado para atualizações de versão com prioridade alta"
   ],
-  "apk_url": "https://github.com/hollopocran/CARRIN/releases/download/v1.3.579/carrin_v1.3.579.apk",
+  "apk_url": "https://github.com/hollopocran/CARRIN/releases/download/v1.3.580/carrin_v1.3.580.apk",
   "is_active": true,
   "force_update": false
 }

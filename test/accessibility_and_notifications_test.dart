@@ -73,6 +73,11 @@ void main() {
       expect(NotificationService.budgetChannelId, equals('budget_alerts_v2'));
       expect(NotificationService.cartNotificationIcon, equals('ic_notification_cart'));
       expect(NotificationService.appLogoIcon, equals('ic_carrin_logo'));
+      expect(NotificationService.updateChannelId, equals('app_updates_v1'));
+      expect(NotificationService.progressNotificationId, equals(0));
+      expect(NotificationService.budgetNotificationId, equals(1));
+      expect(NotificationService.updateAvailableNotificationId, equals(2));
+      expect(NotificationService.updateReadyNotificationId, equals(3));
     });
   });
 }

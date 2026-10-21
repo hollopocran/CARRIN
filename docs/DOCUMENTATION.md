@@ -341,6 +341,20 @@ O [`BarcodeLookupService`](file:///C:/Dev/CARRIN/lib/services/barcode_lookup_ser
 
 ## 5. Histórico Cronológico de Atualizações e Versões
 
+### v1.3.580 (21 de Outubro de 2026)
+- **Notificações Automáticas de Atualização em Segundo Plano (`BackgroundUpdateChecker` & `WorkManager`):**
+  - Implementação de verificação periódica nativa em segundo plano utilizando o WorkManager do Android, eliminando a necessidade de abrir o aplicativo para ser notificado sobre novas versões.
+  - Intervalo de checagem a cada 6 horas com restrição de rede ativa (`NetworkType.connected`) e preservação de agendamento após reinicialização do dispositivo (`RECEIVE_BOOT_COMPLETED`).
+  - Proteção anti-spam via `SharedPreferences`: o usuário só é notificado uma única vez por versão lançada.
+- **Notificação de APK Baixado e Pronto para Instalação (`NotificationService.showUpdateReady`):**
+  - Ao concluir o download silencioso em segundo plano, o app emite uma notificação de alta prioridade na barra de status do Android informando que o instalador está pronto.
+  - Toque interativo na notificação: aciona imediatamente o instalador nativo do Android (`AppUpdateService.instance.installApk`) mesmo que o app esteja minimizado ou fechado.
+- **Canal de Notificações Dedicado (`app_updates_v1`):**
+  - Criação de canal nativo específico para atualizações com prioridade alta, som e vibração habilitados, separado do monitor de compras e de alertas de orçamento.
+- **Preservação de Avisos de Atualização ao Fechar o App (`NotificationDismissService`):**
+  - Ajuste no serviço nativo para limpar exclusivamente a barra de progresso de compras (`cancel(0)`) e alertas de orçamento (`cancel(1)`), mantendo os avisos de atualização intactos na gaveta de notificações do Android.
+- **Validação Automatizada:** 100% de aprovação nos testes unitários e de integração, 0 advertências no `dart analyze`.
+
 ### v1.3.579 (21 de Outubro de 2026)
 - **Preservação de Recursos Nativos Android contra Shrinking/R8 (`android/app/src/main/res/raw/keep.xml`):**
   - Criação do arquivo de regras de retenção de recursos nativos (`tools:keep="@drawable/*,@mipmap/*"`). Previne que o otimizador R8 / Android Gradle Plugin descarte os drawables nativos das notificações (`ic_notification_cart`, `ic_carrin_logo`) durante o build de release com `isShrinkResources = true` e `isMinifyEnabled = true`.

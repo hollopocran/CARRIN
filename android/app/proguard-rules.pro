@@ -53,6 +53,10 @@
   @com.google.api.client.util.Key <fields>;
 }
 
+# WorkManager
+-keep class dev.fluttercommunity.workmanager.** { *; }
+-keep class androidx.work.** { *; }
+
 # Ignorar avisos de classes faltantes (evita erro de build)
 -dontwarn com.google.android.play.core.**
 -dontwarn com.google.api.**

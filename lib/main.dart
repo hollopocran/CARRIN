@@ -7,6 +7,7 @@ import 'theme/app_themes.dart';
 import 'screens/splash_screen.dart';
 import 'services/notification_service.dart';
 import 'services/auth_service.dart';
+import 'services/background_update_checker.dart';
 
 /// Entry point for the CARRIN application.
 /// 
@@ -35,6 +36,13 @@ void main() async {
     await NotificationService().init();
   } catch (e) {
     debugPrint("Erro ao inicializar notificações: $e");
+  }
+
+  // Setup background update checker (WorkManager periódico)
+  try {
+    await BackgroundUpdateChecker.initialize();
+  } catch (e) {
+    debugPrint("Erro ao inicializar BackgroundUpdateChecker: $e");
   }
 
   // Initialize Theme synchronously before rendering (sempre garantido)
@@ -82,6 +90,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     
     // Pede permissão logo após o app carregar a interface e já engatilha o progresso
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // Verifica se o aplicativo foi aberto a partir de uma notificação de atualização
+      await NotificationService().handleAppLaunchNotification();
+
       final granted = await NotificationService().requestPermissions();
       if (granted && mounted) {
         Provider.of<ItemProvider>(context, listen: false).refreshNotification();
@@ -92,7 +103,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    NotificationService().cancelAll();
+    NotificationService().cancelProgress();
     super.dispose();
   }
 
@@ -102,8 +113,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       // Reativa/atualiza o monitor de compras ao voltar para o app
       Provider.of<ItemProvider>(context, listen: false).refreshNotification();
     } else if (state == AppLifecycleState.detached) {
-      // Fecha a notificação apenas quando a aplicação for totalmente encerrada
-      NotificationService().cancelAll();
+      // Cancela apenas o monitor de compras, preservando notificações de atualização
+      NotificationService().cancelProgress();
     }
   }
 

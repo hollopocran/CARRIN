@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../services/utils.dart';
+import '../services/app_update_service.dart';
 
 /// Service responsible for managing local notifications.
 /// 
 /// Handles initialization of notification channels, requesting permissions,
-/// showing real-time shopping progress with progress bar, and budget limit alerts.
+/// showing real-time shopping progress with progress bar, budget limit alerts,
+/// and background app update notifications.
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
   factory NotificationService() => _instance;
@@ -22,6 +24,17 @@ class NotificationService {
   static const String budgetChannelId = 'budget_alerts_v2';
   static const String budgetChannelName = 'Alertas de Orçamento';
 
+  /// Channel ID for app updates notifications.
+  static const String updateChannelId = 'app_updates_v1';
+  static const String updateChannelName = 'Atualizações do CARRIN';
+  static const String updateChannelDescription = 'Notificações de novas versões e atualizações prontas para instalar';
+
+  /// Notification IDs
+  static const int progressNotificationId = 0;
+  static const int budgetNotificationId = 1;
+  static const int updateAvailableNotificationId = 2;
+  static const int updateReadyNotificationId = 3;
+
   /// Ícones oficiais para notificações nativas (res/drawable)
   static const String cartNotificationIcon = 'ic_notification_cart';
   static const String appLogoIcon = 'ic_carrin_logo';
@@ -29,16 +42,17 @@ class NotificationService {
   /// Initializes notification plugins and creates necessary Android channels.
   Future<void> init() async {
     try {
+      const AndroidInitializationSettings initializationSettingsAndroid =
+          AndroidInitializationSettings(cartNotificationIcon); 
+
+      const InitializationSettings initializationSettings = InitializationSettings(
+        android: initializationSettingsAndroid,
+      );
+
       try {
-        const AndroidInitializationSettings initializationSettingsAndroid =
-            AndroidInitializationSettings(cartNotificationIcon); 
-
-        const InitializationSettings initializationSettings = InitializationSettings(
-          android: initializationSettingsAndroid,
-        );
-
         await _notificationsPlugin.initialize(
           initializationSettings,
+          onDidReceiveNotificationResponse: _onNotificationTapped,
         );
       } catch (initErr) {
         debugPrint('Fallback de inicialização com @mipmap/launcher_icon: $initErr');
@@ -46,6 +60,7 @@ class NotificationService {
             AndroidInitializationSettings('@mipmap/launcher_icon');
         await _notificationsPlugin.initialize(
           const InitializationSettings(android: fallbackInit),
+          onDidReceiveNotificationResponse: _onNotificationTapped,
         );
       }
 
@@ -70,11 +85,54 @@ class NotificationService {
         playSound: true,
       );
 
+      // App Updates Channel (High Importance para novidades e download pronto)
+      const AndroidNotificationChannel updateChannel = AndroidNotificationChannel(
+        updateChannelId,
+        updateChannelName,
+        description: updateChannelDescription,
+        importance: Importance.high,
+        enableVibration: true,
+        playSound: true,
+        showBadge: true,
+      );
+
       final androidImpl = _notificationsPlugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
       await androidImpl?.createNotificationChannel(progressChannel);
       await androidImpl?.createNotificationChannel(budgetChannel);
+      await androidImpl?.createNotificationChannel(updateChannel);
     } catch (e) {
       debugPrint('Aviso ao inicializar NotificationService: $e');
+    }
+  }
+
+  /// Trata toques em notificações (especialmente para instalação de APK baixado)
+  void _onNotificationTapped(NotificationResponse response) {
+    final payload = response.payload;
+    if (payload != null && payload.startsWith('install_apk:')) {
+      final filePath = payload.substring('install_apk:'.length);
+      if (filePath.isNotEmpty) {
+        AppUpdateService.instance.installApk(filePath);
+      }
+    }
+  }
+
+  /// Verifica se o aplicativo foi aberto através de um clique em notificação
+  Future<void> handleAppLaunchNotification() async {
+    try {
+      final details = await _notificationsPlugin.getNotificationAppLaunchDetails();
+      if (details != null && details.didNotificationLaunchApp) {
+        final payload = details.notificationResponse?.payload;
+        if (payload != null && payload.startsWith('install_apk:')) {
+          final filePath = payload.substring('install_apk:'.length);
+          if (filePath.isNotEmpty) {
+            Future.delayed(const Duration(milliseconds: 600), () {
+              AppUpdateService.instance.installApk(filePath);
+            });
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Erro ao verificar notificação de inicialização: $e');
     }
   }
 
@@ -100,7 +158,7 @@ class NotificationService {
         );
 
         const NotificationDetails details = NotificationDetails(android: androidDetails);
-        await _notificationsPlugin.show(1, title, body, details); // ID 1 for Alerts
+        await _notificationsPlugin.show(budgetNotificationId, title, body, details);
       } catch (inner) {
         debugPrint('Fallback alert com @mipmap/launcher_icon: $inner');
         const AndroidNotificationDetails fallbackDetails = AndroidNotificationDetails(
@@ -119,11 +177,132 @@ class NotificationService {
           icon: '@mipmap/launcher_icon',
           largeIcon: DrawableResourceAndroidBitmap('@mipmap/launcher_icon'),
         );
-        await _notificationsPlugin.show(1, title, body, const NotificationDetails(android: fallbackDetails));
+        await _notificationsPlugin.show(budgetNotificationId, title, body, const NotificationDetails(android: fallbackDetails));
       }
     } catch (e) {
       debugPrint('Erro ao disparar showBudgetAlert: $e');
     }
+  }
+
+  /// Dispara notificação de nova versão disponível encontrada em segundo plano
+  Future<void> showUpdateAvailable({
+    required String version,
+    required int buildNumber,
+    String? title,
+  }) async {
+    try {
+      final header = title ?? 'Nova Versão do CARRIN Disponível (v$version)';
+      const body = 'Uma nova versão com melhorias está pronta. Toque para abrir e atualizar.';
+      
+      const androidDetails = AndroidNotificationDetails(
+        updateChannelId,
+        updateChannelName,
+        channelDescription: updateChannelDescription,
+        importance: Importance.high,
+        priority: Priority.high,
+        color: Color(0xFF10B981),
+        ledColor: Color(0xFF10B981),
+        playSound: true,
+        enableVibration: true,
+        autoCancel: true,
+        icon: cartNotificationIcon,
+        largeIcon: DrawableResourceAndroidBitmap(appLogoIcon),
+      );
+
+      await _notificationsPlugin.show(
+        updateAvailableNotificationId,
+        header,
+        body,
+        const NotificationDetails(android: androidDetails),
+        payload: 'check_update',
+      );
+    } catch (e) {
+      debugPrint('Fallback showUpdateAvailable: $e');
+      try {
+        const fallbackDetails = AndroidNotificationDetails(
+          updateChannelId,
+          updateChannelName,
+          channelDescription: updateChannelDescription,
+          importance: Importance.high,
+          priority: Priority.high,
+          color: Color(0xFF10B981),
+          autoCancel: true,
+          icon: '@mipmap/launcher_icon',
+          largeIcon: DrawableResourceAndroidBitmap('@mipmap/launcher_icon'),
+        );
+        await _notificationsPlugin.show(
+          updateAvailableNotificationId,
+          'Nova Versão do CARRIN Disponível (v$version)',
+          'Toque para abrir e atualizar.',
+          const NotificationDetails(android: fallbackDetails),
+          payload: 'check_update',
+        );
+      } catch (_) {}
+    }
+  }
+
+  /// Dispara notificação de atualização baixada e pronta para instalar (Opção 3)
+  Future<void> showUpdateReady({
+    required String version,
+    required String apkPath,
+  }) async {
+    try {
+      final title = '📦 Atualização Pronta (v$version)';
+      const body = 'O instalador foi baixado com sucesso. Toque aqui para instalar agora.';
+
+      const androidDetails = AndroidNotificationDetails(
+        updateChannelId,
+        updateChannelName,
+        channelDescription: updateChannelDescription,
+        importance: Importance.high,
+        priority: Priority.high,
+        color: Color(0xFF10B981),
+        ledColor: Color(0xFF10B981),
+        playSound: true,
+        enableVibration: true,
+        autoCancel: true,
+        icon: cartNotificationIcon,
+        largeIcon: DrawableResourceAndroidBitmap(appLogoIcon),
+      );
+
+      await _notificationsPlugin.show(
+        updateReadyNotificationId,
+        title,
+        body,
+        const NotificationDetails(android: androidDetails),
+        payload: 'install_apk:$apkPath',
+      );
+    } catch (e) {
+      debugPrint('Fallback showUpdateReady: $e');
+      try {
+        const fallbackDetails = AndroidNotificationDetails(
+          updateChannelId,
+          updateChannelName,
+          channelDescription: updateChannelDescription,
+          importance: Importance.high,
+          priority: Priority.high,
+          color: Color(0xFF10B981),
+          autoCancel: true,
+          icon: '@mipmap/launcher_icon',
+          largeIcon: DrawableResourceAndroidBitmap('@mipmap/launcher_icon'),
+        );
+        await _notificationsPlugin.show(
+          updateReadyNotificationId,
+          '📦 Atualização Pronta (v$version)',
+          'Toque para instalar agora.',
+          const NotificationDetails(android: fallbackDetails),
+          payload: 'install_apk:$apkPath',
+        );
+      } catch (_) {}
+    }
+  }
+
+  /// Cancela notificações de atualização
+  Future<void> cancelUpdateNotifications() async {
+    try {
+      await _notificationsPlugin.cancel(updateAvailableNotificationId);
+      await _notificationsPlugin.cancel(updateReadyNotificationId);
+    } catch (_) {}
   }
 
   /// Requests notification permissions for Android 13+.
@@ -155,10 +334,6 @@ class NotificationService {
   }
 
   /// Shows or updates a notification with current shopping progress.
-  /// 
-  /// Displays a native Android progress bar, item counters, expenditure, and budget metrics.
-  /// Uses ongoing: false so the user can dismiss it if wanted, but autoCancel: false so
-  /// tapping the notification to enter the app does not eliminate the active session monitor.
   Future<void> showOrUpdateProgress(
     String listName, 
     int bought, 
@@ -220,7 +395,7 @@ class NotificationService {
         );
 
         await _notificationsPlugin.show(
-          0, // ID 0 for Progress
+          progressNotificationId,
           title,
           content,
           platformChannelSpecifics,
@@ -253,7 +428,7 @@ class NotificationService {
         );
 
         await _notificationsPlugin.show(
-          0,
+          progressNotificationId,
           title,
           content,
           NotificationDetails(android: fallbackSpecifics),
@@ -267,7 +442,7 @@ class NotificationService {
   /// Cancels the shopping progress notification.
   Future<void> cancelProgress() async {
     try {
-      await _notificationsPlugin.cancel(0);
+      await _notificationsPlugin.cancel(progressNotificationId);
     } catch (_) {}
   }
 
