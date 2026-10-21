@@ -70,8 +70,8 @@ class AppUpdateService {
   AppUpdateService._();
   static final AppUpdateService instance = AppUpdateService._();
 
-  static const String currentAppVersion = '1.3.581';
-  static const int currentBuildNumber = 581;
+  static const String currentAppVersion = '1.3.582';
+  static const int currentBuildNumber = 582;
 
   static const MethodChannel _installerChannel = MethodChannel('com.wmartins.carrin/installer');
 

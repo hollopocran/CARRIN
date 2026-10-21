@@ -29,9 +29,9 @@ void main() {
       expect(prefs.getString(prefLastNotifiedUpdateVersionKey), equals('1.3.580'));
     });
 
-    test('AppUpdateService version is bumped to 1.3.581', () {
-      expect(AppUpdateService.currentAppVersion, equals('1.3.581'));
-      expect(AppUpdateService.currentBuildNumber, equals(581));
+    test('AppUpdateService version is bumped to 1.3.582', () {
+      expect(AppUpdateService.currentAppVersion, equals('1.3.582'));
+      expect(AppUpdateService.currentBuildNumber, equals(582));
     });
   });
 }
