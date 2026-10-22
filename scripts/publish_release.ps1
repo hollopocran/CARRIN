@@ -1,8 +1,8 @@
 param (
-    [string]$tag = "v1.3.582",
-    [string]$apkPath = "C:\dev\CARRIN\build\app\outputs\flutter-apk\carrin_v1.3.582.apk",
-    [string]$releaseTitle = "CARRIN v1.3.582",
-    [string]$releaseNotes = "Nova aba Comunidade simplificada em 2 abas (Ofertas e Mercados) com busca inteligente integrada."
+    [string]$tag = "v1.3.583",
+    [string]$apkPath = "C:\dev\CARRIN\build\app\outputs\flutter-apk\carrin_v1.3.583.apk",
+    [string]$releaseTitle = "CARRIN v1.3.583",
+    [string]$releaseNotes = "Mapa em tempo real (pulso azul, bússola, modo seguir e distâncias dinâmicas) e instalador resiliente com validação EOCD."
 )
 
 Add-Type -TypeDefinition @"
@@ -83,11 +83,16 @@ try {
         prerelease = $false
     }
     $jsonBody = $bodyObj | ConvertTo-Json
-    $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases" -Headers $headers -Method Post -Body $jsonBody
+    $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases" -Headers $headers -Method Post -Body $jsonBody -ContentType "application/json; charset=utf-8"
     Write-Output "Release criada com sucesso! ID: $($release.id)"
 }
 
 $releaseId = $release.id
+if (-not $releaseId) {
+    Write-Error "Nao foi possivel obter o ID da release no GitHub."
+    exit 1
+}
+
 $assetName = [System.IO.Path]::GetFileName($apkPath)
 
 if ($release.assets) {
@@ -110,7 +115,7 @@ $uploadUrl = "https://uploads.github.com/repos/$repo/releases/$releaseId/assets?
     "$uploadUrl"
 
 Write-Output "`nUpload concluido! Verificando link publico..."
-Start-Sleep -Seconds 3
+Start-Sleep -Seconds 4
 
 $check = & curl.exe -L -I -s "https://github.com/$repo/releases/download/$tag/$assetName" | Select-String "HTTP/|Content-Type|Content-Length"
 Write-Output $check
