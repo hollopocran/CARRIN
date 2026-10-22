@@ -32,7 +32,7 @@ O **CARRIN** é um ecossistema mobile inteligente em Flutter para gestão financ
 * ⚡ **Arquitetura Offline-First (SQLite):** Operações instantâneas mesmo sem internet no subsolo das lojas.
 * 💵 **Máscara Monetária Automática (`CurrencyInputFormatter`):** Digitação fluida de valores sem caçar a vírgula.
 * 📡 **Radar de Preços Comunitário:** Comparador de preços consolidado por estabelecimento e cálculo de economia.
-* 🗺️ **Mapa Geográfico Interativo:** 3.484 supermercados geolocalizados com busca de lojas e traçado de rotas.
+* 🗺️ **Mapa Geográfico em Tempo Real:** 3.484 supermercados com rastreamento GPS contínuo, radar pulsante, bússola, modo seguir câmera e recálculo dinâmico de distâncias.
 * 🧾 **Scanner Duplo (Código de Barras + Cupom Fiscal NFC-e):** Importação em tempo real de produtos e notas fiscais.
 * ⚖️ **Calculadora de Peso (Kg) & Assistente Flutuante:** Cálculo de balança de hortifrúti e divisão de conta (*rateio*).
 * 🎨 **Personalização & Acessibilidade:** Temas Claro, Escuro e Pastel, modos para daltônicos e controle dinâmico da escala de fontes.
@@ -45,7 +45,7 @@ O **CARRIN** é um ecossistema mobile inteligente em Flutter para gestão financ
 1. **Início ([`DashboardScreen`](lib/screens/dashboard_screen.dart)):** Medidor circular de orçamento, grid reordenável de métricas, busca rápida de produtos e atalhos.
 2. **Carrinhos ([`MonthSelectionScreen`](lib/screens/month_selection_screen.dart) ➔ [`ShoppingListScreen`](lib/screens/shopping_list_screen.dart)):** Histórico cronológico orgânico de carrinhos, lista interativa, leitores óticos e divisão de conta.
 3. **Análises ([`StatisticsScreen`](lib/screens/statistics_screen.dart)):** Gráficos de evolução mensal, gastos por categoria e diagnóstico de perfil de comprador.
-4. **Comunidade ([`CommunityRadarScreen`](lib/screens/community_radar_screen.dart)):** Feed comunitário, comparador desduplicado por mercado, ranking regional e mapa interativo ([`MarketMapScreen`](lib/screens/market_map_screen.dart)).
+4. **Comunidade ([`CommunityRadarScreen`](lib/screens/community_radar_screen.dart)):** Interface simplificada em 2 abas (Ofertas com comparador integrado e Mercados com ranking regional) e mapa interativo em tempo real ([`MarketMapScreen`](lib/screens/market_map_screen.dart)) com pulso radar de GPS e modo seguir.
 5. **Ajustes ([`SettingsScreen`](lib/screens/settings_screen.dart)):** Paleta de temas, ícone do aplicativo, filtros de acessibilidade visual, backup/restauração do banco SQLite e termos de uso.
 
 ---

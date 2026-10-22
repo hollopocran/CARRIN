@@ -1,6 +1,6 @@
 # Documentação Técnica e Arquitetural: CARRIN
 
-> **Versão Atual:** `1.3.578` (Build `578`) — Outubro de 2026  
+> **Versão Atual:** `1.3.583` (Build `583`) — Outubro de 2026  
 > **Status:** Produção Estável  
 > **Slogan:** *"Sua lista, sem complicação."*
 
@@ -12,7 +12,7 @@ O **CARRIN** é um ecossistema mobile inteligente em Flutter para gestão financ
 1. **Privacidade Absoluta & Nuvem Pessoal:** Cada usuário sincroniza suas listas diretamente com sua própria planilha do **Google Sheets** via OAuth 2.0 ([`UserSheetsService`](file:///C:/Dev/CARRIN/lib/services/user_sheets_service.dart)), sem servidores intermediários ou acesso de terceiros aos seus dados pessoais.
 2. **Arquitetura Offline-First (SQLite):** Todas as operações (adicionar, riscar, editar, excluir, calcular) funcionam instantaneamente sem internet com persistência em banco local e sincronização resiliente em fila (`sync_queue`).
 3. **Radar de Preços & Comunidade (Supabase):** Rede colaborativa de preços em tempo real onde os produtos comprados alimentam a base comunitária, permitindo comparação de preços por produto, agrupamento por mercado único, identificação do estabelecimento mais barato da região e cálculo de economia potencial via GPS.
-4. **Geolocalização, Mapa Interativo Estilo Google Maps & Catálogo de 3.484 Supermercados (Base Maps.me `.mwm`):** Mapa geográfico interativo com seletor de camadas (**Padrão Google Desenhado**, **Satélite + Ruas**, **Relevo**, **Mapa Limpo**, **OpenStreetMap** e **Noturno**), modo de escolher ponto/mercado tocando no mapa sem conflito com os pinos, coordenadas calibradas diretamente dos arquivos `.mwm` do Maps.me (Rio de Janeiro, Espírito Santo e São Paulo), rotas externas (Google Maps/Waze) e geofencing calibrado para o **Supermercados Guanabara Niterói**.
+4. **Geolocalização, Mapa em Tempo Real Estilo Google Maps & Catálogo de 3.484 Supermercados (Base Maps.me `.mwm`):** Mapa geográfico interativo com rastreamento GPS contínuo ao vivo, marcador animado estilo radar/pulso ([`PulsingUserLocationMarker`](file:///C:/dev/CARRIN/lib/widgets/pulsing_user_location_marker.dart)), orientação por feixe de bússola, modo seguir usuário (com travamento suave da câmera no trajeto), recálculo dinâmico de distâncias aos mercados em tempo real, seletor de 6 estilos de camadas (**Padrão Google Desenhado**, **Satélite + Ruas**, **Relevo**, **Mapa Limpo**, **OpenStreetMap** e **Noturno**), seleção de ponto no mapa, rotas externas (Google Maps/Waze) e geofencing calibrado.
 5. **Scanner Duplo Inteligente:**
    - **Leitor de Código de Barras (EAN-13 / EAN-8):** Identificação em camadas via histórico local do SQLite e consulta à API aberta do **Open Food Facts Brasil** ([`BarcodeLookupService`](file:///C:/Dev/CARRIN/lib/services/barcode_lookup_service.dart)), com abertura direta do formulário de item sem popups intermediários intrusivos.
    - **Leitor de Cupom Fiscal / NFC-e SEFAZ:** Leitura automatizada via QR Code com extração inteligente de produtos, quantidades, unidades e valores.
@@ -79,20 +79,20 @@ flowchart TD
   end
 
   subgraph TabCommunity["Aba 4: Comunidade & Mapa Geográfico"]
-    Radar["CommunityRadarScreen<br/>(Navegação Livre entre Abas)"]
-    SubFeed["1. Lista / Feed<br/>(Cotações Recentes)"]
-    SubComp["2. Comparador<br/>(Card Único por Mercado & % Economia)"]
-    SubRank["3. Mercados<br/>(Ranking Regional por GPS)"]
+    Radar["CommunityRadarScreen<br/>(2 Abas Consolidadas)"]
+    SubOffers["1. Ofertas<br/>(Feed Dinâmico + Busca de Comparação Integrada)"]
+    SubMarkets["2. Mercados<br/>(Ranking Regional por GPS)"]
     Collab["Colaborar Preço<br/>(FAB na Cor do Tema)"]
     
-    Radar --> SubFeed
-    Radar --> SubComp
-    Radar --> SubRank
+    Radar --> SubOffers
+    Radar --> SubMarkets
     Radar --> Collab
     
-    Map["MarketMapScreen<br/>(3.484 Mercados • 6 Estilos de Mapa)"]
+    Map["MarketMapScreen<br/>(GPS em Tempo Real • Pulso & Bússola • Modo Seguir • 3.484 Lojas)"]
     Radar -->|"Atalho Mapa"| Map
     
+    Map --> PulseGPS["Rastreamento GPS em Tempo Real<br/>(Pulso Radar Animado • Feixe de Bússola • Modo Seguir)"]
+    Map --> DynamicDist["Recálculo Dinâmico<br/>(Distâncias Atualizadas em Tempo Real nos Pins e Cards)"]
     Map --> Layers["6 Estilos de Camadas<br/>(Google, Satélite, OSM, Dark)"]
     Map --> PointPick["Seleção de Ponto<br/>(Toque no Mapa • Ir até Aqui)"]
     Map --> SearchMap["Busca Rápida & Redes<br/>(Filtro de Lojas com Sugestões)"]
@@ -130,8 +130,9 @@ flowchart TD
 | **ShoppingListScreen** | [`lib/screens/shopping_list_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/shopping_list_screen.dart) | Lista de compras com slivers responsivos, seleção em lote, cálculo de peso, scanner, rateio, máscara monetária em tempo real e exportação PDF. |
 | **StatisticsScreen** | [`lib/screens/statistics_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/statistics_screen.dart) | Relatórios visuais com `fl_chart`, evolução mensal, divisão por categorias e atalho para o perfil de hábitos. |
 | **BuyerProfileScreen** | [`lib/screens/buyer_profile_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/buyer_profile_screen.dart) | Diagnóstico inteligente do perfil de consumo (Econômico, Gourmet, Planejador, etc.) e métricas de hábito. |
-| **CommunityRadarScreen** | [`lib/screens/community_radar_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/community_radar_screen.dart) | Radar comunitário com abas de Feed, Comparador de Produtos (% de economia e agrupamento único por mercado), Ranking de Mercados por GPS, botão Colaborar Preço na cor do tema e atalho para o Mapa. |
-| **MarketMapScreen** | [`lib/screens/market_map_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/market_map_screen.dart) | Mapa geográfico interativo estilo Google Maps com 6 estilos visuais de camadas (Google Padrão, Satélite, Relevo, Limpo, OSM e CartoDB Dark), catálogo de 3.484 supermercados (RJ, ES e SP), GPS do usuário, badge dourado `👑` para o mais barato, seleção de ponto tocando no mapa, filtro de redes, carrossel inferior sincronizado, busca rápida com sugestões e rotas externas (Google Maps/Waze). |
+| **CommunityRadarScreen** | [`lib/screens/community_radar_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/community_radar_screen.dart) | Radar comunitário consolidado em 2 abas (Ofertas com feed e busca inteligente integrada, e Mercados com ranking regional de economia por GPS), botão Colaborar Preço na cor do tema e atalho para o Mapa em tempo real. |
+| **MarketMapScreen** | [`lib/screens/market_map_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/market_map_screen.dart) | Mapa geográfico interativo estilo Google Maps com rastreamento GPS ao vivo em tempo real, marcador pulsante (radar), orientação de direção (feixe de bússola), modo seguir câmera, recálculo dinâmico de distâncias aos estabelecimentos, 6 estilos visuais de camadas (Google Padrão, Satélite, Relevo, Limpo, OSM e CartoDB Dark), catálogo de 3.484 supermercados (RJ, ES e SP), badge dourado `👑` para o mais barato, seleção de ponto tocando no mapa, filtro de redes, carrossel inferior sincronizado, busca rápida com sugestões e rotas externas (Google Maps/Waze). |
+| **PulsingUserLocationMarker** | [`lib/widgets/pulsing_user_location_marker.dart`](file:///C:/Dev/CARRIN/lib/widgets/pulsing_user_location_marker.dart) | Marcador animado com `AnimationController` estilo radar/pulso contínuo para renderizar a localização do usuário com anéis de precisão e feixe direcional de bússola. |
 | **SettingsScreen** | [`lib/screens/settings_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/settings_screen.dart) | Customização de 36 temas e cores do ícone, seletor de ícone do app, acessibilidade/modos daltônicos, backup/restore, reset de tutoriais e sobre. |
 | **AccountsScreen** | [`lib/screens/accounts_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/accounts_screen.dart) | Gestão de login Google OAuth 2.0 e perfis locais offline isolados. |
 | **ReceiptScannerScreen** | [`lib/screens/receipt_scanner_screen.dart`](file:///C:/Dev/CARRIN/lib/screens/receipt_scanner_screen.dart) | Scanner de NFC-e (SEFAZ QR Code) com parser de cupons de 1 e 2 linhas. |
@@ -340,6 +341,31 @@ O [`BarcodeLookupService`](file:///C:/Dev/CARRIN/lib/services/barcode_lookup_ser
 ---
 
 ## 5. Histórico Cronológico de Atualizações e Versões
+
+### v1.3.583 (21 de Outubro de 2026)
+- **Localização e Mapa em Tempo Real (`MarketMapScreen` & `PulsingUserLocationMarker`):**
+  - **Marcador de GPS Estilo Radar:** Implementação do widget animado `PulsingUserLocationMarker` com onda de expansão azul contínua, anel de precisão e cone direcional de bússola alinhado com o `heading` do GPS em tempo real.
+  - **Modo Seguir Usuário (Live Tracking):** Botão flutuante de GPS com alternância dinâmica para modo navegação; a câmera acompanha suavemente a posição do usuário conforme ele se desloca. Ao arrastar o mapa manualmente, o modo seguir pausa automaticamente; tocando no FAB, o mapa re-centraliza e retoma o rastreamento ao vivo.
+  - **Recálculo Dinâmico de Distâncias:** Conforme o usuário caminha ou dirige, as distâncias em todos os estabelecimentos carregados, pinos do mapa e cards do carrossel inferior são recalculadas instantaneamente via `LocationService.instance.calculateDistance`.
+  - **Círculo de Precisão do GPS:** Exibição sutil do raio de acurácia métrica do sensor do dispositivo (`_userAccuracy`).
+- **Instalador Resiliente & Blindagem contra Arquivos Corrompidos (`AppUpdateService`):**
+  - **Validação de Integridade ZIP/EOCD (`isApkFileValid`):** O aplicativo inspeciona os bytes finais do arquivo procurando a assinatura End of Central Directory (`0x50, 0x4B, 0x05, 0x06`) e o tamanho real esperado antes de validar o APK baixado, impedindo que downloads parciais sejam renomeados para `.apk`.
+  - **Auto-limpeza de Cache em Falhas:** Se qualquer instalação falhar ou um APK inválido for detectado no cache temporário, o arquivo é imediatamente expurgado, eliminando loops de instalação travada e dispensando a limpeza manual de cache no Android.
+  - **Permissões Explícitas de URI (`MainActivity.kt`):** Concessão explícita de `FLAG_GRANT_READ_URI_PERMISSION` para todos os pacotes do instalador do sistema e flag `EXTRA_NOT_UNKNOWN_SOURCE`.
+- **Validação Automatizada:** 74/74 testes unitários e de integração aprovados (100%), 0 advertências no `dart analyze`.
+
+### v1.3.582 (21 de Outubro de 2026)
+- **Consolidação e Simplificação da Aba Comunidade (`CommunityRadarScreen`):**
+  - Unificação das abas redundantes de Feed e Comparador em 2 abas limpas e intuitivas: **Ofertas** e **Mercados**.
+  - **Busca Inteligente Integrada:** Barra de pesquisa diretamente no topo da aba Ofertas com expansão imediata de cards de comparação de preços do produto buscado, combinada com chips de filtro horizontal por redes de supermercados.
+- **Automação do Pipeline de Releases (`scripts/publish_release.ps1`):**
+  - Script PowerShell que extrai credenciais de forma segura do Gerenciador de Credenciais do Windows, interage com a API REST do GitHub, cria releases, faz upload binário de APKs e valida o link público final HTTP 200.
+- **Validação Automatizada:** 73/73 testes aprovados, 0 avisos no `dart analyze`.
+
+### v1.3.581 (21 de Outubro de 2026)
+- **Otimização do Monitor de Atualizações em Segundo Plano (`BackgroundUpdateChecker`):**
+  - Ajuste na rotina periódica e anti-spam de notificações automáticas para o canal `app_updates_v1`.
+- **Validação Automatizada:** 73/73 testes aprovados, 0 avisos no `dart analyze`.
 
 ### v1.3.580 (21 de Outubro de 2026)
 - **Notificações Automáticas de Atualização em Segundo Plano (`BackgroundUpdateChecker` & `WorkManager`):**
