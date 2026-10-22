@@ -15,6 +15,7 @@ class AppUpdateInfo {
   final String title;
   final List<String> releaseNotes;
   final String apkUrl;
+  final int? sizeBytes;
   final bool isActive;
   final bool forceUpdate;
 
@@ -25,6 +26,7 @@ class AppUpdateInfo {
     required this.title,
     required this.releaseNotes,
     required this.apkUrl,
+    this.sizeBytes,
     this.isActive = true,
     this.forceUpdate = false,
   });
@@ -48,6 +50,7 @@ class AppUpdateInfo {
       title: json['title']?.toString() ?? 'Nova Atualização',
       releaseNotes: notes,
       apkUrl: json['apk_url']?.toString() ?? '',
+      sizeBytes: int.tryParse(json['size_bytes']?.toString() ?? ''),
       isActive: json['is_active'] == null ? true : (json['is_active'] == true),
       forceUpdate: json['force_update'] == true,
     );
@@ -60,6 +63,7 @@ class AppUpdateInfo {
     'title': title,
     'release_notes': releaseNotes,
     'apk_url': apkUrl,
+    'size_bytes': sizeBytes,
     'is_active': isActive,
     'force_update': forceUpdate,
   };
@@ -70,8 +74,8 @@ class AppUpdateService {
   AppUpdateService._();
   static final AppUpdateService instance = AppUpdateService._();
 
-  static const String currentAppVersion = '1.3.582';
-  static const int currentBuildNumber = 582;
+  static const String currentAppVersion = '1.3.583';
+  static const int currentBuildNumber = 583;
 
   static const MethodChannel _installerChannel = MethodChannel('com.wmartins.carrin/installer');
 
@@ -211,16 +215,57 @@ class AppUpdateService {
   String? get readyApkPath => _readyApkPath;
 
   /// Retorna o arquivo APK já baixado se ele existir e estiver íntegro no cache
+  /// Valida se o arquivo APK está completo e com integridade de arquivo ZIP válida (assinatura EOCD)
+  static Future<bool> isApkFileValid(File file, {int? expectedBytes}) async {
+    try {
+      if (!await file.exists()) return false;
+      final len = await file.length();
+      // Um APK completo do CARRIN tem ~110MB+ (mínimo absoluto 50MB)
+      if (len < 50 * 1024 * 1024) return false;
+      if (expectedBytes != null && expectedBytes > 0 && len != expectedBytes) {
+        return false;
+      }
+
+      // Um arquivo ZIP/APK válido DEVE conter o registro End of Central Directory (EOCD),
+      // cuja assinatura é [0x50, 0x4B, 0x05, 0x06] nos últimos 65.557 bytes.
+      final raf = await file.open(mode: FileMode.read);
+      try {
+        final searchLength = len < 65557 ? len : 65557;
+        await raf.setPosition(len - searchLength);
+        final bytes = await raf.read(searchLength);
+        for (int i = bytes.length - 4; i >= 0; i--) {
+          if (bytes[i] == 0x50 &&
+              bytes[i + 1] == 0x4b &&
+              bytes[i + 2] == 0x05 &&
+              bytes[i + 3] == 0x06) {
+            return true;
+          }
+        }
+        return false;
+      } finally {
+        await raf.close();
+      }
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Retorna o arquivo APK já baixado se ele existir e for comprovadamente íntegro no cache
   Future<File?> getDownloadedApk(AppUpdateInfo info) async {
     try {
       final tempDir = await getTemporaryDirectory();
       final apkFile = File('${tempDir.path}/carrin_v${info.version}_b${info.buildNumber}.apk');
       if (await apkFile.exists()) {
-        final len = await apkFile.length();
-        if (len > 15 * 1024 * 1024) {
+        final isValid = await isApkFileValid(apkFile, expectedBytes: info.sizeBytes);
+        if (isValid) {
           _readyUpdateInfo = info;
           _readyApkPath = apkFile.path;
           return apkFile;
+        } else {
+          // Arquivo corrompido ou download parcial no cache: deleta para não travar o app
+          await apkFile.delete().catchError((_) => apkFile);
+          _readyUpdateInfo = null;
+          _readyApkPath = null;
         }
       }
     } catch (_) {}
@@ -354,6 +399,17 @@ class AppUpdateService {
 
       await sink.flush();
       await sink.close();
+
+      if (totalBytes > 0 && receivedBytes < totalBytes) {
+        await partFile.delete().catchError((_) => partFile);
+        throw Exception('Download incompleto ( de  bytes recebidos).');
+      }
+
+      final isValid = await isApkFileValid(partFile, expectedBytes: totalBytes > 0 ? totalBytes : null);
+      if (!isValid) {
+        await partFile.delete().catchError((_) => partFile);
+        throw Exception('Arquivo APK baixado está corrompido ou incompleto.');
+      }
 
       if (await apkFile.exists()) {
         await apkFile.delete().catchError((_) => apkFile);

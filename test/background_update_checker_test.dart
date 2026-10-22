@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:lista_compras/services/background_update_checker.dart';
@@ -29,9 +30,23 @@ void main() {
       expect(prefs.getString(prefLastNotifiedUpdateVersionKey), equals('1.3.580'));
     });
 
-    test('AppUpdateService version is bumped to 1.3.582', () {
-      expect(AppUpdateService.currentAppVersion, equals('1.3.582'));
-      expect(AppUpdateService.currentBuildNumber, equals(582));
+    test('AppUpdateService version is bumped to 1.3.583', () {
+      expect(AppUpdateService.currentAppVersion, equals('1.3.583'));
+      expect(AppUpdateService.currentBuildNumber, equals(583));
+    });
+
+    test('isApkFileValid rejects non-existent or truncated files (< 50MB)', () async {
+      final nonExistent = File('carrin_non_existent.apk');
+      expect(await AppUpdateService.isApkFileValid(nonExistent), isFalse);
+
+      final tempDir = await Directory.systemTemp.createTemp('apk_test_');
+      try {
+        final dummy = File('${tempDir.path}/dummy.apk');
+        await dummy.writeAsBytes([1, 2, 3, 4, 5]);
+        expect(await AppUpdateService.isApkFileValid(dummy), isFalse);
+      } finally {
+        await tempDir.delete(recursive: true);
+      }
     });
   });
 }

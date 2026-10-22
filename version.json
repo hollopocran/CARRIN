@@ -1,14 +1,16 @@
 {
-  "version": "1.3.582",
-  "build_number": 582,
+  "version": "1.3.583",
+  "build_number": 583,
   "release_date": "2026-10-21",
-  "title": "CARRIN v1.3.582",
+  "title": "CARRIN v1.3.583",
   "release_notes": [
-    "Nova aba Comunidade: interface simplificada em 2 abas (Ofertas e Mercados)",
-    "Busca inteligente integrada: pesquise ofertas diretamente no feed com comparação de preços em tempo real",
-    "Ranking de mercados com destaque para o supermercado mais econômico da sua região"
+    "Mapa em tempo real: radar pulsante azul da sua localização e orientação de bússola ao se mover",
+    "Modo Seguir Usuário: a câmera acompanha suavemente sua caminhada/trajeto pelo mapa",
+    "Recálculo dinâmico de distâncias aos mercados próximos em tempo real conforme você se desloca",
+    "Correção definitiva no instalador: verificação de integridade EOCD do APK e auto-limpeza de cache corrompido"
   ],
-  "apk_url": "https://github.com/hollopocran/CARRIN/releases/download/v1.3.582/carrin_v1.3.582.apk",
+  "apk_url": "https://github.com/hollopocran/CARRIN/releases/download/v1.3.583/carrin_v1.3.583.apk",
+  "size_bytes": 118710096,
   "is_active": true,
   "force_update": false
 }

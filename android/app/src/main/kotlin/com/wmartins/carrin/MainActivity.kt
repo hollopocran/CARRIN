@@ -3,6 +3,7 @@ package com.wmartins.carrin
 import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -72,7 +73,18 @@ class MainActivity : FlutterActivity() {
                             setDataAndType(apkUri, "application/vnd.android.package-archive")
                             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            putExtra(Intent.EXTRA_NOT_UNKNOWN_SOURCE, true)
                         }
+
+                        // Garante permissão explícita de leitura aos pacotes do instalador
+                        try {
+                            val resInfoList = packageManager.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY)
+                            for (resolveInfo in resInfoList) {
+                                val targetPackage = resolveInfo.activityInfo.packageName
+                                grantUriPermission(targetPackage, apkUri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                        } catch (_: Exception) {}
+
                         startActivity(intent)
                         result.success(true)
                     } catch (e: Exception) {

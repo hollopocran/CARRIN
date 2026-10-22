@@ -107,6 +107,28 @@ class MarketComparison {
     this.isCheapest = false,
   });
 
+  MarketComparison copyWith({
+    String? supermarketName,
+    double? latitude,
+    double? longitude,
+    double? distanceMeters,
+    int? itemsCount,
+    double? averageItemPrice,
+    int? cheapestCount,
+    bool? isCheapest,
+  }) {
+    return MarketComparison(
+      supermarketName: supermarketName ?? this.supermarketName,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      distanceMeters: distanceMeters ?? this.distanceMeters,
+      itemsCount: itemsCount ?? this.itemsCount,
+      averageItemPrice: averageItemPrice ?? this.averageItemPrice,
+      cheapestCount: cheapestCount ?? this.cheapestCount,
+      isCheapest: isCheapest ?? this.isCheapest,
+    );
+  }
+
   String get formattedDistance {
     if (distanceMeters == null) return '';
     return LocationService.instance.formatDistance(distanceMeters!);

@@ -128,9 +128,11 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
   Future<void> _triggerInstall(String filePath) async {
     final success = await AppUpdateService.instance.installApk(filePath);
     if (!success && mounted) {
+      await AppUpdateService.instance.cleanOldDownloadedApks();
       setState(() {
         _isDownloading = false;
-        _errorMessage = 'Não foi possível abrir o instalador do Android.';
+        _downloadedFilePath = null;
+        _errorMessage = 'Não foi possível abrir o instalador do Android. O arquivo foi limpo do cache; tente baixar novamente.';
       });
     }
   }

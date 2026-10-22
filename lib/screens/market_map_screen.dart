@@ -1,3 +1,4 @@
+import '../widgets/pulsing_user_location_marker.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -57,6 +58,10 @@ class _MarketMapScreenState extends State<MarketMapScreen> {
     CommunityPriceService.defaultStoreLng,
   );
   bool _hasRealGps = false;
+  bool _isFollowingUser = false;
+  double? _userHeading;
+  double? _userAccuracy;
+  double? _userSpeed;
 
   List<MarketComparison> _allLoadedMarkets = [];
   List<MarketComparison> _filteredMarkets = [];
@@ -155,10 +160,24 @@ class _MarketMapScreenState extends State<MarketMapScreen> {
           newPos.latitude,
           newPos.longitude,
         );
-        if (distanceMoved > 2.0 || !_hasRealGps) {
+
+        _userHeading = (pos.heading > 0 && pos.heading <= 360) ? pos.heading : _userHeading;
+        _userAccuracy = pos.accuracy > 0 ? pos.accuracy : _userAccuracy;
+        _userSpeed = pos.speed >= 0 ? pos.speed : _userSpeed;
+
+        if (distanceMoved > 1.5 || !_hasRealGps) {
           _userPosition = newPos;
           _hasRealGps = true;
-          if (distanceMoved > 50.0) {
+
+          // Se o modo seguir estiver ativado, move a câmera para a posição do usuário suavemente
+          if (_isFollowingUser) {
+            _mapController.move(_userPosition, _mapController.camera.zoom);
+          }
+
+          // Atualiza as distâncias de todos os mercados em tempo real
+          _updateMarketDistances();
+
+          if (distanceMoved > 120.0) {
             _loadMarkets(syncWithCloud: false);
           } else {
             setState(() {});
@@ -169,6 +188,40 @@ class _MarketMapScreenState extends State<MarketMapScreen> {
         debugPrint('📍 Erro no stream do GPS em tempo real: $err');
       },
     );
+  }
+
+  void _updateMarketDistances() {
+    _allLoadedMarkets = _allLoadedMarkets.map((m) {
+      if (m.latitude == null || m.longitude == null) return m;
+      final dist = LocationService.instance.calculateDistance(
+        _userPosition.latitude,
+        _userPosition.longitude,
+        m.latitude!,
+        m.longitude!,
+      );
+      return m.copyWith(distanceMeters: dist);
+    }).toList();
+
+    _filteredMarkets = _filteredMarkets.map((m) {
+      if (m.latitude == null || m.longitude == null) return m;
+      final dist = LocationService.instance.calculateDistance(
+        _userPosition.latitude,
+        _userPosition.longitude,
+        m.latitude!,
+        m.longitude!,
+      );
+      return m.copyWith(distanceMeters: dist);
+    }).toList();
+
+    if (_selectedMarket != null && _selectedMarket!.latitude != null && _selectedMarket!.longitude != null) {
+      final dist = LocationService.instance.calculateDistance(
+        _userPosition.latitude,
+        _userPosition.longitude,
+        _selectedMarket!.latitude!,
+        _selectedMarket!.longitude!,
+      );
+      _selectedMarket = _selectedMarket!.copyWith(distanceMeters: dist);
+    }
   }
 
   Future<void> _initMapAndLoadData({bool forceRefresh = false}) async {
@@ -315,7 +368,11 @@ class _MarketMapScreenState extends State<MarketMapScreen> {
   }
 
   void _centerOnUser() {
-    _mapController.move(_userPosition, 14.0);
+    setState(() {
+      _isFollowingUser = true;
+    });
+    final targetZoom = _mapController.camera.zoom < 14.5 ? 15.5 : _mapController.camera.zoom;
+    _mapController.move(_userPosition, targetZoom);
   }
 
   /// Seleciona um supermercado no mapa: exibe o nome no pin e sincroniza o card inferior.
@@ -326,6 +383,7 @@ class _MarketMapScreenState extends State<MarketMapScreen> {
     setState(() {
       _selectedMarket = market;
       _showSearchSuggestions = false;
+      _isFollowingUser = false;
     });
     _searchFocusNode.unfocus();
 
@@ -367,6 +425,9 @@ class _MarketMapScreenState extends State<MarketMapScreen> {
   }
 
   void _fitAllMarkers() {
+    setState(() {
+      _isFollowingUser = false;
+    });
     if (_filteredMarkets.isEmpty) {
       _centerOnUser();
       return;
@@ -1748,37 +1809,16 @@ class _MarketMapScreenState extends State<MarketMapScreen> {
 
     final markers = <Marker>[];
 
-    // 1. Marcador do Usuário (GPS)
+    // 1. Marcador do Usuário em Tempo Real (GPS com radar pulsante e orientação)
     markers.add(
       Marker(
         point: _userPosition,
-        width: 44,
-        height: 44,
+        width: 72,
+        height: 72,
         alignment: Alignment.center,
-        child: RepaintBoundary(
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.blue.withValues(alpha: 0.20),
-                ),
-              ),
-              Container(
-                width: 22,
-                height: 22,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.blue.shade600,
-                  border: Border.all(color: Colors.white, width: 3),
-                ),
-                child: const Icon(Icons.navigation_rounded, size: 12, color: Colors.white),
-              ),
-            ],
-          ),
+        child: PulsingUserLocationMarker(
+          heading: _userHeading,
+          isFollowing: _isFollowingUser,
         ),
       ),
     );
@@ -1828,6 +1868,18 @@ class _MarketMapScreenState extends State<MarketMapScreen> {
     }
 
     final circles = <CircleMarker>[];
+    if (_hasRealGps && _userAccuracy != null && _userAccuracy! > 5 && _userAccuracy! <= 250) {
+      circles.add(
+        CircleMarker(
+          point: _userPosition,
+          radius: _userAccuracy!,
+          useRadiusInMeter: true,
+          color: Colors.blue.withValues(alpha: 0.08),
+          borderColor: Colors.blue.withValues(alpha: 0.28),
+          borderStrokeWidth: 1.0,
+        ),
+      );
+    }
     if (_showRadiusCircle) {
       circles.add(
         CircleMarker(
@@ -1856,6 +1908,13 @@ class _MarketMapScreenState extends State<MarketMapScreen> {
               interactionOptions: const InteractionOptions(
                 flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
               ),
+              onPositionChanged: (camera, hasGesture) {
+                if (hasGesture && _isFollowingUser) {
+                  setState(() {
+                    _isFollowingUser = false;
+                  });
+                }
+              },
               onTap: (_, point) {
                 if (_pickOnMapMode) {
                   _handleMapPointPicked(point);
@@ -2201,15 +2260,60 @@ class _MarketMapScreenState extends State<MarketMapScreen> {
                 const SizedBox(height: 10),
                 FloatingActionButton(
                   heroTag: 'fab_my_gps',
-                  backgroundColor: primary,
-                  foregroundColor: Colors.white,
-                  tooltip: 'Minha Localização (GPS)',
+                  backgroundColor: _isFollowingUser ? Colors.blue.shade600 : cardColor,
+                  foregroundColor: _isFollowingUser ? Colors.white : primary,
+                  tooltip: _isFollowingUser ? 'Seguindo sua localização ao vivo (GPS)' : 'Centralizar e seguir (GPS)',
                   onPressed: _centerOnUser,
-                  child: Icon(_hasRealGps ? Icons.my_location_rounded : Icons.location_searching_rounded),
+                  child: Icon(_isFollowingUser
+                      ? Icons.navigation_rounded
+                      : (_hasRealGps ? Icons.my_location_rounded : Icons.location_searching_rounded)),
                 ),
               ],
             ),
           ),
+
+          // 📍 BADGE AO VIVO DE SEGUIR LOCALIZAÇÃO EM TEMPO REAL
+          if (_isFollowingUser)
+            Positioned(
+              right: 14,
+              top: MediaQuery.of(context).padding.top + 98,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade600,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.18),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 7,
+                      height: 7,
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    const Text(
+                      'Seguindo GPS',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
 
           // 🎠 CARROSSEL HORIZONTAL DE MERCADOS NO RODAPÉ
           if (_filteredMarkets.isNotEmpty)
